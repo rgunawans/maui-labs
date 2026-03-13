@@ -1,0 +1,112 @@
+.NET MAUI Labs uses third-party libraries or other resources that may be
+distributed under licenses different from the .NET MAUI Labs software.
+
+In the event that we accidentally failed to list a required notice, please
+bring it to our attention by opening an issue.
+
+The attached notices are provided for information only.
+
+========================================================================
+Chobitsu (v1.8.6)
+========================================================================
+
+https://github.com/liriliri/chobitsu
+
+Copyright (c) 2020-present liriliri
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+========================================================================
+html2canvas (v1.4.1) — bundled inside Chobitsu
+========================================================================
+
+https://github.com/niklasvh/html2canvas
+
+Copyright (c) 2022 Niklas von Hertzen <https://hertzen.com>
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+========================================================================
+Bootstrap (v5.3)
+========================================================================
+
+https://github.com/twbs/bootstrap
+
+Copyright 2011-2024 The Bootstrap Authors
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+========================================================================
+NuGet Package Dependencies
+========================================================================
+
+The following NuGet packages are consumed as dependencies. They are not
+embedded in the source tree but are restored at build time.
+
+Package                             License     Project URL
+---------------------------------   --------    -----------------------------------------
+Fizzler                             MIT         https://github.com/atifaziz/Fizzler
+SkiaSharp                           MIT         https://github.com/mono/SkiaSharp
+Spectre.Console                     MIT         https://github.com/spectreconsole/spectre.console
+System.CommandLine                  MIT         https://github.com/dotnet/command-line-api
+Websocket.Client                    MIT         https://github.com/Marfusios/websocket-client
+XenoAtom.Terminal.UI                MIT         https://github.com/xoofx/XenoAtom.Terminal.UI
+ModelContextProtocol                MIT         https://github.com/modelcontextprotocol/csharp-sdk
+Microsoft.Extensions.*              MIT         https://github.com/dotnet/runtime
+Microsoft.Maui.*                    MIT         https://github.com/dotnet/maui
+Platform.Maui.MacOS                 MIT         https://github.com/nickreynolds/macOS.Maui
+Platform.Maui.Linux.Gtk4            MIT         https://github.com/nickreynolds/MauiGtk
