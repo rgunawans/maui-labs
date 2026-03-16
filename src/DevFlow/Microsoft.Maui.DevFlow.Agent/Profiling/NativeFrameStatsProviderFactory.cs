@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 #if ANDROID
-using Android.OS;
-using Android.Views;
+using global::Android.OS;
+using global::Android.Views;
 using Microsoft.Maui.Devices;
 #endif
 #if IOS || MACCATALYST

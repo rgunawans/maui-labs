@@ -190,7 +190,7 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
             if (platformView is Microsoft.UI.Xaml.UIElement uiElement)
             {
                 var transform = uiElement.TransformToVisual(null);
-                var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+                var point = transform.TransformPoint(new global::Windows.Foundation.Point(0, 0));
                 if (uiElement is Microsoft.UI.Xaml.FrameworkElement fe)
                 {
                     return new BoundsInfo

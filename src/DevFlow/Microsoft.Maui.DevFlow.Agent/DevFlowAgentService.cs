@@ -478,10 +478,10 @@ public class PlatformAgentService : DevFlowAgentService
             var wv2 = FindPlatformWebView2(rootElement);
             if (wv2?.CoreWebView2 != null)
             {
-                using var ras = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                using var ras = new global::Windows.Storage.Streams.InMemoryRandomAccessStream();
                 await wv2.CoreWebView2.CapturePreviewAsync(
                     Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, ras);
-                var reader = new Windows.Storage.Streams.DataReader(ras.GetInputStreamAt(0));
+                var reader = new global::Windows.Storage.Streams.DataReader(ras.GetInputStreamAt(0));
                 await reader.LoadAsync((uint)ras.Size);
                 var bytes = new byte[ras.Size];
                 reader.ReadBytes(bytes);
