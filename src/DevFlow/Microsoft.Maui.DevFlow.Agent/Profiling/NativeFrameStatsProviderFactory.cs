@@ -144,7 +144,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
         {
             try
             {
-                var activity = Platform.CurrentActivity;
+                var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
                 var window = activity?.Window;
                 if (window == null)
                     return;
