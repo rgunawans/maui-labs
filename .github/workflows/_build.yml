@@ -1,0 +1,65 @@
+name: Build
+on:
+  workflow_call:
+    inputs:
+      project-path:
+        required: true
+        type: string
+        description: 'Path to the solution filter or project to build'
+      project-name:
+        required: true
+        type: string
+        description: 'Human-readable name for artifact naming'
+      run-tests:
+        required: false
+        type: boolean
+        default: true
+      pack:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install workloads
+        run: dotnet workload install maui macos
+
+      - name: Restore
+        run: dotnet restore ${{ inputs.project-path }}
+
+      - name: Build
+        run: dotnet build ${{ inputs.project-path }} -c Release --no-restore
+
+      - name: Test
+        if: inputs.run-tests
+        run: dotnet test ${{ inputs.project-path }} -c Release --no-build --no-restore --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: inputs.run-tests && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.project-name }}-${{ matrix.os }}
+          path: TestResults/**/*.trx
+
+      - name: Pack
+        if: inputs.pack && matrix.os == 'windows-latest'
+        run: dotnet pack ${{ inputs.project-path }} -c Release --no-build -o ./artifacts
+
+      - name: Upload packages
+        if: inputs.pack && matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ inputs.project-name }}
+          path: ./artifacts/*.nupkg

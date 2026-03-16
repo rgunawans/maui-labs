@@ -1,0 +1,29 @@
+<Project>
+
+  <!-- Shared NuGet package metadata for all packable projects -->
+  <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/dotnet/maui-labs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dotnet/maui-labs</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>dotnet maui labs experimental</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <!-- Source Link for debugging -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- Include repo-root README in NuGet package -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

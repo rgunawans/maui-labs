@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Version.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+
+    <PackageId>Microsoft.Maui.DevFlow.Blazor.Gtk</PackageId>
+    <Description>Blazor WebView CDP debugging for Maui.Gtk apps using WebKitGTK. Enables Chrome DevTools Protocol access for Blazor Hybrid content on Linux.</Description>
+    <PackageTags>maui;blazor;debugging;cdp;gtk;linux;webkit</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Maui.DevFlow.Agent.Core\Microsoft.Maui.DevFlow.Agent.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Platform.Maui.Linux.Gtk4.BlazorWebView" />
+  </ItemGroup>
+
+  <!-- Embed JS scripts as resources -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Scripts\*.js" />
+  </ItemGroup>
+
+</Project>

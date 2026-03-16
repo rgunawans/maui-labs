@@ -1,0 +1,34 @@
+<Project>
+
+  <!--
+    Local development workaround: When referencing Microsoft.Maui.DevFlow.Blazor as a
+    ProjectReference (rather than a NuGet package), the .targets file in build/ is NOT
+    auto-imported. This target copies chobitsu.js into the consuming app's wwwroot/js/
+    directory at build time so the Razor SDK's static web asset pipeline picks it up.
+
+    NuGet consumers don't need this — the packaged .targets handles it.
+  -->
+  <PropertyGroup>
+    <_ChobitsuJsSource>$(MSBuildThisFileDirectory)..\src\DevFlow\Microsoft.Maui.DevFlow.Blazor\content\wwwroot\js\chobitsu.js</_ChobitsuJsSource>
+    <_ChobitsuJsDest>$(MSBuildProjectDirectory)\wwwroot\js\chobitsu.js</_ChobitsuJsDest>
+  </PropertyGroup>
+
+  <Target Name="_CopyChobitsuToWwwroot"
+          BeforeTargets="StaticWebAssetsPrepareForRun;Build"
+          Condition="'$(Configuration)' == 'Debug' AND '$(ApplicationId)' != '' AND Exists('$(_ChobitsuJsSource)')">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\wwwroot\js" />
+    <Copy SourceFiles="$(_ChobitsuJsSource)"
+          DestinationFiles="$(_ChobitsuJsDest)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="_CleanChobitsuFromWwwroot" AfterTargets="Clean"
+          Condition="Exists('$(_ChobitsuJsDest)')">
+    <Delete Files="$(_ChobitsuJsDest)" />
+  </Target>
+
+  <!-- Local development: Import Agent .targets for DevFlow port MSBuild property support. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\src\DevFlow\Microsoft.Maui.DevFlow.Agent\build\Microsoft.Maui.DevFlow.Agent.targets"
+          Condition="'$(ApplicationId)' != '' AND Exists('$(MSBuildThisFileDirectory)..\src\DevFlow\Microsoft.Maui.DevFlow.Agent\build\Microsoft.Maui.DevFlow.Agent.targets')" />
+
+</Project>

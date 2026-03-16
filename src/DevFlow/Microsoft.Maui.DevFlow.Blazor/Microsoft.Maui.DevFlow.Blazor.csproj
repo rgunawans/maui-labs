@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <Import Project="../Version.props" />
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-macos</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <IsPackable>true</IsPackable>
+
+    <!-- Suppress JS module manifest to avoid conflicting with consuming app's manifest.
+         The consuming app's build will discover our .lib.module.js and include it. -->
+    <GenerateJSModuleManifest>false</GenerateJSModuleManifest>
+
+    <!-- Disable static web asset fingerprinting — MAUI Blazor Hybrid's WebView file
+         provider does not resolve fingerprinted filenames, causing 404s for the
+         JS initializer and breaking Blazor startup. -->
+    <StaticWebAssetsFingerprintContent>false</StaticWebAssetsFingerprintContent>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>Microsoft.Maui.DevFlow.Blazor</PackageId>
+    <Description>Enable browser developer tools and Playwright MCP automation for .NET MAUI Blazor Hybrid apps. Connects Chrome DevTools Protocol to BlazorWebView via Chobitsu.</Description>
+    <PackageTags>maui;blazor;debugging;devtools;cdp;playwright;mcp;automation</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- macOS AppKit backend -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'macos'">
+    <PackageReference Include="Platform.Maui.MacOS" />
+    <PackageReference Include="Platform.Maui.MacOS.BlazorWebView" />
+  </ItemGroup>
+
+  <!-- Embed JS/HTML scripts as resources to avoid inline strings in C# -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Scripts\*.js" />
+    <EmbeddedResource Include="Resources\Scripts\*.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Workaround: PrivateAssets="all" on the WebView PackageReference does NOT prevent its
+       _framework/ static web assets (blazor.webview.js, blazor.modules.json) from leaking
+       into our library's SWA manifest. When consumers also reference WebView directly (as all
+       MAUI Blazor apps do), they get a "Conflicting assets with the same target path" build error.
+       This is a known SDK limitation: https://github.com/dotnet/maui/issues/25999
+       Until the SDK properly respects PrivateAssets for static web assets, we strip _framework/
+       entries from our manifest so only our own assets (chobitsu.js) propagate to consumers. -->
+  <Target Name="_RemoveTransitiveWebViewAssets"
+          AfterTargets="ResolveBuildStaticWebAssets;ResolveAllPublishStaticWebAssets"
+          BeforeTargets="GenerateStaticWebAssetsManifest;GenerateStaticWebAssetsPublishManifest">
+    <ItemGroup>
+      <StaticWebAsset Remove="@(StaticWebAsset)"
+        Condition="$([System.String]::Copy('%(RelativePath)').StartsWith('_framework/'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ExcludeWebViewStaticWebAssetsFromPack" BeforeTargets="GenerateStaticWebAssetsPackFiles">
+    <ItemGroup>
+      <_StaticWebAssetExcludedFromPack Include="@(StaticWebAsset)"
+        Condition="$([System.String]::Copy('%(RelativePath)').StartsWith('_framework/'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
