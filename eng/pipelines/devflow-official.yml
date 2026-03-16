@@ -1,0 +1,147 @@
+# Azure DevOps official build pipeline for DevFlow
+# Builds, tests, packs, and signs DevFlow NuGet packages.
+#
+# This pipeline uses 1ES Pipeline Templates for security compliance.
+# It runs on commits to main/release branches and produces signed packages.
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+    - release/*
+  paths:
+    include:
+    - src/DevFlow/**
+    - eng/**
+    - Directory.Build.props
+    - Directory.Build.targets
+    - Directory.Packages.props
+    - global.json
+    - NuGet.config
+
+pr:
+  branches:
+    include:
+    - main
+    - release/*
+  paths:
+    include:
+    - src/DevFlow/**
+    - eng/**
+    - Directory.Build.props
+    - Directory.Build.targets
+    - Directory.Packages.props
+    - global.json
+    - NuGet.config
+
+variables:
+- template: /eng/pipelines/common-variables.yml@self
+- name: _BuildConfig
+  value: Release
+- name: _ProductName
+  value: DevFlow
+- name: _SolutionFilter
+  value: src/DevFlow/DevFlow.slnf
+
+# Signing: real for official builds, test for PR builds
+- ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+  - name: _SignType
+    value: real
+  - name: _Sign
+    value: true
+- ${{ else }}:
+  - name: _SignType
+    value: test
+  - name: _Sign
+    value: false
+
+parameters:
+- name: WindowsPool
+  type: object
+  default:
+    name: NetCore1ESPool-Internal
+    demands:
+      - ImageOverride -equals 1es-windows-2022
+    os: windows
+
+- name: MacOSPool
+  type: object
+  default:
+    name: Azure Pipelines
+    vmImage: macOS-15
+    os: macOS
+
+resources:
+  repositories:
+  - repository: 1ESPipelineTemplates
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+extends:
+  ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+    template: v1/1ES.Official.PipelineTemplate.yml@1ESPipelineTemplates
+  ${{ else }}:
+    template: v1/1ES.Unofficial.PipelineTemplate.yml@1ESPipelineTemplates
+  parameters:
+    pool: ${{ parameters.WindowsPool }}
+    sdl:
+      binskim:
+        scanOutputDirectoryOnly: true
+      codeql:
+        runSourceLanguagesInSourceAnalysis: true
+      componentgovernance:
+        ignoreDirectories: $(Build.SourcesDirectory)/.packages
+      policheck:
+        enabled: true
+        exclusionsFile: $(Build.SourcesDirectory)/.config/PoliCheckExclusions.xml
+      spotBugs:
+        enabled: false
+        justification: 'Not applicable — no Java code in this repository'
+      suppression:
+        suppressionFile: $(Build.SourcesDirectory)/.config/guardian/.gdnsuppress
+      tsa:
+        enabled: true
+    stages:
+
+    # Stage 1: Build, Test, Pack (and Sign for official builds)
+    - stage: Build
+      displayName: Build & Test ${{ variables._ProductName }}
+      dependsOn: []
+      jobs:
+      - template: /eng/pipelines/templates/build-test-pack.yml@self
+        parameters:
+          pool: ${{ parameters.WindowsPool }}
+          macPool: ${{ parameters.MacOSPool }}
+          buildConfig: $(_BuildConfig)
+          solutionFilter: $(_SolutionFilter)
+          productName: $(_ProductName)
+          signType: $(_SignType)
+          sign: $(_Sign)
+
+    # Stage 2: Publish packages (official builds only, non-PR)
+    - ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+      - stage: Publish
+        displayName: Publish ${{ variables._ProductName }}
+        dependsOn: Build
+        condition: succeeded()
+        jobs:
+        - job: publish_packages
+          displayName: Publish NuGet Packages
+          pool: ${{ parameters.WindowsPool }}
+          steps:
+          - download: current
+            artifact: packages-$(_ProductName)
+            displayName: Download packages
+
+          - task: NuGetAuthenticate@1
+            displayName: Authenticate NuGet
+
+          - pwsh: |
+              Write-Host "Packages ready for publishing:"
+              Get-ChildItem "$(Pipeline.Workspace)/packages-$(_ProductName)/*.nupkg" | Format-Table Name, Length
+              Write-Host ""
+              Write-Host "Publishing is handled via release pipeline or manual approval."
+              Write-Host "Packages are available as pipeline artifacts."
+            displayName: List packages

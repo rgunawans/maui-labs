@@ -1,0 +1,14 @@
+# Common variables shared across all Azure DevOps pipelines.
+
+variables:
+- name: _TeamName
+  value: dotnet-maui-labs
+
+- name: DOTNET_SKIP_FIRST_TIME_EXPERIENCE
+  value: true
+
+- name: DOTNET_NOLOGO
+  value: true
+
+- name: DOTNET_CLI_TELEMETRY_OPTOUT
+  value: true
