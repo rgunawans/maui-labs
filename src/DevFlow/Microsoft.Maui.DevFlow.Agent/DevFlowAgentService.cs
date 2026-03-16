@@ -28,9 +28,9 @@ public class PlatformAgentService : DevFlowAgentService
                 return uiWindow.Screen.Scale;
             return UIKit.UIScreen.MainScreen.Scale;
 #elif ANDROID
-            if (window?.Handler?.PlatformView is Android.App.Activity activity)
+            if (window?.Handler?.PlatformView is global::Android.App.Activity activity)
                 return activity.Resources?.DisplayMetrics?.Density ?? 1.0;
-            if (Android.App.Application.Context.Resources?.DisplayMetrics is Android.Util.DisplayMetrics dm)
+            if (global::Android.App.Application.Context.Resources?.DisplayMetrics is global::Android.Util.DisplayMetrics dm)
                 return dm.Density;
             return 1.0;
 #elif WINDOWS
@@ -84,22 +84,22 @@ public class PlatformAgentService : DevFlowAgentService
                     }
 #elif ANDROID
                     // Check: view itself → descendants → ancestors
-                    var androidView = platformView as Android.Views.View;
-                    var recyclerView = androidView as AndroidX.RecyclerView.Widget.RecyclerView;
+                    var androidView = platformView as global::Android.Views.View;
+                    var recyclerView = androidView as global::AndroidX.RecyclerView.Widget.RecyclerView;
                     if (recyclerView == null)
-                        recyclerView = FindNativeDescendantAndroid<AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
+                        recyclerView = FindNativeDescendantAndroid<global::AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
                     if (recyclerView == null)
-                        recyclerView = FindNativeAncestorAndroid<AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
+                        recyclerView = FindNativeAncestorAndroid<global::AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
                     if (recyclerView != null)
                     {
                         recyclerView.ScrollBy((int)deltaX, (int)-deltaY);
                         return Task.FromResult(true);
                     }
-                    var androidScrollView = androidView as Android.Widget.ScrollView;
+                    var androidScrollView = androidView as global::Android.Widget.ScrollView;
                     if (androidScrollView == null)
-                        androidScrollView = FindNativeDescendantAndroid<Android.Widget.ScrollView>(androidView);
+                        androidScrollView = FindNativeDescendantAndroid<global::Android.Widget.ScrollView>(androidView);
                     if (androidScrollView == null)
-                        androidScrollView = FindNativeAncestorAndroid<Android.Widget.ScrollView>(androidView);
+                        androidScrollView = FindNativeAncestorAndroid<global::Android.Widget.ScrollView>(androidView);
                     if (androidScrollView != null)
                     {
                         androidScrollView.ScrollBy((int)deltaX, (int)-deltaY);
@@ -150,22 +150,22 @@ public class PlatformAgentService : DevFlowAgentService
                 return true;
             }
 #elif ANDROID
-            var androidView = platformView as Android.Views.View;
-            var recyclerView = androidView as AndroidX.RecyclerView.Widget.RecyclerView;
+            var androidView = platformView as global::Android.Views.View;
+            var recyclerView = androidView as global::AndroidX.RecyclerView.Widget.RecyclerView;
             if (recyclerView == null)
-                recyclerView = FindNativeDescendantAndroid<AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
+                recyclerView = FindNativeDescendantAndroid<global::AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
             if (recyclerView == null)
-                recyclerView = FindNativeAncestorAndroid<AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
+                recyclerView = FindNativeAncestorAndroid<global::AndroidX.RecyclerView.Widget.RecyclerView>(androidView);
             if (recyclerView != null)
             {
                 recyclerView.ScrollBy((int)deltaX, (int)-deltaY);
                 return true;
             }
-            var androidScrollView = androidView as Android.Widget.ScrollView;
+            var androidScrollView = androidView as global::Android.Widget.ScrollView;
             if (androidScrollView == null)
-                androidScrollView = FindNativeDescendantAndroid<Android.Widget.ScrollView>(androidView);
+                androidScrollView = FindNativeDescendantAndroid<global::Android.Widget.ScrollView>(androidView);
             if (androidScrollView == null)
-                androidScrollView = FindNativeAncestorAndroid<Android.Widget.ScrollView>(androidView);
+                androidScrollView = FindNativeAncestorAndroid<global::Android.Widget.ScrollView>(androidView);
             if (androidScrollView != null)
             {
                 androidScrollView.ScrollBy((int)deltaX, (int)-deltaY);
@@ -216,22 +216,22 @@ public class PlatformAgentService : DevFlowAgentService
         return null;
     }
 #elif ANDROID
-    private static T? FindNativeAncestorAndroid<T>(Android.Views.View? view) where T : Android.Views.View
+    private static T? FindNativeAncestorAndroid<T>(global::Android.Views.View? view) where T : global::Android.Views.View
     {
         var current = view;
         while (current != null)
         {
             if (current is T match) return match;
-            current = current.Parent as Android.Views.View;
+            current = current.Parent as global::Android.Views.View;
         }
         return null;
     }
 
-    private static T? FindNativeDescendantAndroid<T>(Android.Views.View? view) where T : Android.Views.View
+    private static T? FindNativeDescendantAndroid<T>(global::Android.Views.View? view) where T : global::Android.Views.View
     {
         if (view == null) return null;
         if (view is T match) return match;
-        if (view is Android.Views.ViewGroup vg)
+        if (view is global::Android.Views.ViewGroup vg)
         {
             for (var i = 0; i < vg.ChildCount; i++)
             {
@@ -296,7 +296,7 @@ public class PlatformAgentService : DevFlowAgentService
                 return true;
             }
 #elif ANDROID
-            if (platformView is Android.Views.View androidView && androidView.Clickable)
+            if (platformView is global::Android.Views.View androidView && androidView.Clickable)
             {
                 androidView.PerformClick();
                 return true;

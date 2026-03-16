@@ -115,10 +115,10 @@ internal sealed class FrameStatsAccumulator
 }
 
 #if ANDROID
-internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INativeFrameStatsProvider, Android.Views.Window.IOnFrameMetricsAvailableListener
+internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INativeFrameStatsProvider, global::Android.Views.Window.IOnFrameMetricsAvailableListener
 {
     private readonly FrameStatsAccumulator _accumulator;
-    private WeakReference<Android.Views.Window>? _windowRef;
+    private WeakReference<global::Android.Views.Window>? _windowRef;
     private Handler? _frameMetricsHandler;
     private bool _running;
 
@@ -154,7 +154,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
                     return;
 
                 _frameMetricsHandler ??= new Handler(looper);
-                _windowRef = new WeakReference<Android.Views.Window>(window);
+                _windowRef = new WeakReference<global::Android.Views.Window>(window);
                 window.AddOnFrameMetricsAvailableListener(this, _frameMetricsHandler);
                 _running = true;
             }
@@ -188,7 +188,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
         return true;
     }
 
-    public void OnFrameMetricsAvailable(Android.Views.Window? window, FrameMetrics? frameMetrics, int dropCountSinceLastInvocation)
+    public void OnFrameMetricsAvailable(global::Android.Views.Window? window, FrameMetrics? frameMetrics, int dropCountSinceLastInvocation)
     {
         if (!_running || frameMetrics == null)
             return;
@@ -210,7 +210,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
     {
         try
         {
-            return Android.OS.Debug.NativeHeapAllocatedSize;
+            return global::Android.OS.Debug.NativeHeapAllocatedSize;
         }
         catch
         {
@@ -327,7 +327,7 @@ internal sealed class AndroidChoreographerFrameStatsProvider : Java.Lang.Object,
     {
         try
         {
-            return Android.OS.Debug.NativeHeapAllocatedSize;
+            return global::Android.OS.Debug.NativeHeapAllocatedSize;
         }
         catch
         {

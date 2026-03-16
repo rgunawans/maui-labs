@@ -44,7 +44,7 @@ jobs:
 
       - name: Test
         if: inputs.run-tests
-        run: dotnet test ${{ inputs.project-path }} -c Release --no-build --logger trx --results-directory TestResults
+        run: dotnet test ${{ inputs.project-path }} -c Release --no-build --no-restore --logger trx --results-directory TestResults
 
       - name: Upload test results
         if: inputs.run-tests && always()

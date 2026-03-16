@@ -32,7 +32,7 @@ public static partial class MauiProgram
 
 #if DEBUG
 		builder.Logging.AddDebug();
-		builder.AddMicrosoft.Maui.DevFlowAgent();
+		builder.AddMauiDevFlowAgent();
 		builder.AddMauiBlazorDevFlowTools();
 #endif
 

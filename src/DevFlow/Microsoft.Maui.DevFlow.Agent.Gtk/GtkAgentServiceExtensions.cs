@@ -16,7 +16,7 @@ public static class GtkAgentServiceExtensions
     /// Adds the Microsoft.Maui.DevFlow Agent to a Maui.Gtk app builder.
     /// The agent will start automatically when the first GTK window is created.
     /// </summary>
-    public static MauiAppBuilder AddMicrosoft.Maui.DevFlowAgent(this MauiAppBuilder builder, Action<AgentOptions>? configure = null)
+    public static MauiAppBuilder AddMauiDevFlowAgent(this MauiAppBuilder builder, Action<AgentOptions>? configure = null)
     {
         var options = new AgentOptions();
         configure?.Invoke(options);

@@ -19,7 +19,7 @@ public static class AgentServiceExtensions
     /// Adds the Microsoft.Maui.DevFlow Agent to the MAUI app builder.
     /// The agent will start automatically when the app starts.
     /// </summary>
-    public static MauiAppBuilder AddMicrosoft.Maui.DevFlowAgent(this MauiAppBuilder builder, Action<AgentOptions>? configure = null)
+    public static MauiAppBuilder AddMauiDevFlowAgent(this MauiAppBuilder builder, Action<AgentOptions>? configure = null)
     {
         var options = new AgentOptions();
         configure?.Invoke(options);
@@ -29,7 +29,7 @@ public static class AgentServiceExtensions
         var tfm = ReadAssemblyMetadataTfm() ?? "unknown";
 
         // Try broker for port assignment first (must run on thread pool to avoid deadlock
-        // with SynchronizationContext — AddMicrosoft.Maui.DevFlowAgent runs on the main thread)
+        // with SynchronizationContext — AddMauiDevFlowAgent runs on the main thread)
         BrokerRegistration? brokerReg = null;
         if (options.Port == AgentOptions.DefaultPort)
         {

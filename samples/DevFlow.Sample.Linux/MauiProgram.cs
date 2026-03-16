@@ -36,7 +36,7 @@ public static partial class MauiProgram
 
 #if DEBUG
 		builder.Logging.AddDebug();
-		builder.AddMicrosoft.Maui.DevFlowAgent(options => { options.Port = 9223; });
+		builder.AddMauiDevFlowAgent(options => { options.Port = 9223; });
 		builder.AddMauiBlazorDevFlowTools();
 #endif
 
