@@ -63,6 +63,12 @@ jobs:
   displayName: Build, Test & Pack (${{ parameters.productName }} Windows)
   pool: ${{ parameters.pool }}
   timeoutInMinutes: 60
+  templateContext:
+    outputs:
+    - output: pipelineArtifact
+      displayName: Publish package artifacts
+      targetPath: $(Build.ArtifactStagingDirectory)/packages
+      artifactName: packages-${{ parameters.productName }}
   steps:
   - checkout: self
     fetchDepth: 1
@@ -100,11 +106,3 @@ jobs:
       --output $(Build.ArtifactStagingDirectory)/packages
       /p:PackageOutputPath=$(Build.ArtifactStagingDirectory)/packages
     displayName: Pack NuGet packages
-
-  # Upload packages as pipeline artifact
-  - task: PublishPipelineArtifact@1
-    displayName: Publish package artifacts
-    inputs:
-      targetPath: $(Build.ArtifactStagingDirectory)/packages
-      artifactName: packages-${{ parameters.productName }}
-    condition: succeeded()

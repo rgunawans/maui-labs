@@ -91,6 +91,8 @@ extends:
         scanOutputDirectoryOnly: true
       codeql:
         runSourceLanguagesInSourceAnalysis: true
+      componentgovernance:
+        ignoreDirectories: $(Build.SourcesDirectory)/.packages
       policheck:
         enabled: true
         exclusionsFile: $(Build.SourcesDirectory)/.config/PoliCheckExclusions.xml
@@ -99,6 +101,8 @@ extends:
         justification: 'Not applicable — no Java code in this repository'
       suppression:
         suppressionFile: $(Build.SourcesDirectory)/.config/guardian/.gdnsuppress
+      tsa:
+        enabled: true
     stages:
 
     # Stage 1: Build, Test, Pack (and Sign for official builds)
