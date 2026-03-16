@@ -33,8 +33,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install MAUI workload
-        run: dotnet workload install maui
+      - name: Install workloads
+        run: dotnet workload install maui macos
 
       - name: Restore
         run: dotnet restore ${{ inputs.project-path }}
