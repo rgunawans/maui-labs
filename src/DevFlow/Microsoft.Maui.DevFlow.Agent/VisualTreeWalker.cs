@@ -40,12 +40,12 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
                     info.NativeProperties = props;
             }
 #elif ANDROID
-            if (platformView is global::Android.Views.View androidView)
+            if (platformView is Android.Views.View androidView)
             {
                 var props = new Dictionary<string, string?>();
                 if (!string.IsNullOrEmpty(androidView.ContentDescription))
                     props["contentDescription"] = androidView.ContentDescription;
-                if (androidView is global::Android.Widget.EditText editText)
+                if (androidView is Android.Widget.EditText editText)
                     props["inputType"] = editText.InputType.ToString();
                 if (androidView.Clickable)
                     props["clickable"] = "true";
@@ -173,7 +173,7 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
                 };
             }
 #elif ANDROID
-            if (platformView is global::Android.Views.View androidView)
+            if (platformView is Android.Views.View androidView)
             {
                 var location = new int[2];
                 androidView.GetLocationInWindow(location);
@@ -190,7 +190,7 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
             if (platformView is Microsoft.UI.Xaml.UIElement uiElement)
             {
                 var transform = uiElement.TransformToVisual(null);
-                var point = transform.TransformPoint(new global::Windows.Foundation.Point(0, 0));
+                var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
                 if (uiElement is Microsoft.UI.Xaml.FrameworkElement fe)
                 {
                     return new BoundsInfo
@@ -388,14 +388,14 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
             _ => null
         };
 
-        if (shell?.Handler?.PlatformView is not global::Android.Views.View shellView)
+        if (shell?.Handler?.PlatformView is not Android.Views.View shellView)
             return null;
 
         var density = shellView.Context?.Resources?.DisplayMetrics?.Density ?? 1f;
 
         if (marker is NavBarTitleMarker or FlyoutButtonMarker or ToolbarItem)
         {
-            var toolbar = FindAndroidView<global::AndroidX.AppCompat.Widget.Toolbar>(shellView);
+            var toolbar = FindAndroidView<AndroidX.AppCompat.Widget.Toolbar>(shellView);
             if (toolbar != null)
             {
                 // For ToolbarItem, try to find the specific action view
@@ -472,10 +472,10 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
         return null;
     }
 
-    private static T? FindAndroidView<T>(global::Android.Views.View root) where T : global::Android.Views.View
+    private static T? FindAndroidView<T>(Android.Views.View root) where T : Android.Views.View
     {
         if (root is T match) return match;
-        if (root is global::Android.Views.ViewGroup vg)
+        if (root is Android.Views.ViewGroup vg)
         {
             for (int i = 0; i < vg.ChildCount; i++)
             {
@@ -490,14 +490,14 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
         return null;
     }
 
-    private static global::Android.Views.View? FindAndroidToolbarButton(global::AndroidX.AppCompat.Widget.Toolbar toolbar, ToolbarItem ti)
+    private static Android.Views.View? FindAndroidToolbarButton(AndroidX.AppCompat.Widget.Toolbar toolbar, ToolbarItem ti)
     {
         // Search toolbar's descendants recursively — action buttons are nested
         // inside ActionMenuView/LinearLayoutCompat, not direct children.
         // ContentDescription may be set to AutomationId or Text, so check both.
         return FindToolbarButtonRecursive(toolbar, ti);
 
-        static global::Android.Views.View? FindToolbarButtonRecursive(global::Android.Views.ViewGroup parent, ToolbarItem ti)
+        static Android.Views.View? FindToolbarButtonRecursive(Android.Views.ViewGroup parent, ToolbarItem ti)
         {
             for (int i = 0; i < parent.ChildCount; i++)
             {
@@ -510,10 +510,10 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
                     if (desc == ti.Text || desc == ti.AutomationId)
                         return child;
                 }
-                if (child is global::Android.Widget.TextView tv && tv.Text == ti.Text)
+                if (child is Android.Widget.TextView tv && tv.Text == ti.Text)
                     return child;
 
-                if (child is global::Android.Views.ViewGroup vg)
+                if (child is Android.Views.ViewGroup vg)
                 {
                     var found = FindToolbarButtonRecursive(vg, ti);
                     if (found != null) return found;
@@ -523,13 +523,13 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
         }
     }
 
-    private static global::Android.Views.View? FindAndroidNavigationButton(global::AndroidX.AppCompat.Widget.Toolbar toolbar)
+    private static Android.Views.View? FindAndroidNavigationButton(AndroidX.AppCompat.Widget.Toolbar toolbar)
     {
         // The navigation/hamburger button is an ImageButton direct child of the toolbar
         for (int i = 0; i < toolbar.ChildCount; i++)
         {
             var child = toolbar.GetChildAt(i);
-            if (child is global::Android.Widget.ImageButton)
+            if (child is Android.Widget.ImageButton)
                 return child;
         }
         return null;
@@ -546,11 +546,11 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
             _ => null
         };
 
-        if (shell?.Handler?.PlatformView is global::Android.Views.View shellView)
+        if (shell?.Handler?.PlatformView is Android.Views.View shellView)
         {
             if (marker is NavBarTitleMarker or FlyoutButtonMarker)
             {
-                var toolbar = FindAndroidView<global::AndroidX.AppCompat.Widget.Toolbar>(shellView);
+                var toolbar = FindAndroidView<AndroidX.AppCompat.Widget.Toolbar>(shellView);
                 if (toolbar != null) info.NativeType = toolbar.GetType().FullName ?? toolbar.Class?.Name;
             }
             else if (marker is ShellTabMarker)
@@ -574,7 +574,7 @@ public class PlatformVisualTreeWalker : VisualTreeWalker
                 return uiView.AccessibilityIdentifier;
             }
 #elif ANDROID
-            if (platformObj is global::Android.Views.View androidView)
+            if (platformObj is Android.Views.View androidView)
             {
                 var existing = androidView.ContentDescription;
                 if (string.IsNullOrEmpty(existing))

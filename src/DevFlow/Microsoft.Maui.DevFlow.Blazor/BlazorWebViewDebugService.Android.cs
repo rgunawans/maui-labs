@@ -1,8 +1,8 @@
 #if ANDROID
-using global::Android.Webkit;
+using Android.Webkit;
 using Microsoft.AspNetCore.Components.WebView.Maui;
 using Microsoft.Maui.Handlers;
-using AWebView = global::Android.Webkit.WebView;
+using AWebView = Android.Webkit.WebView;
 
 namespace Microsoft.Maui.DevFlow.Blazor;
 

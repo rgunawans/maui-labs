@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 #if ANDROID
-using global::Android.OS;
-using global::Android.Views;
+using Android.OS;
+using Android.Views;
 using Microsoft.Maui.Devices;
 #endif
 #if IOS || MACCATALYST
@@ -115,10 +115,10 @@ internal sealed class FrameStatsAccumulator
 }
 
 #if ANDROID
-internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INativeFrameStatsProvider, global::Android.Views.Window.IOnFrameMetricsAvailableListener
+internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INativeFrameStatsProvider, Android.Views.Window.IOnFrameMetricsAvailableListener
 {
     private readonly FrameStatsAccumulator _accumulator;
-    private WeakReference<global::Android.Views.Window>? _windowRef;
+    private WeakReference<Android.Views.Window>? _windowRef;
     private Handler? _frameMetricsHandler;
     private bool _running;
 
@@ -144,7 +144,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
         {
             try
             {
-                var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                var activity = Platform.CurrentActivity;
                 var window = activity?.Window;
                 if (window == null)
                     return;
@@ -154,7 +154,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
                     return;
 
                 _frameMetricsHandler ??= new Handler(looper);
-                _windowRef = new WeakReference<global::Android.Views.Window>(window);
+                _windowRef = new WeakReference<Android.Views.Window>(window);
                 window.AddOnFrameMetricsAvailableListener(this, _frameMetricsHandler);
                 _running = true;
             }
@@ -188,7 +188,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
         return true;
     }
 
-    public void OnFrameMetricsAvailable(global::Android.Views.Window? window, FrameMetrics? frameMetrics, int dropCountSinceLastInvocation)
+    public void OnFrameMetricsAvailable(Android.Views.Window? window, FrameMetrics? frameMetrics, int dropCountSinceLastInvocation)
     {
         if (!_running || frameMetrics == null)
             return;
@@ -210,7 +210,7 @@ internal sealed class AndroidFrameMetricsStatsProvider : Java.Lang.Object, INati
     {
         try
         {
-            return global::Android.OS.Debug.NativeHeapAllocatedSize;
+            return Android.OS.Debug.NativeHeapAllocatedSize;
         }
         catch
         {
@@ -327,7 +327,7 @@ internal sealed class AndroidChoreographerFrameStatsProvider : Java.Lang.Object,
     {
         try
         {
-            return global::Android.OS.Debug.NativeHeapAllocatedSize;
+            return Android.OS.Debug.NativeHeapAllocatedSize;
         }
         catch
         {
