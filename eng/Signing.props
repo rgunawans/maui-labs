@@ -1,0 +1,25 @@
+<Project>
+  <!--
+    Signing configuration for ESRP/MicroBuild package signing.
+    Maps assemblies and file types to their signing certificates.
+
+    Certificate types:
+    - UseDotNetCertificate: Default Microsoft .NET certificate for first-party assemblies
+    - 3PartySHA2: For redistributed third-party assemblies
+    - NuGet: For NuGet package signing (.nupkg files)
+  -->
+  <PropertyGroup>
+    <UseDotNetCertificate>true</UseDotNetCertificate>
+  </PropertyGroup>
+
+  <!-- Third-party assemblies that ship inside our NuGet packages -->
+  <ItemGroup Label="Third Party Assemblies">
+    <FileSignInfo Include="Fizzler.dll" CertificateName="3PartySHA2" />
+  </ItemGroup>
+
+  <!-- File extension signing rules -->
+  <ItemGroup>
+    <!-- NuGet packages are signed with NuGet certificate -->
+    <FileExtensionSignInfo Update=".nupkg" CertificateName="NuGet" />
+  </ItemGroup>
+</Project>

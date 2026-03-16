@@ -1,0 +1,8 @@
+<PoliCheckExclusions>
+  <!--
+    PoliCheck exclusions for false positives.
+    https://eng.ms/docs/microsoft-security/security/azure-security/cloudai-security-fundamentals-engineering/security-integration/guardian-wiki/sdl-azdo-extension/policheckclient/features/#false-positive-management
+
+    Add file names or paths here that trigger false positives in PoliCheck scans.
+  -->
+</PoliCheckExclusions>

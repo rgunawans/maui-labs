@@ -1,0 +1,12 @@
+{
+  "instanceUrl": "https://devdiv.visualstudio.com/",
+  "projectName": "DevDiv",
+  "areaPath": "DevDiv\\.NET MAUI",
+  "iterationPath": "DevDiv",
+  "notificationAliases": [
+    "dotnet-maui-eng@microsoft.com"
+  ],
+  "repositoryName": "maui-labs",
+  "codebaseName": "dotnet.maui-labs",
+  "allTools": true
+}
