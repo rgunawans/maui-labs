@@ -13,6 +13,9 @@ parameters:
   type: string
 - name: productName
   type: string
+  # Signing parameters are scaffolding for MicroBuild integration.
+  # They will be wired into signing tasks once MicroBuild plugin is
+  # installed and configured in the Azure DevOps project.
 - name: signType
   type: string
   default: test
@@ -104,4 +107,4 @@ jobs:
     inputs:
       targetPath: $(Build.ArtifactStagingDirectory)/packages
       artifactName: packages-${{ parameters.productName }}
-    condition: succeededOrFailed()
+    condition: succeeded()

@@ -134,10 +134,10 @@ extends:
           - task: NuGetAuthenticate@1
             displayName: Authenticate NuGet
 
-          - script: |
-              echo "Packages ready for publishing:"
-              ls -la $(Pipeline.Workspace)/packages-$(_ProductName)/*.nupkg
-              echo ""
-              echo "Publishing is handled via release pipeline or manual approval."
-              echo "Packages are available as pipeline artifacts."
+          - pwsh: |
+              Write-Host "Packages ready for publishing:"
+              Get-ChildItem "$(Pipeline.Workspace)/packages-$(_ProductName)/*.nupkg" | Format-Table Name, Length
+              Write-Host ""
+              Write-Host "Publishing is handled via release pipeline or manual approval."
+              Write-Host "Packages are available as pipeline artifacts."
             displayName: List packages
