@@ -30,7 +30,7 @@ public class PlatformAgentService : DevFlowAgentService
 #elif ANDROID
             if (window?.Handler?.PlatformView is global::Android.App.Activity activity)
                 return activity.Resources?.DisplayMetrics?.Density ?? 1.0;
-            if (Android.App.Application.Context.Resources?.DisplayMetrics is global::Android.Util.DisplayMetrics dm)
+            if (global::Android.App.Application.Context.Resources?.DisplayMetrics is global::Android.Util.DisplayMetrics dm)
                 return dm.Density;
             return 1.0;
 #elif WINDOWS
