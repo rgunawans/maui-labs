@@ -1,8 +1,20 @@
 <Project>
 
+  <Import Project="Sdk.props" Sdk="Microsoft.DotNet.Arcade.Sdk" />
+
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Copyright>$(CopyrightNetFoundation)</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/dotnet/maui-labs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dotnet/maui-labs</RepositoryUrl>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <!-- Default to non-shipping; shipping projects override per-csproj -->
+    <IsShipping>false</IsShipping>
   </PropertyGroup>
 
   <!-- Import shared packaging properties for NuGet packages -->
