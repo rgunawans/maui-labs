@@ -114,9 +114,9 @@ extends:
         parameters:
           pool: ${{ parameters.WindowsPool }}
           macPool: ${{ parameters.MacOSPool }}
-          buildConfig: $(_BuildConfig)
-          solutionFilter: $(_SolutionFilter)
-          productName: $(_ProductName)
+          buildConfig: ${{ variables._BuildConfig }}
+          solutionFilter: ${{ variables._SolutionFilter }}
+          productName: ${{ variables._ProductName }}
           signType: $(_SignType)
           sign: $(_Sign)
 
