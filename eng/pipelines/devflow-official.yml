@@ -63,6 +63,7 @@ extends:
             - script: eng\common\cibuild.cmd
                 -configuration $(_BuildConfig)
                 -prepareMachine
+                -projects "src/**/*.csproj"
                 $(_OfficialBuildArgs)
               displayName: Build and Test
 
