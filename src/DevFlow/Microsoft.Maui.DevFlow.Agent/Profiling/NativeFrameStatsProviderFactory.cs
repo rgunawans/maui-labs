@@ -260,7 +260,7 @@ internal sealed class AndroidChoreographerFrameStatsProvider : Java.Lang.Object,
         {
             try
             {
-                Choreographer.Instance.PostFrameCallback(this);
+                Choreographer.Instance!.PostFrameCallback(this);
                 _running = true;
             }
             catch
@@ -272,7 +272,7 @@ internal sealed class AndroidChoreographerFrameStatsProvider : Java.Lang.Object,
     public void Stop()
     {
         _running = false;
-        MainThread.BeginInvokeOnMainThread(() => Choreographer.Instance.RemoveFrameCallback(this));
+        MainThread.BeginInvokeOnMainThread(() => Choreographer.Instance!.RemoveFrameCallback(this));
     }
 
     public bool TryCollect(out NativeFrameStatsSnapshot snapshot)
@@ -299,7 +299,7 @@ internal sealed class AndroidChoreographerFrameStatsProvider : Java.Lang.Object,
         }
 
         _lastFrameTimeNanos = frameTimeNanos;
-        Choreographer.Instance.PostFrameCallback(this);
+        Choreographer.Instance!.PostFrameCallback(this);
     }
 
     public new void Dispose()

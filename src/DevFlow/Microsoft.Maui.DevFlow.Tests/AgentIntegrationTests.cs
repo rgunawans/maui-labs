@@ -191,11 +191,11 @@ public class AgentHttpServerTests : IDisposable
         Assert.Single(tree);
         Assert.Equal("ContentPage", tree[0].Type);
         Assert.NotNull(tree[0].Children);
-        Assert.Single(tree[0].Children);
-        Assert.Equal("VerticalStackLayout", tree[0].Children[0].Type);
-        Assert.NotNull(tree[0].Children[0].Children);
-        Assert.Single(tree[0].Children[0].Children);
-        Assert.Equal("Click Me", tree[0].Children[0].Children[0].Text);
+        Assert.Single(tree[0].Children!);
+        Assert.Equal("VerticalStackLayout", tree[0].Children![0].Type);
+        Assert.NotNull(tree[0].Children![0].Children);
+        Assert.Single(tree[0].Children![0].Children!);
+        Assert.Equal("Click Me", tree[0].Children![0].Children![0].Text);
 
         listener.Stop();
     }
