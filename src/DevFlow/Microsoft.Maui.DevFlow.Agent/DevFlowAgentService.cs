@@ -5,6 +5,7 @@ using Microsoft.Maui.DevFlow.Agent.Profiling;
 #if MACOS
 using AppKit;
 using Foundation;
+using ObjCRuntime;
 #endif
 
 namespace Microsoft.Maui.DevFlow.Agent;
