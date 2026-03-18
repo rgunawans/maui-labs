@@ -21,5 +21,7 @@
   <ItemGroup>
     <!-- NuGet packages are signed with NuGet certificate -->
     <FileExtensionSignInfo Update=".nupkg" CertificateName="NuGet" />
+    <!-- JS files don't need code signing — they are static web assets, not Windows Script Host files -->
+    <FileExtensionSignInfo Update=".js" CertificateName="None" />
   </ItemGroup>
 </Project>
