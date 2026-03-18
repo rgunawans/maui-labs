@@ -60,7 +60,7 @@ extends:
                     /p:DotNetPublishUsingPipelines=${{ parameters.publishPackages }}
                     /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
             steps:
-            - script: .dotnet\dotnet workload install maui macos maui-tizen
+            - script: dotnet workload install maui macos maui-tizen
               displayName: Install MAUI workloads
             - script: eng\common\cibuild.cmd
                 -configuration $(_BuildConfig)
