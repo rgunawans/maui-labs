@@ -9,6 +9,7 @@
     <!-- Global tool packaging -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>maui-devflow</ToolCommandName>
+    <IsPackable>true</IsPackable>
     <PackageId>Microsoft.Maui.DevFlow.CLI</PackageId>
     <IsShipping>true</IsShipping>
     <Description>CDP-oriented CLI for automating MAUI Blazor WebViews</Description>
