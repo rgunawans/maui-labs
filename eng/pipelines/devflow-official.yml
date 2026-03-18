@@ -66,6 +66,8 @@ extends:
                 useGlobalJson: true
             - script: dotnet workload install maui macos maui-tizen
               displayName: Install MAUI workloads
+            - script: dotnet build -t:InstallAndroidDependencies -f net10.0-android -p:AndroidSdkDirectory="%ANDROID_HOME%" -p:AcceptAndroidSDKLicenses=true src\DevFlow\Microsoft.Maui.DevFlow.Agent\Microsoft.Maui.DevFlow.Agent.csproj
+              displayName: Install Android SDK dependencies
             - script: eng\common\cibuild.cmd
                 -configuration $(_BuildConfig)
                 -prepareMachine

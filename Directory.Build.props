@@ -17,6 +17,8 @@
     <DebugSymbols>true</DebugSymbols>
     <!-- Default to non-shipping; shipping projects override per-csproj -->
     <IsShipping>false</IsShipping>
+    <!-- Disable strong naming: MAUI and Platform.Maui packages are not strong-named -->
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 
   <!-- Import shared packaging properties for NuGet packages -->
