@@ -41,9 +41,7 @@
     <EmbeddedResource Include="Resources\Scripts\*.html" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
+
 
   <!-- Workaround: PrivateAssets="all" on the WebView PackageReference does NOT prevent its
        _framework/ static web assets (blazor.webview.js, blazor.modules.json) from leaking
