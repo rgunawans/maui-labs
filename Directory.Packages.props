@@ -44,11 +44,10 @@
     <PackageVersion Include="Platform.Maui.Linux.Gtk4.Essentials" Version="$(PlatformMauiLinuxGtk4EssentialsVersion)" />
   </ItemGroup>
 
-  <!-- Testing -->
+  <!-- Testing (Microsoft.NET.Test.Sdk and xunit.runner.visualstudio are
+       implicitly provided by the Arcade SDK — do not define PackageVersion for them) -->
   <ItemGroup Label="Testing">
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNETTestSdkVersion)" />
     <PackageVersion Include="xunit" Version="$(XunitVersion)" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="$(XunitRunnerVisualstudioVersion)" />
     <PackageVersion Include="coverlet.collector" Version="$(CoverletCollectorVersion)" />
   </ItemGroup>
 
