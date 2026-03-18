@@ -904,7 +904,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             var scale = (float)targetWidth.Value / original.Width;
             var newHeight = (int)(original.Height * scale);
 
-            using var resized = original.Resize(new SkiaSharp.SKImageInfo(targetWidth.Value, newHeight), SkiaSharp.SKFilterQuality.Medium);
+            using var resized = original.Resize(new SkiaSharp.SKImageInfo(targetWidth.Value, newHeight), SkiaSharp.SKSamplingOptions.Default);
             if (resized == null) return pngData;
 
             using var image = SkiaSharp.SKImage.FromBitmap(resized);
@@ -3699,7 +3699,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                 return Task.FromResult(HttpResponse.Error("key is required"));
 
             request.QueryParams.TryGetValue("sharedName", out var sharedName);
-            var requestedType = request.QueryParams.GetValueOrDefault("type", null);
+            var requestedType = request.QueryParams.TryGetValue("type", out var typeVal) ? typeVal : null;
 
             object? value;
             string type;
