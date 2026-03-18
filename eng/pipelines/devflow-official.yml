@@ -45,6 +45,7 @@ extends:
           enablePublishUsingPipelines: ${{ parameters.publishPackages }}
           enablePublishBuildArtifacts: true
           enablePublishTestResults: true
+          testResultsFormat: xunit
           enableTelemetry: true
           jobs:
           - job: Windows
