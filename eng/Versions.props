@@ -2,8 +2,8 @@
   <PropertyGroup>
     <!-- Product version -->
     <MajorVersion>0</MajorVersion>
-    <MinorVersion>23</MinorVersion>
-    <PatchVersion>1</PatchVersion>
+    <MinorVersion>1</MinorVersion>
+    <PatchVersion>0</PatchVersion>
     <VersionPrefix>$(MajorVersion).$(MinorVersion).$(PatchVersion)</VersionPrefix>
     <PreReleaseVersionLabel>preview</PreReleaseVersionLabel>
     <StabilizePackageVersion>false</StabilizePackageVersion>
