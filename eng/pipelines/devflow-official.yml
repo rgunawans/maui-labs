@@ -76,9 +76,8 @@ extends:
                 $(_OfficialBuildArgs)
               displayName: Build and Test
 
-    - ${{ if eq(parameters.publishPackages, true) }}:
-      - template: /eng/common/templates-official/post-build/post-build.yml@self
-        parameters:
-          enableSourceLinkValidation: false
-          enableSigningValidation: true
-          enableNugetValidation: true
+    - template: /eng/common/templates-official/post-build/post-build.yml@self
+      parameters:
+        enableSourceLinkValidation: false
+        enableSigningValidation: true
+        enableNugetValidation: true
