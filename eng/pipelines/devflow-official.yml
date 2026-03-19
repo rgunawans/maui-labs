@@ -80,6 +80,47 @@ extends:
                 -projects $(Build.SourcesDirectory)\src\DevFlow\DevFlow.slnf
                 $(_OfficialBuildArgs)
               displayName: Build and Test
+            - script: |
+                echo "=== Diagnostics: WiX toolset package locations ==="
+                echo.
+                echo "--- .packages folder (repo-local) ---"
+                if exist "$(Build.SourcesDirectory)\.packages\microsoft.wixtoolset.sdk" (
+                  echo "Found .packages\microsoft.wixtoolset.sdk:"
+                  dir /s /b "$(Build.SourcesDirectory)\.packages\microsoft.wixtoolset.sdk"
+                ) else (
+                  echo ".packages\microsoft.wixtoolset.sdk does NOT exist"
+                )
+                echo.
+                if exist "$(Build.SourcesDirectory)\.packages\microsoft.signed.wix" (
+                  echo "Found .packages\microsoft.signed.wix:"
+                  dir /s /b "$(Build.SourcesDirectory)\.packages\microsoft.signed.wix"
+                ) else (
+                  echo ".packages\microsoft.signed.wix does NOT exist"
+                )
+                echo.
+                echo "--- NuGet global cache ---"
+                if exist "%USERPROFILE%\.nuget\packages\microsoft.wixtoolset.sdk" (
+                  echo "Found in NuGet cache:"
+                  dir /b "%USERPROFILE%\.nuget\packages\microsoft.wixtoolset.sdk"
+                ) else (
+                  echo "NOT in NuGet global cache"
+                )
+                echo.
+                echo "--- .packages top-level contents ---"
+                if exist "$(Build.SourcesDirectory)\.packages" (
+                  dir /b "$(Build.SourcesDirectory)\.packages"
+                ) else (
+                  echo ".packages folder does NOT exist at all"
+                )
+                echo.
+                echo "--- artifacts/packages ---"
+                if exist "$(Build.SourcesDirectory)\artifacts\packages\Release\Shipping" (
+                  dir /b "$(Build.SourcesDirectory)\artifacts\packages\Release\Shipping"
+                ) else (
+                  echo "No shipping packages found"
+                )
+              displayName: 'Diagnostics: WiX & package folder contents'
+              condition: always()
 
     # - template: /eng/common/templates-official/post-build/post-build.yml@self
     #   parameters:
