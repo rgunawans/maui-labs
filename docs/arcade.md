@@ -18,9 +18,9 @@ This repository uses the [dotnet/arcade](https://github.com/dotnet/arcade) build
 ## Versioning
 
 Arcade manages versions automatically:
-- **VersionPrefix**: `0.23.1` (from `eng/Versions.props`)
+- **VersionPrefix**: `0.1.0` (from `eng/Versions.props`)
 - **PreReleaseVersionLabel**: `preview`
-- Official builds append build number: `0.23.1-preview.26166.3`
+- Official builds append build number: `0.1.0-preview.26166.3`
 
 ## Building
 
