@@ -2,7 +2,7 @@
 
 Experimental packages and tooling for .NET MAUI. This repository hosts pre-release projects that are in active development and may ship independently.
 
-> ⚠️ **These packages are experimental.** APIs may change between releases. These packages are not covered by the [Microsoft Support Policy](https://dotnet.microsoft.com/platform/support-policy) and are provided as-is.
+> ⚠️ **These packages are experimental.** APIs may change between releases. These packages are not covered by the [.NET MAUI Support Policy](https://dotnet.microsoft.com/platform/support/policy/maui) and are provided as-is.
 
 ## Products
 
