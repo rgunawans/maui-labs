@@ -19,6 +19,7 @@
     <IsShipping>false</IsShipping>
     <!-- Disable strong naming: MAUI and Platform.Maui packages are not strong-named -->
     <SignAssembly>false</SignAssembly>
+    <NoSwixBuildPlugin>true</NoSwixBuildPlugin>
   </PropertyGroup>
 
   <!-- Import shared packaging properties for NuGet packages -->

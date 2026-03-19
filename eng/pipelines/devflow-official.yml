@@ -20,6 +20,8 @@ variables:
 - template: /eng/pipelines/common-variables.yml@self
 - name: _BuildConfig
   value: Release
+- name: PostBuildSign
+  value: false
 
 resources:
   repositories:
