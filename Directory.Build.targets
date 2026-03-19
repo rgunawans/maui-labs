@@ -3,11 +3,17 @@
   <Import Project="Sdk.targets" Sdk="Microsoft.DotNet.Arcade.Sdk" />
   <Import Project="$(MSBuildThisFileDirectory)eng/Common.targets" />
 
-  <!-- Workaround: Arcade SDK Sign.proj unconditionally requires the WiX 5 toolset
-       even for repos that don't produce MSI/WiX installers (dotnet/arcade#16611).
-       PackageDownload ensures it's in the NuGet cache so signing doesn't fail. -->
-  <ItemGroup>
-    <PackageDownload Include="Microsoft.WixToolset.Sdk" Version="[$(MicrosoftWixToolsetSdkVersion)]" />
-  </ItemGroup>
+  <!-- Workaround for dotnet/arcade#16611: Arcade SDK Sign.proj expects
+       WixToolsPath at .packages/microsoft.wixtoolset.sdk/{ver}/tools/net472/{Platform}
+       but the WiX 5 SDK package has no platform subfolder under tools/net472/.
+       Create the expected directory so SignToolTask's existence check passes. -->
+  <Target Name="CreateWixToolsPathWorkaround"
+          BeforeTargets="Build"
+          Condition="Exists('$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)')">
+    <MakeDir Directories="$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\x64"
+             Condition="!Exists('$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\x64')" />
+    <MakeDir Directories="$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\arm64"
+             Condition="!Exists('$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\arm64')" />
+  </Target>
 
 </Project>
