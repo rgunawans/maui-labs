@@ -4,7 +4,7 @@
 
 This project uses [GitHub Issues](https://github.com/dotnet/maui-labs/issues) to track bugs and feature requests. Please search the existing issues before filing new issues to avoid duplicates. For new issues, file your bug or feature request as a new Issue.
 
-You are also encouraged to open [pull requests](https://github.com/dotnet/maui-labs/pulls) to fix bugs or add features. See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for build instructions and development setup.
+You are also encouraged to open [pull requests](https://github.com/dotnet/maui-labs/pulls) to fix bugs or add features. See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development setup.
 
 ## Microsoft Support Policy
 
