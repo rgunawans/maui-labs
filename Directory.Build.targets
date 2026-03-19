@@ -3,4 +3,11 @@
   <Import Project="Sdk.targets" Sdk="Microsoft.DotNet.Arcade.Sdk" />
   <Import Project="$(MSBuildThisFileDirectory)eng/Common.targets" />
 
+  <!-- Workaround: Arcade SDK Sign.proj unconditionally requires the WiX 5 toolset
+       even for repos that don't produce MSI/WiX installers (dotnet/arcade#16611).
+       PackageDownload ensures it's in the NuGet cache so signing doesn't fail. -->
+  <ItemGroup>
+    <PackageDownload Include="Microsoft.WixToolset.Sdk" Version="[$(MicrosoftWixToolsetSdkVersion)]" />
+  </ItemGroup>
+
 </Project>
