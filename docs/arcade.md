@@ -34,13 +34,15 @@ dotnet build
 
 ## Shipping Packages
 
-These projects have `IsShipping=true` and will be published to NuGet.org:
-- Microsoft.Maui.DevFlow.Logging
+All DevFlow library packages have `IsShipping=true` and will be published to NuGet feeds:
 - Microsoft.Maui.DevFlow.Agent
-- Microsoft.Maui.DevFlow.Driver
+- Microsoft.Maui.DevFlow.Agent.Core
+- Microsoft.Maui.DevFlow.Agent.Gtk
+- Microsoft.Maui.DevFlow.Blazor
+- Microsoft.Maui.DevFlow.Blazor.Gtk
 - Microsoft.Maui.DevFlow.CLI
-
-All other packages are non-shipping (internal dev feeds only).
+- Microsoft.Maui.DevFlow.Driver
+- Microsoft.Maui.DevFlow.Logging
 
 ## Dependency Flow
 

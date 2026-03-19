@@ -1,4 +1,0 @@
-<Project>
-  <!-- Versioning is now managed by Arcade SDK via eng/Versions.props -->
-  <!-- This file is kept as a no-op because existing projects import it -->
-</Project>
