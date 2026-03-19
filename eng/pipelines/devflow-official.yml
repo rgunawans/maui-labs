@@ -49,6 +49,7 @@ extends:
       jobs:
       - template: /eng/common/templates-official/jobs/jobs.yml@self
         parameters:
+          enableMicrobuild: true
           enablePublishBuildAssets: true
           enablePublishBuildArtifacts: true
           enablePublishTestResults: true
