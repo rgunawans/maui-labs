@@ -47,7 +47,7 @@ extends:
       jobs:
       - template: /eng/common/templates-official/jobs/jobs.yml@self
         parameters:
-          enablePublishUsingPipelines: true
+          enablePublishBuildAssets: true
           enablePublishBuildArtifacts: true
           enablePublishTestResults: true
           testResultsFormat: xunit
@@ -63,7 +63,6 @@ extends:
                   _BuildConfig: Release
                   _OfficialBuildArgs: /p:DotNetSignType=test
                     /p:TeamName=$(_TeamName)
-                    /p:DotNetPublishUsingPipelines=true
                     /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
             steps:
             - task: UseDotNet@2
