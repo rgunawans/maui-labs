@@ -56,7 +56,7 @@ extends:
               matrix:
                 Release:
                   _BuildConfig: Release
-                  _OfficialBuildArgs: /p:DotNetSignType=real
+                  _OfficialBuildArgs: /p:DotNetSignType=test
                     /p:TeamName=$(_TeamName)
                     /p:DotNetPublishUsingPipelines=${{ parameters.publishPackages }}
                     /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
