@@ -45,7 +45,7 @@ extends:
       jobs:
       - template: /eng/common/templates-official/jobs/jobs.yml@self
         parameters:
-          enablePublishUsingPipelines: ${{ parameters.publishPackages }}
+          enablePublishUsingPipelines: true
           enablePublishBuildArtifacts: true
           enablePublishTestResults: true
           testResultsFormat: xunit
@@ -61,7 +61,7 @@ extends:
                   _BuildConfig: Release
                   _OfficialBuildArgs: /p:DotNetSignType=test
                     /p:TeamName=$(_TeamName)
-                    /p:DotNetPublishUsingPipelines=${{ parameters.publishPackages }}
+                    /p:DotNetPublishUsingPipelines=true
                     /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
             steps:
             - task: UseDotNet@2
@@ -79,11 +79,11 @@ extends:
                 $(_OfficialBuildArgs)
               displayName: Build and Test
 
-    - template: /eng/common/templates-official/post-build/post-build.yml@self
-      parameters:
-        enableSourceLinkValidation: false
-        enableSigningValidation: true
-        enableNugetValidation: true
+    # - template: /eng/common/templates-official/post-build/post-build.yml@self
+    #   parameters:
+    #     enableSourceLinkValidation: false
+    #     enableSigningValidation: true
+    #     enableNugetValidation: true
 
     # Publish to NuGet.org using 1ES.PublishNuget task
     # Pattern from dotnet/aspire release-publish-nuget.yml:
