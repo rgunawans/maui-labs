@@ -20,6 +20,8 @@ variables:
 - template: /eng/pipelines/common-variables.yml@self
 - name: _BuildConfig
   value: Release
+- name: _SignType
+  value: Real
 - name: PostBuildSign
   value: false
 
@@ -61,7 +63,7 @@ extends:
               matrix:
                 Release:
                   _BuildConfig: Release
-                  _OfficialBuildArgs: /p:DotNetSignType=test
+                  _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
                     /p:TeamName=$(_TeamName)
                     /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
             steps:
