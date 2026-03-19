@@ -51,7 +51,7 @@ jobs:
           eng\common\cibuild.cmd
           -configuration Release
           -prepareMachine
-          -projects ${{ inputs.project-path }}
+          -projects %CD%\${{ inputs.project-path }}
         shell: cmd
 
       - name: Build and Test (macOS)
@@ -60,7 +60,7 @@ jobs:
           ./eng/common/cibuild.sh
           --configuration Release
           --prepareMachine
-          --projects ${{ inputs.project-path }}
+          --projects $(pwd)/${{ inputs.project-path }}
 
       - name: Upload test results
         if: inputs.run-tests && always()
