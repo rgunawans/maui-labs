@@ -31,3 +31,7 @@ A comprehensive MAUI testing, automation, and debugging toolkit.
 ## Getting Started
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development setup.
+
+## Support
+
+See [SUPPORT.md](.github/SUPPORT.md) for how to file issues, get help, and the support policy for this repository.
