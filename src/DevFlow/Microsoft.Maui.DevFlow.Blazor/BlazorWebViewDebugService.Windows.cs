@@ -84,7 +84,7 @@ public class BlazorWebViewDebugService : BlazorWebViewDebugServiceBase
                             return;
                         }
 
-                        await CaptureWebView(webView2.CoreWebView2);
+                        await CaptureWebView(webView2.CoreWebView2!);
                     };
                 }
             }

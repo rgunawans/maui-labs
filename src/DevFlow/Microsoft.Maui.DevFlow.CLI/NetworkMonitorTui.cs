@@ -53,9 +53,9 @@ public static class NetworkMonitorTui
     public static async Task RunAsync(string host, int port, string? filterHost, string? filterMethod)
     {
         var wsUrl = $"ws://{host}:{port}/ws/network";
-        var status = new State<string>("Connecting...");
-        var detailText = new State<string>("Select a request to view details.");
-        var headerText = new State<string>($"🌐 Network Monitor — {host}:{port}  [0 requests]");
+        var status = new State<string?>("Connecting...");
+        var detailText = new State<string?>("Select a request to view details.");
+        var headerText = new State<string?>($"🌐 Network Monitor — {host}:{port}  [0 requests]");
 
         var rows = new List<NetworkRow>();
         int lastLoadedRow = -1;
@@ -231,8 +231,8 @@ public static class NetworkMonitorTui
     private static async Task LoadDetailAsync(
         string host, int port,
         string id,
-        State<string> detailText,
-        State<string> status,
+        State<string?> detailText,
+        State<string?> status,
         TerminalApp app,
         CancellationToken ct)
     {
@@ -312,8 +312,8 @@ public static class NetworkMonitorTui
         string? filterMethod,
         string agentHost,
         int agentPort,
-        State<string> headerText,
-        State<string> status,
+        State<string?> headerText,
+        State<string?> status,
         TerminalApp app,
         CancellationToken ct)
     {

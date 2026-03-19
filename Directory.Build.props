@@ -1,15 +1,33 @@
 <Project>
 
+  <Import Project="Sdk.props" Sdk="Microsoft.DotNet.Arcade.Sdk" />
+
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Copyright>$(CopyrightNetFoundation)</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/dotnet/maui-labs</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dotnet/maui-labs</RepositoryUrl>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- NU1507: official builds inject internal feeds via SetupNugetSources that aren't in packageSourceMapping -->
+    <NoWarn>$(NoWarn);NU1507</NoWarn>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <!-- Default to non-shipping; shipping projects override per-csproj -->
+    <IsShipping>false</IsShipping>
+    <!-- Disable strong naming: MAUI and Platform.Maui packages are not strong-named -->
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 
   <!-- Import shared packaging properties for NuGet packages -->
   <Import Project="$(MSBuildThisFileDirectory)eng/Common.props" />
 
-  <!-- Common SupportedOSPlatformVersion for all MAUI projects -->
-  <PropertyGroup Condition="'$(UseMaui)' == 'true'">
+  <!-- Common SupportedOSPlatformVersion — no UseMaui gate because UseMaui is set
+       in project files which are evaluated after Directory.Build.props. The inner
+       platform conditions are already self-gating (only match platform TFMs). -->
+  <PropertyGroup>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>

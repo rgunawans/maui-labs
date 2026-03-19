@@ -26,40 +26,52 @@ jobs:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
       - name: Install workloads
-        run: dotnet workload install maui macos
+        run: dotnet workload install maui macos maui-tizen
 
-      - name: Restore
-        run: dotnet restore ${{ inputs.project-path }}
+      - name: Install Android SDK dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: dotnet build -t:InstallAndroidDependencies -f net10.0-android -p:AndroidSdkDirectory="%ANDROID_HOME%" -p:AcceptAndroidSDKLicenses=true src\DevFlow\Microsoft.Maui.DevFlow.Agent\Microsoft.Maui.DevFlow.Agent.csproj
+        shell: cmd
 
-      - name: Build
-        run: dotnet build ${{ inputs.project-path }} -c Release --no-restore
+      - name: Install Android SDK dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: dotnet build -t:InstallAndroidDependencies -f net10.0-android -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true src/DevFlow/Microsoft.Maui.DevFlow.Agent/Microsoft.Maui.DevFlow.Agent.csproj
 
-      - name: Test
-        if: inputs.run-tests
-        run: dotnet test ${{ inputs.project-path }} -c Release --no-build --no-restore --logger trx --results-directory TestResults
+      - name: Build, Test and Pack (Windows)
+        if: matrix.os == 'windows-latest'
+        run: >
+          eng\common\cibuild.cmd
+          -configuration Release
+          -prepareMachine
+          -projects %CD%\${{ inputs.project-path }}
+        shell: cmd
+
+      - name: Build and Test (macOS)
+        if: matrix.os == 'macos-latest'
+        run: >
+          ./eng/common/cibuild.sh
+          --configuration Release
+          --prepareMachine
+          --projects $(pwd)/${{ inputs.project-path }}
 
       - name: Upload test results
         if: inputs.run-tests && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ inputs.project-name }}-${{ matrix.os }}
-          path: TestResults/**/*.trx
-
-      - name: Pack
-        if: inputs.pack && matrix.os == 'windows-latest'
-        run: dotnet pack ${{ inputs.project-path }} -c Release --no-build -o ./artifacts
+          path: artifacts/TestResults/**/*.xml
 
       - name: Upload packages
         if: inputs.pack && matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: packages-${{ inputs.project-name }}
-          path: ./artifacts/*.nupkg
+          path: artifacts/packages/**/*.nupkg

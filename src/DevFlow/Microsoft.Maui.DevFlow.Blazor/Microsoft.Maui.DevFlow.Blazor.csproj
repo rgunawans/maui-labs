@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
-  <Import Project="../Version.props" />
 
   <PropertyGroup>
     <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-macos</TargetFrameworks>
@@ -7,6 +6,7 @@
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
     <IsPackable>true</IsPackable>
+    <IsShipping>true</IsShipping>
 
     <!-- Suppress JS module manifest to avoid conflicting with consuming app's manifest.
          The consuming app's build will discover our .lib.module.js and include it. -->
@@ -41,9 +41,7 @@
     <EmbeddedResource Include="Resources\Scripts\*.html" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
+
 
   <!-- Workaround: PrivateAssets="all" on the WebView PackageReference does NOT prevent its
        _framework/ static web assets (blazor.webview.js, blazor.modules.json) from leaking

@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="../Version.props" />
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS_BUILD</DefineConstants>
+    <IsPackable>true</IsPackable>
 
     <PackageId>Microsoft.Maui.DevFlow.Driver</PackageId>
+    <IsShipping>true</IsShipping>
     <Description>Driver library for connecting to Microsoft.Maui.DevFlow Agent and orchestrating MAUI app automation.</Description>
     <PackageTags>maui;automation;testing;driver</PackageTags>
   </PropertyGroup>

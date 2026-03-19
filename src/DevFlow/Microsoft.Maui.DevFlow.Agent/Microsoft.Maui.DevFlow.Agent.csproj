@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="../Version.props" />
 
   <PropertyGroup>
     <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst;net10.0-macos</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
+    <IsPackable>true</IsPackable>
 
     <PackageId>Microsoft.Maui.DevFlow.Agent</PackageId>
+    <IsShipping>true</IsShipping>
     <Description>In-app agent for .NET MAUI automation. Exposes visual tree, element interactions, and screenshots via HTTP/JSON API.</Description>
     <PackageTags>maui;automation;testing;visual-tree;agent</PackageTags>
   </PropertyGroup>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Dependencies>
+  <ProductDependencies>
+    <!-- dotnet/maui -->
+    <Dependency Name="Microsoft.Maui.Controls" Version="10.0.41">
+      <Uri>https://github.com/dotnet/maui</Uri>
+      <Sha>d15964ef4f0a6d0740b655ba7c6be9b96be8b187</Sha>
+    </Dependency>
+    <Dependency Name="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.41">
+      <Uri>https://github.com/dotnet/maui</Uri>
+      <Sha>d15964ef4f0a6d0740b655ba7c6be9b96be8b187</Sha>
+    </Dependency>
+    <!-- dotnet/runtime -->
+    <Dependency Name="Microsoft.Extensions.Http" Version="10.0.5">
+      <Uri>https://github.com/dotnet/runtime</Uri>
+      <Sha>0000000000000000000000000000000000000000</Sha>
+    </Dependency>
+    <Dependency Name="Microsoft.Extensions.Hosting" Version="10.0.5">
+      <Uri>https://github.com/dotnet/runtime</Uri>
+      <Sha>0000000000000000000000000000000000000000</Sha>
+    </Dependency>
+    <Dependency Name="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5">
+      <Uri>https://github.com/dotnet/runtime</Uri>
+      <Sha>0000000000000000000000000000000000000000</Sha>
+    </Dependency>
+    <Dependency Name="System.Text.Json" Version="10.0.5">
+      <Uri>https://github.com/dotnet/runtime</Uri>
+      <Sha>0000000000000000000000000000000000000000</Sha>
+    </Dependency>
+  </ProductDependencies>
+  <ToolsetDependencies>
+    <Dependency Name="Microsoft.DotNet.Arcade.Sdk" Version="10.0.0-beta.26164.1">
+      <Uri>https://github.com/dotnet/arcade</Uri>
+      <Sha>e365cfcb58176841c2fb80d1a40926f394776970</Sha>
+    </Dependency>
+  </ToolsetDependencies>
+</Dependencies>

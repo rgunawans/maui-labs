@@ -5,6 +5,7 @@ using Microsoft.Maui.DevFlow.Agent.Profiling;
 #if MACOS
 using AppKit;
 using Foundation;
+using ObjCRuntime;
 #endif
 
 namespace Microsoft.Maui.DevFlow.Agent;
@@ -304,12 +305,12 @@ public class PlatformAgentService : DevFlowAgentService
 #elif MACOS
             if (platformView is NSButton button)
             {
-                button.PerformClick(null);
+                button.PerformClick(button);
                 return true;
             }
-            if (platformView is NSControl nsControl && nsControl.Action != null)
+            if (platformView is NSControl nsControl && nsControl.Action is Selector action)
             {
-                nsControl.SendAction(nsControl.Action, nsControl.Target);
+                nsControl.SendAction(action, nsControl.Target!);
                 return true;
             }
 #endif
