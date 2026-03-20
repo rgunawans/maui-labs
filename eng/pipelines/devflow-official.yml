@@ -37,7 +37,7 @@ extends:
   parameters:
     pool:
       name: NetCore1ESPool-Internal
-      image: windows.2022.amd64
+      image: windows.vs2026preview.scout.amd64
       os: windows
     # Required for publishing to external feeds like nuget.org
     settings:
@@ -59,7 +59,7 @@ extends:
           - job: Windows
             pool:
               name: NetCore1ESPool-Internal
-              demands: ImageOverride -equals windows.vs2022.amd64
+              demands: ImageOverride -equals windows.vs2026preview.scout.amd64
             strategy:
               matrix:
                 Release:
