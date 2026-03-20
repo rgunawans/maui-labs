@@ -122,4 +122,4 @@ extends:
               packagesToPush: '$(Pipeline.Workspace)/PackageArtifacts/*.nupkg'
               packageParentPath: '$(Pipeline.Workspace)/PackageArtifacts'
               nuGetFeedType: external
-              publishFeedCredentials: 'NuGet.org - dotnet/maui-labs' # TODO: Create this service connection in dnceng
+              publishFeedCredentials: 'nuget.org (dotnetframework)'
