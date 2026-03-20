@@ -9,11 +9,11 @@
        Create the expected directory so SignToolTask's existence check passes. -->
   <Target Name="CreateWixToolsPathWorkaround"
           BeforeTargets="Build"
-          Condition="Exists('$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)')">
-    <MakeDir Directories="$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\x64"
-             Condition="!Exists('$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\x64')" />
-    <MakeDir Directories="$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\arm64"
-             Condition="!Exists('$(RepoRoot).packages\microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\arm64')" />
+          Condition=" '$(OS)' == 'Windows_NT' And Exists('$(NuGetPackageRoot)microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)')">
+    <MakeDir Directories="$(NuGetPackageRoot)microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\x64"
+             Condition="!Exists('$(NuGetPackageRoot)microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\x64')" />
+    <MakeDir Directories="$(NuGetPackageRoot)microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\arm64"
+             Condition="!Exists('$(NuGetPackageRoot)microsoft.wixtoolset.sdk\$(MicrosoftWixToolsetSdkVersion)\tools\net472\arm64')" />
   </Target>
 
 </Project>
