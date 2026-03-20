@@ -20,6 +20,10 @@ variables:
 - template: /eng/pipelines/common-variables.yml@self
 - name: _BuildConfig
   value: Release
+- name: _SignType
+  value: real
+- name: PostBuildSign
+  value: false
 
 resources:
   repositories:
@@ -33,8 +37,11 @@ extends:
   parameters:
     pool:
       name: NetCore1ESPool-Internal
-      image: windows.vs2022.amd64
+      image: windows.vs2026preview.scout.amd64
       os: windows
+    # Required for publishing to external feeds like nuget.org
+    settings:
+      networkIsolationPolicy: Permissive
 
     stages:
     - stage: build
@@ -42,7 +49,8 @@ extends:
       jobs:
       - template: /eng/common/templates-official/jobs/jobs.yml@self
         parameters:
-          enablePublishUsingPipelines: ${{ parameters.publishPackages }}
+          enableMicrobuild: true
+          enablePublishBuildAssets: true
           enablePublishBuildArtifacts: true
           enablePublishTestResults: true
           testResultsFormat: xunit
@@ -51,14 +59,13 @@ extends:
           - job: Windows
             pool:
               name: NetCore1ESPool-Internal
-              demands: ImageOverride -equals windows.vs2022.amd64
+              demands: ImageOverride -equals windows.vs2026preview.scout.amd64
             strategy:
               matrix:
                 Release:
                   _BuildConfig: Release
-                  _OfficialBuildArgs: /p:DotNetSignType=test
+                  _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
                     /p:TeamName=$(_TeamName)
-                    /p:DotNetPublishUsingPipelines=${{ parameters.publishPackages }}
                     /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
             steps:
             - task: UseDotNet@2
@@ -75,10 +82,44 @@ extends:
                 -projects $(Build.SourcesDirectory)\src\DevFlow\DevFlow.slnf
                 $(_OfficialBuildArgs)
               displayName: Build and Test
+       
+    - template: /eng/common/templates-official/post-build/post-build.yml@self
+      parameters:
+        enableSourceLinkValidation: false
+        enableSigningValidation: true
+        enableNugetValidation: true
 
+    # Publish to NuGet.org using 1ES.PublishNuget task
+    # Pattern from dotnet/aspire release-publish-nuget.yml:
+    # - useDotNetTask: false (required - DotNetCoreCLI@2 doesn't support encrypted API keys)
+    # - nuGetFeedType: external + publishFeedCredentials for NuGet.org
     - ${{ if eq(parameters.publishPackages, true) }}:
-      - template: /eng/common/templates-official/post-build/post-build.yml@self
-        parameters:
-          enableSourceLinkValidation: false
-          enableSigningValidation: true
-          enableNugetValidation: true
+      - stage: publish_nuget
+        displayName: 'Publish to NuGet.org'
+        dependsOn:
+        - Validate
+        - publish_using_darc
+        jobs:
+        - job: PublishNuGet
+          displayName: 'Push Packages to NuGet.org'
+          timeoutInMinutes: 30
+          pool:
+            name: NetCore1ESPool-Internal
+            image: windows.vs2022.amd64
+            os: windows
+          templateContext:
+            type: releaseJob
+            isProduction: true
+            inputs:
+            - input: pipelineArtifact
+              artifactName: PackageArtifacts
+              targetPath: '$(Pipeline.Workspace)/PackageArtifacts'
+          steps:
+          - task: 1ES.PublishNuget@1
+            displayName: 'Push Packages to NuGet.org'
+            inputs:
+              useDotNetTask: false
+              packagesToPush: '$(Pipeline.Workspace)/PackageArtifacts/*.nupkg'
+              packageParentPath: '$(Pipeline.Workspace)/PackageArtifacts'
+              nuGetFeedType: external
+              publishFeedCredentials: 'NuGet.org - dotnet/maui-labs' # TODO: Create this service connection in dnceng
