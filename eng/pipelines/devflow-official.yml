@@ -91,9 +91,8 @@ extends:
 
     # Publish to NuGet.org using 1ES.PublishNuget task
     # Pattern from dotnet/aspire release-publish-nuget.yml:
-    # - PrepareArtifacts job re-publishes PackageArtifacts through 1ES outputs
-    #   so that SBOM manifest is generated (required for releaseJob validation)
-    # - PublishNuGet job consumes the SBOM-annotated artifact and pushes to NuGet.org
+    # - useDotNetTask: false (required - DotNetCoreCLI@2 doesn't support encrypted API keys)
+    # - nuGetFeedType: external + publishFeedCredentials for NuGet.org
     - ${{ if eq(parameters.publishPackagesNuget, true) }}:
       - stage: publish_nuget
         displayName: 'Publish to NuGet.org'
@@ -101,27 +100,8 @@ extends:
         - Validate
         - publish_using_darc
         jobs:
-        - job: PrepareArtifacts
-          displayName: 'Prepare Artifacts with SBOM'
-          timeoutInMinutes: 15
-          pool:
-            name: NetCore1ESPool-Internal
-            image: windows.vs2022.amd64
-            os: windows
-          templateContext:
-            outputs:
-            - output: pipelineArtifact
-              displayName: Publish PackageArtifacts
-              targetPath: '$(Pipeline.Workspace)/PackageArtifacts'
-              artifactName: PackageArtifactsForNuGet
-          steps:
-          - download: current
-            artifact: PackageArtifacts
-            displayName: Download PackageArtifacts
-
         - job: PublishNuGet
           displayName: 'Push Packages to NuGet.org'
-          dependsOn: PrepareArtifacts
           timeoutInMinutes: 30
           pool:
             name: NetCore1ESPool-Internal
@@ -132,7 +112,7 @@ extends:
             isProduction: true
             inputs:
             - input: pipelineArtifact
-              artifactName: PackageArtifactsForNuGet
+              artifactName: PackageArtifacts
               targetPath: '$(Pipeline.Workspace)/PackageArtifacts'
           steps:
           - task: 1ES.PublishNuget@1
