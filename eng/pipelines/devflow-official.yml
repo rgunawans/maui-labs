@@ -41,7 +41,7 @@ extends:
       os: windows
     # Required for publishing to external feeds like nuget.org
     settings:
-      networkIsolationPolicy: Permissive, CFSClean2
+      networkIsolationPolicy: Permissive, CFSClean, CFSClean2
 
     stages:
     - stage: build
