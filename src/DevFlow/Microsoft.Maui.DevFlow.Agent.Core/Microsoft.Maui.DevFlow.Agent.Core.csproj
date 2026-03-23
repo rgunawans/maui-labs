@@ -12,7 +12,8 @@
 
   <ItemGroup>
     <PackageReference Include="Fizzler" />
-    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.Maui.Controls" VersionOverride="$(DevFlowMauiMinVersion)" />
+    <PackageReference Include="Microsoft.Maui.Essentials" VersionOverride="$(DevFlowMauiMinVersion)" />
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 
