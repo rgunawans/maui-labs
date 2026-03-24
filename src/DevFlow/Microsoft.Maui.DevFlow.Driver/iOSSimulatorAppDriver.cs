@@ -12,10 +12,16 @@ namespace Microsoft.Maui.DevFlow.Driver;
 public class iOSSimulatorAppDriver : AppDriverBase
 {
     private static readonly string[] AcceptLabels =
-        ["Allow", "OK", "Allow While Using App", "Allow Once", "Continue", "Yes", "Confirm"];
+    [
+        "Allow", "OK", "Allow While Using App", "Allow Once", "Continue", "Yes", "Confirm",
+        // Variants seen in newer iOS versions
+        "Allow Access", "Grant Access", "Enable", "Turn On", "Give Access",
+        // Action-sheet style confirmations
+        "Done", "Open", "Install", "Update",
+    ];
 
     private static readonly string[] AlertIndicators =
-        ["Alert", "alert", "UIAlertController"];
+        ["Alert", "alert", "UIAlertController", "Sheet", "ActionSheet"];
 
     public override string Platform => "iOSSimulator";
 
@@ -53,28 +59,45 @@ public class iOSSimulatorAppDriver : AppDriverBase
 
     /// <summary>
     /// Query the iOS accessibility tree and look for an alert/dialog.
+    /// Retries up to <paramref name="maxAttempts"/> times with <paramref name="retryDelayMs"/> ms
+    /// between each attempt to tolerate timing windows where the AX tree is queried before the
+    /// dialog finishes committing.
     /// Returns AlertInfo if one is found, null otherwise.
     /// </summary>
-    public async Task<AlertInfo?> DetectAlertAsync()
+    public async Task<AlertInfo?> DetectAlertAsync(int maxAttempts = 3, int retryDelayMs = 300)
     {
         EnsureDeviceUdid();
-        var json = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(json))
-            return null;
 
-        try
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            // The accessibility output may contain embedded newlines in string values;
-            // replace bare control characters so JsonDocument can parse it.
-            json = SanitizeJson(json);
-            using var doc = JsonDocument.Parse(json);
-            var elements = ParseElements(doc.RootElement);
-            return FindAlert(elements);
+            var json = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                if (attempt < maxAttempts) await Task.Delay(retryDelayMs).ConfigureAwait(false);
+                continue;
+            }
+
+            try
+            {
+                // The accessibility output may contain embedded newlines in string values;
+                // replace bare control characters so JsonDocument can parse it.
+                json = SanitizeJson(json);
+                using var doc = JsonDocument.Parse(json);
+                var elements = ParseElements(doc.RootElement);
+                var alert = FindAlert(elements);
+                if (alert is not null)
+                    return alert;
+            }
+            catch
+            {
+                // JSON parse failure — fall through to retry
+            }
+
+            if (attempt < maxAttempts)
+                await Task.Delay(retryDelayMs).ConfigureAwait(false);
         }
-        catch
-        {
-            return null;
-        }
+
+        return null;
     }
 
     /// <summary>
@@ -118,14 +141,26 @@ public class iOSSimulatorAppDriver : AppDriverBase
     }
 
     /// <summary>
-    /// Returns the raw accessibility tree JSON from the simulator.
-    /// Useful for debugging or advanced element queries.
+    /// Returns the sanitized accessibility tree JSON from the simulator.
+    /// If the JSON cannot be parsed, the raw (unsanitized) output is returned instead
+    /// so that callers can diagnose what the apple CLI actually produced.
     /// </summary>
     public async Task<string> GetAccessibilityTreeAsync()
     {
         EnsureDeviceUdid();
-        var json = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
-        return SanitizeJson(json);
+        var raw = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
+        var sanitized = SanitizeJson(raw);
+        // Validate the sanitized output parses; if not, return the raw string so the
+        // caller can see exactly what came out of the apple CLI.
+        try
+        {
+            using var _ = JsonDocument.Parse(sanitized);
+            return sanitized;
+        }
+        catch
+        {
+            return raw;
+        }
     }
 
     /// <summary>
@@ -350,22 +385,25 @@ public class iOSSimulatorAppDriver : AppDriverBase
         }
 
         // Strategy 2: iOS 26+ heuristic — when a system alert or action sheet is showing,
-        // the Application element's direct children flatten to only StaticText + Button
+        // the Application element's direct children flatten to only simple element types
         // (the normal app hierarchy collapses). Detect this pattern.
+        // Note: newer iOS/Xcode versions may include additional types (Image, Other, ScrollArea)
+        // alongside the core Button/StaticText set, so we check presence of Buttons + absence
+        // of anything that looks like a real app container (Window, NavigationBar, TabBar etc.).
         var app = elements.FirstOrDefault(e =>
             string.Equals(e.Type, "Application", StringComparison.OrdinalIgnoreCase));
         if (app is not null && app.Children.Count >= 2)
         {
             var childTypes = app.Children.Select(c => c.Type).ToList();
             bool hasButtons = childTypes.Any(t => string.Equals(t, "Button", StringComparison.OrdinalIgnoreCase));
-            bool allSimple = childTypes.All(t =>
-                string.Equals(t, "StaticText", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "Button", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "TextField", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "Cell", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "Group", StringComparison.OrdinalIgnoreCase));
+            bool hasAppContainer = childTypes.Any(t =>
+                string.Equals(t, "Window", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "NavigationBar", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "TabBar", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "ToolBar", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "ScrollView", StringComparison.OrdinalIgnoreCase));
 
-            if (hasButtons && allSimple)
+            if (hasButtons && !hasAppContainer)
             {
                 var buttons = new List<AlertButton>();
                 CollectButtons(app, buttons);
