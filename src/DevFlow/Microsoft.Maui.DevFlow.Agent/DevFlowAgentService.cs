@@ -524,7 +524,7 @@ public class PlatformAgentService : DevFlowAgentService
         var windows = new System.Collections.Generic.List<UIKit.UIWindow>();
         foreach (var w in windowScene.Windows)
         {
-            if (!w.IsHidden && w.Alpha > 0f)
+            if (!w.Hidden && w.Alpha > 0f)
                 windows.Add(w);
         }
         windows.Sort((a, b) => ((double)a.WindowLevel).CompareTo((double)b.WindowLevel));
@@ -549,7 +549,7 @@ public class PlatformAgentService : DevFlowAgentService
             }
         });
 
-        using var pngData = image.AsPng();
+        using var pngData = image.AsPNG();
         return pngData?.ToArray();
     }
 #elif WINDOWS
