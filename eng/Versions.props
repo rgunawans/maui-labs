@@ -14,6 +14,9 @@
   <!-- Dependencies flowing via darc/maestro (match Version.Details.xml) -->
   <PropertyGroup Label="Dotnet MAUI">
     <MicrosoftMauiControlsVersion>10.0.41</MicrosoftMauiControlsVersion>
+    <!-- Minimum MAUI version required by DevFlow shipping packages.
+         Kept low so consumers can use any compatible MAUI 10.0.x release. -->
+    <DevFlowMauiMinVersion>10.0.20</DevFlowMauiMinVersion>
     <MicrosoftMauiControlsCompatibilityVersion>$(MicrosoftMauiControlsVersion)</MicrosoftMauiControlsCompatibilityVersion>
     <MicrosoftMauiEssentialsVersion>$(MicrosoftMauiControlsVersion)</MicrosoftMauiEssentialsVersion>
     <MicrosoftAspNetCoreComponentsWebViewMauiVersion>$(MicrosoftMauiControlsVersion)</MicrosoftAspNetCoreComponentsWebViewMauiVersion>
