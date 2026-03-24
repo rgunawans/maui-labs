@@ -470,12 +470,12 @@ public class PlatformAgentService : DevFlowAgentService
         }
     }
 #elif IOS || MACCATALYST
-    protected override Task<byte[]?> CaptureScreenshotAsync(VisualElement rootElement)
+    protected override async Task<byte[]?> CaptureScreenshotAsync(VisualElement rootElement)
     {
-        var pngBytes = CaptureAllWindowsComposited();
+        var pngBytes = await DispatchAsync(() => CaptureAllWindowsComposited());
         if (pngBytes != null)
-            return Task.FromResult<byte[]?>(pngBytes);
-        return base.CaptureScreenshotAsync(rootElement);
+            return pngBytes;
+        return await base.CaptureScreenshotAsync(rootElement);
     }
 
     protected override Task<byte[]?> CaptureFullScreenAsync()
@@ -532,14 +532,21 @@ public class PlatformAgentService : DevFlowAgentService
         if (windows.Count == 0)
             return null;
 
-        var format = new UIKit.UIGraphicsImageRendererFormat { Scale = screen.Scale };
+        using var format = new UIKit.UIGraphicsImageRendererFormat { Scale = screen.Scale };
         using var renderer = new UIKit.UIGraphicsImageRenderer(screenBounds, format);
 
-        using var image = renderer.CreateImage(_ =>
+        using var image = renderer.CreateImage(ctx =>
         {
-            // Draw each window at its frame position in screen coordinates (back to front)
             foreach (var window in windows)
-                window.DrawViewHierarchy(window.Frame, afterScreenUpdates: false);
+            {
+                // Translate the graphics context to the window's screen origin so that
+                // DrawViewHierarchy (which draws in local/Bounds coordinates) is composited
+                // at the correct position. Using window.Frame here would pass screen coordinates
+                // as the draw rect, which can shift/crop non-fullscreen windows.
+                ctx.CGContext.TranslateCTM(window.Frame.X, window.Frame.Y);
+                window.DrawViewHierarchy(window.Bounds, afterScreenUpdates: false);
+                ctx.CGContext.TranslateCTM(-window.Frame.X, -window.Frame.Y);
+            }
         });
 
         using var pngData = image.AsPng();

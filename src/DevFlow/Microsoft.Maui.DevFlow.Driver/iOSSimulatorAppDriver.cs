@@ -59,13 +59,22 @@ public class iOSSimulatorAppDriver : AppDriverBase
 
     /// <summary>
     /// Query the iOS accessibility tree and look for an alert/dialog.
+    /// Returns AlertInfo if one is found, null otherwise.
+    /// </summary>
+    public Task<AlertInfo?> DetectAlertAsync() => DetectAlertAsync(maxAttempts: 3, retryDelayMs: 300);
+
+    /// <summary>
+    /// Query the iOS accessibility tree and look for an alert/dialog.
     /// Retries up to <paramref name="maxAttempts"/> times with <paramref name="retryDelayMs"/> ms
     /// between each attempt to tolerate timing windows where the AX tree is queried before the
     /// dialog finishes committing.
     /// Returns AlertInfo if one is found, null otherwise.
     /// </summary>
-    public async Task<AlertInfo?> DetectAlertAsync(int maxAttempts = 3, int retryDelayMs = 300)
+    public async Task<AlertInfo?> DetectAlertAsync(int maxAttempts, int retryDelayMs)
     {
+        if (maxAttempts < 1) throw new ArgumentOutOfRangeException(nameof(maxAttempts), "Must be at least 1.");
+        if (retryDelayMs < 0) throw new ArgumentOutOfRangeException(nameof(retryDelayMs), "Must be non-negative.");
+
         EnsureDeviceUdid();
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -387,9 +396,10 @@ public class iOSSimulatorAppDriver : AppDriverBase
         // Strategy 2: iOS 26+ heuristic — when a system alert or action sheet is showing,
         // the Application element's direct children flatten to only simple element types
         // (the normal app hierarchy collapses). Detect this pattern.
-        // Note: newer iOS/Xcode versions may include additional types (Image, Other, ScrollArea)
-        // alongside the core Button/StaticText set, so we check presence of Buttons + absence
-        // of anything that looks like a real app container (Window, NavigationBar, TabBar etc.).
+        // We check for the presence of Buttons and the absence of real app container types
+        // (Window, NavigationBar, TabBar, ScrollView/ScrollArea, etc.) rather than
+        // allowing only a specific set of types, so new element types in future iOS/Xcode
+        // versions don't break detection.
         var app = elements.FirstOrDefault(e =>
             string.Equals(e.Type, "Application", StringComparison.OrdinalIgnoreCase));
         if (app is not null && app.Children.Count >= 2)
@@ -401,7 +411,8 @@ public class iOSSimulatorAppDriver : AppDriverBase
                 || string.Equals(t, "NavigationBar", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(t, "TabBar", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(t, "ToolBar", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "ScrollView", StringComparison.OrdinalIgnoreCase));
+                || string.Equals(t, "ScrollView", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "ScrollArea", StringComparison.OrdinalIgnoreCase));
 
             if (hasButtons && !hasAppContainer)
             {
