@@ -2020,20 +2020,25 @@ class Program
             byte[]? data = null;
             bool fromSimctl = false;
 
+            using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
+
             // For full-screen captures (no element scoping), try simctl io screenshot first
             // when connected to an iOS simulator. This captures everything on the simulator
             // display including SpringBoard permission dialogs and system view controllers
             // that the in-app agent cannot see.
             if (id == null && selector == null && !OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
             {
-                data = await TrySimctlScreenshotAsync(host, port);
-                fromSimctl = data != null;
+                var status = await client.GetStatusAsync();
+                if (status?.Platform?.Contains("iOS", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    data = await TrySimctlScreenshotAsync();
+                    fromSimctl = data != null;
+                }
             }
 
             // Fall back to agent-based screenshot (or used for element-scoped captures)
             if (data == null)
             {
-                using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
                 data = await client.ScreenshotAsync(window, id, selector, maxWidth, scale);
             }
 
@@ -2068,20 +2073,14 @@ class Program
     }
 
     /// <summary>
-    /// Attempts a simctl io screenshot if the connected agent is an iOS simulator.
-    /// Returns PNG bytes on success, null if not applicable or failed.
+    /// Attempts a simctl io screenshot for the booted iOS simulator.
+    /// Returns PNG bytes on success, null on failure.
+    /// Caller is responsible for checking platform before calling.
     /// </summary>
-    private static async Task<byte[]?> TrySimctlScreenshotAsync(string host, int port)
+    private static async Task<byte[]?> TrySimctlScreenshotAsync()
     {
         try
         {
-            // Check if the connected agent is iOS
-            using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
-            var status = await client.GetStatusAsync();
-            if (status?.Platform == null ||
-                !status.Platform.Contains("iOS", StringComparison.OrdinalIgnoreCase))
-                return null;
-
             var udid = await ResolveUdidAsync(null);
 
             var tempFile = Path.Combine(Path.GetTempPath(), $"devflow-simctl-{Guid.NewGuid():N}.png");
