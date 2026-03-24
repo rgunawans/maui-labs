@@ -2017,8 +2017,24 @@ class Program
                 return;
             }
 
-            using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
-            var data = await client.ScreenshotAsync(window, id, selector, maxWidth, scale);
+            byte[]? data = null;
+
+            // For full-screen captures (no element scoping), try simctl io screenshot first
+            // when connected to an iOS simulator. This captures everything on the simulator
+            // display including SpringBoard permission dialogs and system view controllers
+            // that the in-app agent cannot see.
+            if (id == null && selector == null && !OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
+            {
+                data = await TrySimctlScreenshotAsync(host, port);
+            }
+
+            // Fall back to agent-based screenshot (or used for element-scoped captures)
+            if (data == null)
+            {
+                using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
+                data = await client.ScreenshotAsync(window, id, selector, maxWidth, scale);
+            }
+
             if (data == null)
             {
                 OutputWriter.WriteError("Failed to capture screenshot", json);
@@ -2040,6 +2056,56 @@ class Program
             }
         }
         catch (Exception ex) { OutputWriter.WriteError(ex.Message, json); _errorOccurred = true; }
+    }
+
+    /// <summary>
+    /// Attempts a simctl io screenshot if the connected agent is an iOS simulator.
+    /// Returns PNG bytes on success, null if not applicable or failed.
+    /// </summary>
+    private static async Task<byte[]?> TrySimctlScreenshotAsync(string host, int port)
+    {
+        try
+        {
+            // Check if the connected agent is iOS
+            using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
+            var status = await client.GetStatusAsync();
+            if (status?.Platform == null ||
+                !status.Platform.Contains("iOS", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var udid = await ResolveUdidAsync(null);
+
+            var tempFile = Path.Combine(Path.GetTempPath(), $"devflow-simctl-{Guid.NewGuid():N}.png");
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("xcrun",
+                    $"simctl io {udid} screenshot --type png \"{tempFile}\"")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                };
+                using var proc = System.Diagnostics.Process.Start(psi)
+                    ?? throw new InvalidOperationException("Failed to start xcrun");
+                await proc.WaitForExitAsync();
+
+                if (proc.ExitCode == 0 && File.Exists(tempFile))
+                {
+                    var bytes = await File.ReadAllBytesAsync(tempFile);
+                    if (bytes.Length > 0)
+                        return bytes;
+                }
+            }
+            finally
+            {
+                try { File.Delete(tempFile); } catch { }
+            }
+        }
+        catch
+        {
+            // Not a simulator, simctl unavailable, or UDID resolution failed — fall through
+        }
+        return null;
     }
 
     private static async Task RecordingStartAsync(string host, int port, string platform, string? output, int timeout)

@@ -43,7 +43,7 @@ public abstract class AppDriverBase : IAppDriver
     public Task<bool> ClearAsync(string elementId)
         => EnsureClient().ClearAsync(elementId);
 
-    public Task<byte[]?> ScreenshotAsync()
+    public virtual Task<byte[]?> ScreenshotAsync()
         => EnsureClient().ScreenshotAsync();
 
     public virtual Task BackAsync()

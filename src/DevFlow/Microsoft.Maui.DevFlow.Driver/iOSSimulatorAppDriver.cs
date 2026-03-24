@@ -182,6 +182,48 @@ public class iOSSimulatorAppDriver : AppDriverBase
         await RunProcessAsync("apple", $"simulator idb tap {DeviceUdid} {x} {y}").ConfigureAwait(false);
     }
 
+    // --- Screenshot via xcrun simctl io screenshot ---
+
+    /// <summary>
+    /// Captures a full-screen screenshot of the simulator using <c>xcrun simctl io screenshot</c>.
+    /// This captures everything visible on the simulator display including SpringBoard overlays,
+    /// permission dialogs, system view controllers (e.g., contact picker), and other out-of-process
+    /// UI that the in-app agent screenshot cannot see.
+    /// Falls back to the agent-based screenshot if simctl is unavailable.
+    /// </summary>
+    public override async Task<byte[]?> ScreenshotAsync()
+    {
+        if (!string.IsNullOrEmpty(DeviceUdid))
+        {
+            try
+            {
+                var tempFile = Path.Combine(Path.GetTempPath(), $"devflow-simctl-{Guid.NewGuid():N}.png");
+                try
+                {
+                    await RunProcessAsync("xcrun", $"simctl io {DeviceUdid} screenshot --type png \"{tempFile}\"")
+                        .ConfigureAwait(false);
+
+                    if (File.Exists(tempFile))
+                    {
+                        var bytes = await File.ReadAllBytesAsync(tempFile).ConfigureAwait(false);
+                        if (bytes.Length > 0)
+                            return bytes;
+                    }
+                }
+                finally
+                {
+                    try { File.Delete(tempFile); } catch { }
+                }
+            }
+            catch
+            {
+                // simctl failed — fall through to agent-based screenshot
+            }
+        }
+
+        return await base.ScreenshotAsync().ConfigureAwait(false);
+    }
+
     // --- Screen Recording via xcrun simctl io recordVideo ---
 
     public override async Task StartRecordingAsync(string outputFile, int timeoutSeconds = 30)
