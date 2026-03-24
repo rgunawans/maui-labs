@@ -479,7 +479,7 @@ public class PlatformAgentService : DevFlowAgentService
     }
 
     protected override Task<byte[]?> CaptureFullScreenAsync()
-        => Task.FromResult(CaptureAllWindowsComposited());
+        => DispatchAsync(() => CaptureAllWindowsComposited());
 
     /// <summary>
     /// Composites all visible UIWindows in the active UIWindowScene into a single PNG.
