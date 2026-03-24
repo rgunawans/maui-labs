@@ -533,16 +533,16 @@ public class PlatformAgentService : DevFlowAgentService
             return null;
 
         var format = new UIKit.UIGraphicsImageRendererFormat { Scale = screen.Scale };
-        var renderer = new UIKit.UIGraphicsImageRenderer(screenBounds, format);
+        using var renderer = new UIKit.UIGraphicsImageRenderer(screenBounds, format);
 
-        var image = renderer.CreateImage(_ =>
+        using var image = renderer.CreateImage(_ =>
         {
             // Draw each window at its frame position in screen coordinates (back to front)
             foreach (var window in windows)
                 window.DrawViewHierarchy(window.Frame, afterScreenUpdates: false);
         });
 
-        var pngData = image.AsPng();
+        using var pngData = image.AsPng();
         return pngData?.ToArray();
     }
 #elif WINDOWS
