@@ -19,7 +19,7 @@ feedback loop: **build → deploy → inspect → fix → rebuild**.
 ## Prerequisites
 
 ```bash
-dotnet tool install --global Redth.MauiDevFlow.CLI || dotnet tool update --global Redth.MauiDevFlow.CLI
+dotnet tool install --global Microsoft.Maui.DevFlow.CLI || dotnet tool update --global Microsoft.Maui.DevFlow.CLI
 dotnet tool install --global androidsdk.tool    # Android only
 dotnet tool install --global appledev.tools     # iOS/Mac only
 ```
@@ -33,7 +33,7 @@ with `maui-devflow skill-version`. For full update procedures, see
 For complete setup instructions, see [references/setup.md](references/setup.md).
 
 **Quick summary:**
-1. Add NuGet packages (`Redth.MauiDevFlow.Agent`, and `Redth.MauiDevFlow.Blazor` for Blazor Hybrid)
+1. Add NuGet packages (`Microsoft.Maui.DevFlow.Agent`, and `Microsoft.Maui.DevFlow.Blazor` for Blazor Hybrid)
    - For **Linux/GTK apps** (detected via `grep -i 'GirCore\|Maui\.Gtk' *.csproj`), use `Agent.Gtk` and `Blazor.Gtk` instead
    - For **macOS (AppKit) apps** (detected via `grep -i 'Platform\.Maui\.MacOS' *.csproj`), the standard `Agent` and `Blazor` packages include macOS support
 2. Register in `MauiProgram.cs` inside `#if DEBUG`
