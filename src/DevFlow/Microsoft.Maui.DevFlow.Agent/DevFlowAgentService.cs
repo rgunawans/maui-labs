@@ -469,6 +469,89 @@ public class PlatformAgentService : DevFlowAgentService
             return null;
         }
     }
+#elif IOS || MACCATALYST
+    protected override async Task<byte[]?> CaptureScreenshotAsync(VisualElement rootElement)
+    {
+        var pngBytes = await DispatchAsync(() => CaptureAllWindowsComposited());
+        if (pngBytes != null)
+            return pngBytes;
+        return await base.CaptureScreenshotAsync(rootElement);
+    }
+
+    protected override Task<byte[]?> CaptureFullScreenAsync()
+        => DispatchAsync(() => CaptureAllWindowsComposited());
+
+    /// <summary>
+    /// Composites all visible UIWindows in the active UIWindowScene into a single PNG.
+    /// This captures native overlays such as UIAlertController dialogs that live in
+    /// their own UIWindow at an elevated WindowLevel, which VisualDiagnostics misses.
+    /// </summary>
+    private static byte[]? CaptureAllWindowsComposited()
+    {
+        // Find the foreground UIWindowScene (the one the user is interacting with)
+        UIKit.UIWindowScene? windowScene = null;
+        foreach (var scene in UIKit.UIApplication.SharedApplication.ConnectedScenes)
+        {
+            if (scene is UIKit.UIWindowScene ws &&
+                ws.ActivationState == UIKit.UISceneActivationState.ForegroundActive)
+            {
+                windowScene = ws;
+                break;
+            }
+        }
+
+        // Fall back to any connected window scene if no active foreground scene found
+        if (windowScene == null)
+        {
+            foreach (var scene in UIKit.UIApplication.SharedApplication.ConnectedScenes)
+            {
+                if (scene is UIKit.UIWindowScene ws)
+                {
+                    windowScene = ws;
+                    break;
+                }
+            }
+        }
+
+        if (windowScene == null)
+            return null;
+
+        var screen = windowScene.Screen;
+        var screenBounds = screen.Bounds;
+
+        // Collect all visible windows sorted by WindowLevel ascending (back → front)
+        // so that alert/dialog windows (WindowLevel ~2000) are drawn on top of the app window (level 0)
+        var windows = new System.Collections.Generic.List<UIKit.UIWindow>();
+        foreach (var w in windowScene.Windows)
+        {
+            if (!w.Hidden && w.Alpha > 0f)
+                windows.Add(w);
+        }
+        windows.Sort((a, b) => ((double)a.WindowLevel).CompareTo((double)b.WindowLevel));
+
+        if (windows.Count == 0)
+            return null;
+
+        using var format = new UIKit.UIGraphicsImageRendererFormat { Scale = screen.Scale };
+        using var renderer = new UIKit.UIGraphicsImageRenderer(screenBounds, format);
+
+        using var image = renderer.CreateImage(ctx =>
+        {
+            foreach (var window in windows)
+            {
+                // Translate the graphics context to the window's screen origin so that
+                // DrawViewHierarchy (which draws in local/Bounds coordinates) is composited
+                // at the correct position. Using window.Frame here would pass screen coordinates
+                // as the draw rect, which can shift/crop non-fullscreen windows.
+                ctx.CGContext.TranslateCTM(window.Frame.X, window.Frame.Y);
+                window.DrawViewHierarchy(window.Bounds, afterScreenUpdates: false);
+                ctx.CGContext.TranslateCTM(-window.Frame.X, -window.Frame.Y);
+            }
+        });
+
+        using var pngData = image.AsPNG();
+        return pngData?.ToArray();
+    }
 #elif WINDOWS
     protected override async Task<byte[]?> CaptureScreenshotAsync(VisualElement rootElement)
     {

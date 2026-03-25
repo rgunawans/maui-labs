@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
     <PackageReference Include="System.Text.Json" />
     <PackageReference Include="Interop.UIAutomationClient" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
   </ItemGroup>

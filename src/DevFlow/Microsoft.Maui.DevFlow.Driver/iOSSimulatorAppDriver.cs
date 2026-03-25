@@ -12,10 +12,16 @@ namespace Microsoft.Maui.DevFlow.Driver;
 public class iOSSimulatorAppDriver : AppDriverBase
 {
     private static readonly string[] AcceptLabels =
-        ["Allow", "OK", "Allow While Using App", "Allow Once", "Continue", "Yes", "Confirm"];
+    [
+        "Allow", "OK", "Allow While Using App", "Allow Once", "Continue", "Yes", "Confirm",
+        // Variants seen in newer iOS versions
+        "Allow Access", "Grant Access", "Enable", "Turn On", "Give Access",
+        // Action-sheet style confirmations
+        "Done", "Open", "Install", "Update",
+    ];
 
     private static readonly string[] AlertIndicators =
-        ["Alert", "alert", "UIAlertController"];
+        ["Alert", "alert", "UIAlertController", "Sheet", "ActionSheet"];
 
     public override string Platform => "iOSSimulator";
 
@@ -55,26 +61,52 @@ public class iOSSimulatorAppDriver : AppDriverBase
     /// Query the iOS accessibility tree and look for an alert/dialog.
     /// Returns AlertInfo if one is found, null otherwise.
     /// </summary>
-    public async Task<AlertInfo?> DetectAlertAsync()
-    {
-        EnsureDeviceUdid();
-        var json = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(json))
-            return null;
+    public Task<AlertInfo?> DetectAlertAsync() => DetectAlertAsync(maxAttempts: 3, retryDelayMs: 300);
 
-        try
+    /// <summary>
+    /// Query the iOS accessibility tree and look for an alert/dialog.
+    /// Retries up to <paramref name="maxAttempts"/> times with <paramref name="retryDelayMs"/> ms
+    /// between each attempt to tolerate timing windows where the AX tree is queried before the
+    /// dialog finishes committing.
+    /// Returns AlertInfo if one is found, null otherwise.
+    /// </summary>
+    public async Task<AlertInfo?> DetectAlertAsync(int maxAttempts, int retryDelayMs)
+    {
+        if (maxAttempts < 1) throw new ArgumentOutOfRangeException(nameof(maxAttempts), "Must be at least 1.");
+        if (retryDelayMs < 0) throw new ArgumentOutOfRangeException(nameof(retryDelayMs), "Must be non-negative.");
+
+        EnsureDeviceUdid();
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            // The accessibility output may contain embedded newlines in string values;
-            // replace bare control characters so JsonDocument can parse it.
-            json = SanitizeJson(json);
-            using var doc = JsonDocument.Parse(json);
-            var elements = ParseElements(doc.RootElement);
-            return FindAlert(elements);
+            var json = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                if (attempt < maxAttempts) await Task.Delay(retryDelayMs).ConfigureAwait(false);
+                continue;
+            }
+
+            try
+            {
+                // The accessibility output may contain embedded newlines in string values;
+                // replace bare control characters so JsonDocument can parse it.
+                json = SanitizeJson(json);
+                using var doc = JsonDocument.Parse(json);
+                var elements = ParseElements(doc.RootElement);
+                var alert = FindAlert(elements);
+                if (alert is not null)
+                    return alert;
+            }
+            catch
+            {
+                // JSON parse failure — fall through to retry
+            }
+
+            if (attempt < maxAttempts)
+                await Task.Delay(retryDelayMs).ConfigureAwait(false);
         }
-        catch
-        {
-            return null;
-        }
+
+        return null;
     }
 
     /// <summary>
@@ -118,14 +150,26 @@ public class iOSSimulatorAppDriver : AppDriverBase
     }
 
     /// <summary>
-    /// Returns the raw accessibility tree JSON from the simulator.
-    /// Useful for debugging or advanced element queries.
+    /// Returns the sanitized accessibility tree JSON from the simulator.
+    /// If the JSON cannot be parsed, the raw (unsanitized) output is returned instead
+    /// so that callers can diagnose what the apple CLI actually produced.
     /// </summary>
     public async Task<string> GetAccessibilityTreeAsync()
     {
         EnsureDeviceUdid();
-        var json = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
-        return SanitizeJson(json);
+        var raw = await RunIdbAccessibilityInfoAsync().ConfigureAwait(false);
+        var sanitized = SanitizeJson(raw);
+        // Validate the sanitized output parses; if not, return the raw string so the
+        // caller can see exactly what came out of the apple CLI.
+        try
+        {
+            using var _ = JsonDocument.Parse(sanitized);
+            return sanitized;
+        }
+        catch
+        {
+            return raw;
+        }
     }
 
     /// <summary>
@@ -136,6 +180,48 @@ public class iOSSimulatorAppDriver : AppDriverBase
     {
         EnsureDeviceUdid();
         await RunProcessAsync("apple", $"simulator idb tap {DeviceUdid} {x} {y}").ConfigureAwait(false);
+    }
+
+    // --- Screenshot via xcrun simctl io screenshot ---
+
+    /// <summary>
+    /// Captures a full-screen screenshot of the simulator using <c>xcrun simctl io screenshot</c>.
+    /// This captures everything visible on the simulator display including SpringBoard overlays,
+    /// permission dialogs, system view controllers (e.g., contact picker), and other out-of-process
+    /// UI that the in-app agent screenshot cannot see.
+    /// Falls back to the agent-based screenshot if simctl is unavailable.
+    /// </summary>
+    public override async Task<byte[]?> ScreenshotAsync()
+    {
+        if (!string.IsNullOrEmpty(DeviceUdid))
+        {
+            try
+            {
+                var tempFile = Path.Combine(Path.GetTempPath(), $"devflow-simctl-{Guid.NewGuid():N}.png");
+                try
+                {
+                    await RunProcessAsync("xcrun", $"simctl io {DeviceUdid} screenshot --type png \"{tempFile}\"")
+                        .ConfigureAwait(false);
+
+                    if (File.Exists(tempFile))
+                    {
+                        var bytes = await File.ReadAllBytesAsync(tempFile).ConfigureAwait(false);
+                        if (bytes.Length > 0)
+                            return ResizeSimctlPng(bytes);
+                    }
+                }
+                finally
+                {
+                    try { File.Delete(tempFile); } catch { }
+                }
+            }
+            catch
+            {
+                // simctl failed — fall through to agent-based screenshot
+            }
+        }
+
+        return await base.ScreenshotAsync().ConfigureAwait(false);
     }
 
     // --- Screen Recording via xcrun simctl io recordVideo ---
@@ -202,6 +288,51 @@ public class iOSSimulatorAppDriver : AppDriverBase
     {
         if (string.IsNullOrEmpty(DeviceUdid))
             throw new InvalidOperationException("DeviceUdid must be set for simulator operations.");
+    }
+
+    /// <summary>
+    /// Downscales a native-resolution simctl screenshot to 1x logical pixels.
+    /// Infers the display density from common iOS simulator pixel widths.
+    /// </summary>
+    private static byte[] ResizeSimctlPng(byte[] pngData)
+    {
+        try
+        {
+            using var original = SkiaSharp.SKBitmap.Decode(pngData);
+            if (original == null) return pngData;
+
+            double density = original.Width switch
+            {
+                1290 or 1320 or 1206 => 3.0,
+                1170 => 3.0,
+                1125 => 3.0,
+                1242 => 3.0,
+                828 => 2.0,
+                750 => 2.0,
+                2048 or 2388 or 2360 => 2.0,
+                _ => original.Width > 1000 ? 3.0 : 2.0
+            };
+
+            var targetWidth = (int)(original.Width / density);
+            if (targetWidth <= 0 || targetWidth >= original.Width)
+                return pngData;
+
+            var scale = (float)targetWidth / original.Width;
+            var newHeight = (int)(original.Height * scale);
+
+            using var resized = original.Resize(
+                new SkiaSharp.SKImageInfo(targetWidth, newHeight),
+                SkiaSharp.SKSamplingOptions.Default);
+            if (resized == null) return pngData;
+
+            using var image = SkiaSharp.SKImage.FromBitmap(resized);
+            using var encoded = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            return encoded.ToArray();
+        }
+        catch
+        {
+            return pngData;
+        }
     }
 
     /// <summary>
@@ -350,22 +481,27 @@ public class iOSSimulatorAppDriver : AppDriverBase
         }
 
         // Strategy 2: iOS 26+ heuristic — when a system alert or action sheet is showing,
-        // the Application element's direct children flatten to only StaticText + Button
+        // the Application element's direct children flatten to only simple element types
         // (the normal app hierarchy collapses). Detect this pattern.
+        // We check for the presence of Buttons and the absence of real app container types
+        // (Window, NavigationBar, TabBar, ScrollView/ScrollArea, etc.) rather than
+        // allowing only a specific set of types, so new element types in future iOS/Xcode
+        // versions don't break detection.
         var app = elements.FirstOrDefault(e =>
             string.Equals(e.Type, "Application", StringComparison.OrdinalIgnoreCase));
         if (app is not null && app.Children.Count >= 2)
         {
             var childTypes = app.Children.Select(c => c.Type).ToList();
             bool hasButtons = childTypes.Any(t => string.Equals(t, "Button", StringComparison.OrdinalIgnoreCase));
-            bool allSimple = childTypes.All(t =>
-                string.Equals(t, "StaticText", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "Button", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "TextField", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "Cell", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(t, "Group", StringComparison.OrdinalIgnoreCase));
+            bool hasAppContainer = childTypes.Any(t =>
+                string.Equals(t, "Window", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "NavigationBar", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "TabBar", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "ToolBar", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "ScrollView", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "ScrollArea", StringComparison.OrdinalIgnoreCase));
 
-            if (hasButtons && allSimple)
+            if (hasButtons && !hasAppContainer)
             {
                 var buttons = new List<AlertButton>();
                 CollectButtons(app, buttons);

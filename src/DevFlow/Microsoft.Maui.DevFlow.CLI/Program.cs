@@ -2017,14 +2017,44 @@ class Program
                 return;
             }
 
+            byte[]? data = null;
+            bool fromSimctl = false;
+
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
-            var data = await client.ScreenshotAsync(window, id, selector, maxWidth, scale);
+
+            // For full-screen captures (no element scoping), try simctl io screenshot first
+            // when connected to an iOS simulator. This captures everything on the simulator
+            // display including SpringBoard permission dialogs and system view controllers
+            // that the in-app agent cannot see.
+            if (id == null && selector == null && !OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
+            {
+                var status = await client.GetStatusAsync();
+                if (status?.Platform?.Contains("iOS", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    data = await TrySimctlScreenshotAsync();
+                    fromSimctl = data != null;
+                }
+            }
+
+            // Fall back to agent-based screenshot (or used for element-scoped captures)
+            if (data == null)
+            {
+                data = await client.ScreenshotAsync(window, id, selector, maxWidth, scale);
+            }
+
             if (data == null)
             {
                 OutputWriter.WriteError("Failed to capture screenshot", json);
                 _errorOccurred = true;
                 return;
             }
+
+            // simctl screenshots are at native device resolution (e.g., 3x).
+            // Apply the same auto-scaling the agent does: downscale to 1x logical pixels
+            // unless scale=native was requested or an explicit maxWidth was given.
+            if (fromSimctl)
+                data = ResizeSimctlScreenshot(data, maxWidth, scale);
+
             await File.WriteAllBytesAsync(filename, data);
             var fullPath = Path.GetFullPath(filename);
             if (json)
@@ -2040,6 +2070,108 @@ class Program
             }
         }
         catch (Exception ex) { OutputWriter.WriteError(ex.Message, json); _errorOccurred = true; }
+    }
+
+    /// <summary>
+    /// Attempts a simctl io screenshot for the booted iOS simulator.
+    /// Returns PNG bytes on success, null on failure.
+    /// Caller is responsible for checking platform before calling.
+    /// </summary>
+    private static async Task<byte[]?> TrySimctlScreenshotAsync()
+    {
+        try
+        {
+            var udid = await ResolveUdidAsync(null);
+
+            var tempFile = Path.Combine(Path.GetTempPath(), $"devflow-simctl-{Guid.NewGuid():N}.png");
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("xcrun",
+                    $"simctl io {udid} screenshot --type png \"{tempFile}\"")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                };
+                using var proc = System.Diagnostics.Process.Start(psi)
+                    ?? throw new InvalidOperationException("Failed to start xcrun");
+                await proc.WaitForExitAsync();
+
+                if (proc.ExitCode == 0 && File.Exists(tempFile))
+                {
+                    var bytes = await File.ReadAllBytesAsync(tempFile);
+                    if (bytes.Length > 0)
+                        return bytes;
+                }
+            }
+            finally
+            {
+                try { File.Delete(tempFile); } catch { }
+            }
+        }
+        catch
+        {
+            // Not a simulator, simctl unavailable, or UDID resolution failed — fall through
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Downscales a simctl screenshot to match the agent's auto-scaling behavior.
+    /// iOS simulator screenshots are at native device resolution (e.g., 3x on iPhone).
+    /// By default, scales to 1x logical pixels. Respects scale=native and explicit maxWidth.
+    /// </summary>
+    private static byte[] ResizeSimctlScreenshot(byte[] pngData, int? maxWidth, string? scale)
+    {
+        // If scale=native was requested, return as-is
+        if (scale != null && (scale.Equals("native", StringComparison.OrdinalIgnoreCase)
+                           || scale.Equals("full", StringComparison.OrdinalIgnoreCase)))
+            return pngData;
+
+        try
+        {
+            using var original = SkiaSharp.SKBitmap.Decode(pngData);
+            if (original == null) return pngData;
+
+            // Determine target width: explicit maxWidth takes priority, then auto-scale by
+            // the simulator's display scale (3x for modern iPhones, 2x for older/iPads).
+            // We infer density from common iOS simulator resolutions.
+            int? targetWidth = maxWidth;
+            if (targetWidth == null)
+            {
+                double density = original.Width switch
+                {
+                    1290 or 1320 or 1206 => 3.0, // iPhone 14/15/16 Pro, Pro Max, standard
+                    1170 => 3.0,                   // iPhone 12/13/14
+                    1125 => 3.0,                   // iPhone X/XS/11 Pro
+                    1242 => 3.0,                   // iPhone 8+/XS Max
+                    828 => 2.0,                    // iPhone XR/11
+                    750 => 2.0,                    // iPhone 8/SE
+                    2048 or 2388 or 2360 => 2.0,   // iPad Pro/Air
+                    _ => original.Width > 1000 ? 3.0 : 2.0 // default: assume 3x for large, 2x otherwise
+                };
+                targetWidth = (int)(original.Width / density);
+            }
+
+            if (targetWidth <= 0 || targetWidth >= original.Width)
+                return pngData;
+
+            var scaleRatio = (float)targetWidth.Value / original.Width;
+            var newHeight = (int)(original.Height * scaleRatio);
+
+            using var resized = original.Resize(
+                new SkiaSharp.SKImageInfo(targetWidth.Value, newHeight),
+                SkiaSharp.SKSamplingOptions.Default);
+            if (resized == null) return pngData;
+
+            using var image = SkiaSharp.SKImage.FromBitmap(resized);
+            using var encoded = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            return encoded.ToArray();
+        }
+        catch
+        {
+            return pngData;
+        }
     }
 
     private static async Task RecordingStartAsync(string host, int port, string platform, string? output, int timeout)
