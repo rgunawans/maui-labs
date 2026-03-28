@@ -3718,37 +3718,64 @@ class Program
     /// Scans the current directory for csproj files containing DevFlow package references.
     /// Returns relative paths to projects that have DevFlow enabled.
     /// </summary>
+    private static readonly HashSet<string> _scanExcludedDirs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin", "obj", "node_modules", ".git", ".vs", ".idea", "packages"
+    };
+
     private static string[] ScanForDevFlowProjects()
     {
         var cwd = Directory.GetCurrentDirectory();
         var projects = new List<string>();
-        
+
         try
         {
-            var csprojFiles = Directory.EnumerateFiles(cwd, "*.csproj", SearchOption.AllDirectories);
-            
-            foreach (var csproj in csprojFiles)
+            var pending = new Queue<string>();
+            pending.Enqueue(cwd);
+
+            while (pending.Count > 0)
             {
-                // Skip bin, obj, node_modules, .git directories for performance
-                var relativePath = Path.GetRelativePath(cwd, csproj);
-                if (relativePath.Contains("/bin/") || relativePath.Contains("\\bin\\") ||
-                    relativePath.Contains("/obj/") || relativePath.Contains("\\obj\\") ||
-                    relativePath.Contains("/node_modules/") || relativePath.Contains("\\node_modules\\") ||
-                    relativePath.Contains("/.git/") || relativePath.Contains("\\.git\\"))
-                    continue;
-                
+                var dir = pending.Dequeue();
+
+                // Search for .csproj files in this directory only (not recursive)
                 try
                 {
-                    var content = File.ReadAllText(csproj);
-                    if (content.Contains("Redth.MauiDevFlow.Agent") || 
-                        content.Contains("Microsoft.Maui.DevFlow.Agent"))
+                    foreach (var csproj in Directory.EnumerateFiles(dir, "*.csproj", SearchOption.TopDirectoryOnly))
                     {
-                        projects.Add(relativePath);
+                        try
+                        {
+                            var content = File.ReadAllText(csproj);
+                            if (content.Contains("Redth.MauiDevFlow.Agent") ||
+                                content.Contains("Microsoft.Maui.DevFlow.Agent"))
+                            {
+                                projects.Add(Path.GetRelativePath(cwd, csproj));
+                            }
+                        }
+                        catch
+                        {
+                            // Skip files we can't read
+                        }
                     }
                 }
                 catch
                 {
-                    // Skip files we can't read
+                    // Skip directories we can't enumerate
+                    continue;
+                }
+
+                // Enqueue subdirectories, pruning excluded ones before recursing
+                try
+                {
+                    foreach (var subDir in Directory.EnumerateDirectories(dir, "*", SearchOption.TopDirectoryOnly))
+                    {
+                        var dirName = Path.GetFileName(subDir);
+                        if (!_scanExcludedDirs.Contains(dirName))
+                            pending.Enqueue(subDir);
+                    }
+                }
+                catch
+                {
+                    // Skip directories we can't enumerate
                 }
             }
         }
@@ -3756,7 +3783,8 @@ class Program
         {
             // If scanning fails, return empty array
         }
-        
+
+        projects.Sort(StringComparer.OrdinalIgnoreCase);
         return projects.ToArray();
     }
 }
