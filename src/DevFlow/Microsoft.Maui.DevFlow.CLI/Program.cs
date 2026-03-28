@@ -3453,8 +3453,9 @@ class Program
             foreach (var agent in agents!)
             {
                 var uptime = DateTime.UtcNow - agent.ConnectedAt;
+                var totalHours = (int)uptime.TotalHours;
                 var uptimeStr = uptime.TotalHours >= 1
-                    ? $"{uptime.Hours}h {uptime.Minutes}m"
+                    ? $"{totalHours}h {uptime.Minutes}m"
                     : $"{uptime.Minutes}m {uptime.Seconds}s";
                 Console.WriteLine($"   • {agent.AppName} ({agent.Platform}, port {agent.Port}, uptime {uptimeStr})");
             }
