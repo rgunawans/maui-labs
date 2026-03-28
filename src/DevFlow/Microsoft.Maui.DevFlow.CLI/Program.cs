@@ -3768,8 +3768,8 @@ class Program
                 {
                     foreach (var subDir in Directory.EnumerateDirectories(dir, "*", SearchOption.TopDirectoryOnly))
                     {
-                        var dirName = Path.GetFileName(subDir);
-                        if (!_scanExcludedDirs.Contains(dirName))
+                        var dirName = Path.GetFileName(subDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                        if (!string.IsNullOrEmpty(dirName) && !_scanExcludedDirs.Contains(dirName))
                             pending.Enqueue(subDir);
                     }
                 }
