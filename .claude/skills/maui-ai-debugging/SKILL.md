@@ -563,7 +563,7 @@ their input.
 ## Tips
 
 - **`maui-devflow list` shows runtime state, not project integration.** Empty list ≠ "not installed."
-  Always check project files (`grep -r MauiDevFlow *.csproj`) before concluding DevFlow is unavailable.
+  Always check project files (`grep -rl "MauiDevFlow" --include="*.csproj" .`) before concluding DevFlow is unavailable.
 - **`maui-devflow diagnose`** is the fastest way to check the entire chain: CLI → broker → agents → projects.
 - After launching through Aspire, always run `maui-devflow wait` before attempting any interaction.
 - **Use `maui-devflow batch`** for multi-step interactions — resolves port once, adds delays,
