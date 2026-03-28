@@ -3480,7 +3480,7 @@ class Program
                 Console.WriteLine();
                 Console.WriteLine("💡 Suggestion: Your project has DevFlow but no agent is connected.");
                 Console.WriteLine("   1. Ensure the app is running in Debug configuration");
-                Console.WriteLine($"   2. Run: maui-devflow wait --project {projects[0]}");
+                Console.WriteLine($"   2. Run: maui-devflow wait --project \"{projects[0].Replace("\"", "\\\"")}\"");
             }
         }
         else
