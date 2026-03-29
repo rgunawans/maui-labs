@@ -122,9 +122,9 @@ The repo is at 0.1.0-preview so breaking changes are acceptable, but:
 
 - **Framework**: xUnit v2.9.3
 - **Naming**: `MethodName_Condition_ExpectedResult` or descriptive `[Fact]` names
-- **Location**: `src/{Product}/*.Tests/` or `src/{Product}/*.UnitTests/`
+- **Location**: `src/DevFlow/Microsoft.Maui.DevFlow.Tests/`
 - **Coverage**: coverlet.collector
-- **Fakes**: DevFlow tests use real Agent.Core code; Client tests use `FakeAndroidProvider`, `FakeJdkManager` etc.
+- **Approach**: DevFlow tests use real Agent.Core code — they instantiate actual services and test behavior
 
 ## Arcade SDK Gotchas
 
@@ -134,13 +134,13 @@ The repo is at 0.1.0-preview so breaking changes are acceptable, but:
 - **Signing**: configured in `eng/Signing.props`. New third-party DLLs need a `3PartySHA2` entry.
 - **Version**: defined in `eng/Versions.props` (`VersionPrefix` + `VersionSuffix`). Per-product overrides in `src/{Product}/Version.props`.
 
-## Maui.Client Conventions
+## Maui.Client Conventions (Future — Not Yet Present)
 
-The Client product (`src/Client/`) uses a DI-based architecture with provider interfaces:
+A Client product (`src/Client/`) is planned but not yet present in this repository. When added, it will use a DI-based architecture with provider interfaces:
 
 - `IAndroidProvider` — discovers and installs Android SDK components
 - `IJdkManager` — manages JDK installations
 - `IDeviceManager` — lists and manages Android emulators
 - `IDoctorService` — runs environment health checks
 
-When adding new functionality, define an interface first, implement it, register in `Program.Services`.
+Define an interface first, implement it, register in `Program.Services`.

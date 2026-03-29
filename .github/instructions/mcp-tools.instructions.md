@@ -26,9 +26,9 @@ public sealed class MyNewTool
      Description("Clear, complete description of what this tool does. Mention when an AI agent should use it.")]
     public static async Task<string> MyAction(
         McpAgentSession session,
-        [Description("Agent HTTP port (optional if only one agent connected)")] int? agentPort = null,
         [Description("Describe what this parameter controls")] string requiredParam,
-        [Description("Describe this optional parameter and its default behavior")] bool optionalFlag = false)
+        [Description("Describe this optional parameter and its default behavior")] bool optionalFlag = false,
+        [Description("Agent HTTP port (optional if only one agent connected)")] int? agentPort = null)
     {
         var agent = await session.GetAgentClientAsync(agentPort);
         // Call agent.* methods to interact with the running app
@@ -53,7 +53,8 @@ If the tool calls a new agent endpoint, add the client method in `Microsoft.Maui
 ## Naming Conventions
 
 - Tool names: `maui_` prefix + snake_case action: `maui_screenshot`, `maui_tap`, `maui_network`
-- Class names: PascalCase + `Tool` suffix: `ScreenshotTool`, `InteractionTools`, `NetworkTool`
+- Class names: PascalCase with a `Tool` or `Tools` suffix: `ScreenshotTool`, `InteractionTools`, `NetworkTool`
+- Use plural `*Tools` when grouping multiple related actions in one file (e.g., `InteractionTools` has tap, fill, clear)
 - One file can contain multiple related tools (e.g., `InteractionTools` has tap, fill, clear)
 
 ## Parameter Rules
@@ -74,18 +75,18 @@ If the tool calls a new agent endpoint, add the client method in `Microsoft.Maui
 
 | File | Tools | Pattern |
 |------|-------|---------|
-| `AgentTools.cs` | `maui_agents` | List/discovery |
+| `AgentTools.cs` | `maui_list_agents`, `maui_select_agent`, `maui_wait` | Agent discovery |
 | `TreeTool.cs` | `maui_tree` | Visual tree inspection |
-| `QueryTools.cs` | `maui_query` | Element search |
+| `QueryTools.cs` | `maui_query`, `maui_query_css` | Element search |
 | `InteractionTools.cs` | `maui_tap`, `maui_fill`, `maui_clear`, `maui_scroll`, `maui_focus` | User interactions |
-| `NavigationTools.cs` | `maui_navigate` | Navigation |
+| `NavigationTools.cs` | `maui_navigate`, `maui_resize` | Navigation & window |
 | `ScreenshotTool.cs` | `maui_screenshot` | Image capture |
 | `AssertTool.cs` | `maui_assert` | Property assertions |
-| `PropertyTools.cs` | `maui_property`, `maui_set_property` | Property read/write |
+| `PropertyTools.cs` | `maui_get_property`, `maui_set_property` | Property read/write |
 | `LogsTool.cs` | `maui_logs` | Log retrieval |
-| `NetworkTool.cs` | `maui_network`, `maui_network_detail` | Network inspection |
-| `CdpTools.cs` | `maui_cdp`, `maui_cdp_screenshot` | Blazor WebView CDP |
+| `NetworkTool.cs` | `maui_network`, `maui_network_detail`, `maui_network_clear` | Network inspection |
+| `CdpTools.cs` | `maui_cdp_evaluate`, `maui_cdp_screenshot`, `maui_cdp_source`, `maui_cdp_webviews` | Blazor WebView CDP |
 | `RecordingTools.cs` | `maui_recording_start`, `maui_recording_stop`, `maui_recording_status` | Screen recording |
-| `SensorTools.cs` | `maui_sensors` | Device sensors |
-| `PlatformTools.cs` | `maui_platform_*` | Device/app info |
-| `PreferencesTools.cs` | `maui_preferences_*`, `maui_secure_storage_*` | Storage |
+| `SensorTools.cs` | `maui_sensors_list`, `maui_sensors_start`, `maui_sensors_stop` | Device sensors |
+| `PlatformTools.cs` | `maui_app_info`, `maui_device_info`, `maui_display_info`, `maui_battery_info`, `maui_connectivity`, `maui_geolocation`, `maui_status` | Device/app info |
+| `PreferencesTools.cs` | `maui_preferences_list`, `maui_preferences_get`, `maui_preferences_set`, `maui_preferences_delete`, `maui_preferences_clear`, `maui_secure_storage_get`, `maui_secure_storage_set`, `maui_secure_storage_delete`, `maui_secure_storage_clear` | Storage |

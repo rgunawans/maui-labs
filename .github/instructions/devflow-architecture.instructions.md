@@ -9,24 +9,27 @@ applyTo: "src/DevFlow/**"
 DevFlow uses a three-tier architecture:
 
 ```
-┌──────────────┐     HTTP      ┌──────────────┐     HTTP      ┌──────────────────────────┐
-│  CLI / MCP   │ ◄──────────►  │    Broker     │ ◄──────────►  │  Agent (in-app)          │
-│  (maui-devflow)│             │  (port 19223) │               │  (dynamic port)          │
-└──────────────┘               └──────────────┘               └──────────────────────────┘
-      ▲                                                               │
-      │ MCP (stdio)                                                   │ Platform APIs
-      ▼                                                               ▼
-┌──────────────┐                                              ┌──────────────────────────┐
-│  AI Agent    │                                              │  MAUI App Runtime        │
-│  (Copilot,   │                                              │  (Visual Tree, Pages,    │
-│   Claude,    │                                              │   Navigation, CDP)       │
-│   etc.)      │                                              └──────────────────────────┘
+┌──────────────┐                ┌──────────────┐                ┌──────────────────────────┐
+│  CLI / MCP   │  HTTP (direct) │    Broker     │  WebSocket     │  Agent (in-app)          │
+│  (maui-devflow)│ ◄──────────► │  (port 19223) │ ◄───────────── │  (dynamic port)          │
+└──────────────┘  (after port   └──────────────┘  (registration) └──────────────────────────┘
+      │            discovery)          │                                │
+      │ HTTP (direct, after discovery) │                                │ Platform APIs
+      └────────────────────────────────┼────────────────────────────────┘
+      ▲                                                               
+      │ MCP (stdio)                                                   
+      ▼                                                               
+┌──────────────┐                                              
+│  AI Agent    │                                              
+│  (Copilot,   │                                              
+│   Claude,    │                                              
+│   etc.)      │                                              
 └──────────────┘
 ```
 
-1. **Agent** runs inside the MAUI app process (added via NuGet package). Exposes HTTP API on a dynamic port. Has direct access to the visual tree, pages, platform views.
-2. **Broker** runs on the developer machine (port 19223). Agents register with it. CLI discovers agents through it.
-3. **CLI** (`maui-devflow`) communicates with agents via the broker. Also hosts the MCP server for AI agent integration.
+1. **Agent** runs inside the MAUI app process (added via NuGet package). Exposes HTTP API on a dynamic port. Registers with the Broker over WebSocket. Has direct access to the visual tree, pages, platform views.
+2. **Broker** runs on the developer machine (port 19223). Agents register with it via WebSocket. CLI discovers agent ports through the broker's HTTP API.
+3. **CLI** (`maui-devflow`) discovers agents via the broker, then communicates **directly** with agents over HTTP. Also hosts the MCP server for AI agent integration.
 
 ## Package Dependency Graph
 
@@ -35,13 +38,13 @@ Microsoft.Maui.DevFlow.CLI (global tool)
 ├── Microsoft.Maui.DevFlow.Driver (AgentClient — public API)
 ├── ModelContextProtocol (MCP server)
 ├── System.CommandLine (CLI framework)
-└── Spectre.Console (terminal UI)
+├── Spectre.Console (terminal UI)
+└── Websocket.Client (broker transport)
 
 Microsoft.Maui.DevFlow.Agent (NuGet package for app developers)
 ├── Microsoft.Maui.DevFlow.Agent.Core (HTTP server, visual tree, interactions)
 │   ├── Fizzler (CSS selector parsing)
-│   ├── SkiaSharp (screenshot capture/resize)
-│   └── Websocket.Client
+│   └── SkiaSharp (screenshot capture/resize)
 └── Microsoft.Maui.DevFlow.Blazor (optional — CDP bridge for Blazor WebViews)
 
 Microsoft.Maui.DevFlow.Agent.Gtk (NuGet package for GTK/Linux apps)

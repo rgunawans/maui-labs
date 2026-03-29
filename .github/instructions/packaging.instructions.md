@@ -43,7 +43,7 @@ All NuGet package versions are defined in **`Directory.Packages.props`** at the 
    <FileSignInfo Include="ThirdParty.dll" CertificateName="3PartySHA2" />
    ```
 6. Add the project to the solution: `MauiLabs.sln` and the product's `.slnf`
-7. Add to `DevFlow.slnf` (or `Client.slnf`) if it should be built by CI
+7. Add to `DevFlow.slnf` if it should be built by CI
 
 ## Version Management
 
@@ -78,7 +78,7 @@ When adding a new third-party dependency that gets bundled into a NuGet package,
 - `dotnet-public` (dnceng) — public .NET packages
 - `dotnet-tools` — internal tooling
 - `dotnet-eng` — engineering infrastructure
-- `dotnet10`, `dotnet11` — version-specific feeds
+- `dotnet10` — version-specific feed
 
 **Do NOT add `nuget.org` as a direct source.** All public packages are available through the dnceng proxy feeds.
 

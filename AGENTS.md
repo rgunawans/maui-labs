@@ -10,8 +10,7 @@ This repository hosts experimental .NET MAUI packages. It is a **multi-product m
 
 | Product | Package / Tool | Description |
 |---------|---------------|-------------|
-| **DevFlow** | `Microsoft.Maui.DevFlow.*` (9 packages), `maui-devflow` CLI | Runtime MAUI automation toolkit. In-app agent with HTTP API, visual tree inspection, CDP bridge for Blazor WebViews, MCP server for AI agents, cross-platform driver library. |
-| **Maui.Client** | `Microsoft.Maui.Client`, `maui` CLI | Environment setup CLI. Android SDK management, JDK installation, emulator creation, `doctor` diagnostics. |
+| **DevFlow** | `Microsoft.Maui.DevFlow.*` (8 packages), `maui-devflow` CLI | Runtime MAUI automation toolkit. In-app agent with HTTP API, visual tree inspection, CDP bridge for Blazor WebViews, MCP server for AI agents, cross-platform driver library. |
 
 ### Technology Stack
 
@@ -20,7 +19,7 @@ This repository hosts experimental .NET MAUI packages. It is a **multi-product m
 - **Microsoft.DotNet.Arcade.Sdk** for build infrastructure
 - **Central Package Management** — all versions in `Directory.Packages.props`
 - **xUnit** v2.9.3 for testing, **coverlet** for coverage
-- **System.CommandLine** for CLI tooling (beta4 for DevFlow, 2.0.5 stable for Client)
+- **System.CommandLine** 2.0.0-beta4 for CLI tooling
 
 ## Building
 
@@ -37,13 +36,12 @@ dotnet build MauiLabs.sln
 
 # Build a single product (recommended for focused development)
 dotnet build src/DevFlow/DevFlow.slnf
-dotnet build src/Client/Client.slnf
 
-# Build via Arcade CI scripts (matches what CI runs)
+# Build via Arcade CI scripts (matches what CI runs for DevFlow)
 # macOS/Linux:
-./eng/common/cibuild.sh --configuration Release --prepareMachine
+./eng/common/cibuild.sh --configuration Release --prepareMachine --projects src/DevFlow/DevFlow.slnf
 # Windows:
-eng\common\cibuild.cmd -configuration Release -prepareMachine
+eng\common\cibuild.cmd -configuration Release -prepareMachine -projects src/DevFlow/DevFlow.slnf
 ```
 
 ### Build Troubleshooting
@@ -60,7 +58,6 @@ dotnet test MauiLabs.sln
 
 # Per-product
 dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Tests/
-dotnet test src/Client/Microsoft.Maui.Client.UnitTests/
 ```
 
 - Tests run in CI on **macOS and Windows** (matrix build)
@@ -73,7 +70,7 @@ dotnet test src/Client/Microsoft.Maui.Client.UnitTests/
 - **Nullable**: enabled repo-wide (`#nullable enable` is implicit)
 - **File-scoped namespaces**: all files use `namespace X.Y.Z;` (not block-scoped)
 - **No strong naming**: `SignAssembly: false`
-- **Namespace pattern**: `Microsoft.Maui.DevFlow.{Component}.{SubComponent}` or `Microsoft.Maui.Client.{Component}`
+- **Namespace pattern**: `Microsoft.Maui.DevFlow.{Component}.{SubComponent}`
 - **No .editorconfig**: relies on Arcade SDK defaults
 - **TreatWarningsAsErrors**: false (not enforced)
 
@@ -82,23 +79,19 @@ dotnet test src/Client/Microsoft.Maui.Client.UnitTests/
 ```
 maui-labs/
 ├── src/
-│   ├── DevFlow/                          # DevFlow product
-│   │   ├── Microsoft.Maui.DevFlow.Agent.Core/   # Platform-agnostic agent (HTTP server, visual tree)
-│   │   ├── Microsoft.Maui.DevFlow.Agent/         # Platform-specific overrides (iOS/Android/macOS/Windows)
-│   │   ├── Microsoft.Maui.DevFlow.Agent.Gtk/     # GTK/Linux agent
-│   │   ├── Microsoft.Maui.DevFlow.Blazor/        # Blazor WebView CDP bridge
-│   │   ├── Microsoft.Maui.DevFlow.Blazor.Gtk/    # WebKitGTK CDP bridge
-│   │   ├── Microsoft.Maui.DevFlow.CLI/           # CLI global tool (maui-devflow)
-│   │   │   ├── Broker/                           # Connection management
-│   │   │   └── Mcp/Tools/                        # 17 MCP tool implementations
-│   │   ├── Microsoft.Maui.DevFlow.Driver/        # Cross-platform driver (AgentClient)
-│   │   ├── Microsoft.Maui.DevFlow.Logging/       # JSONL file logger
-│   │   ├── Microsoft.Maui.DevFlow.Tests/         # xUnit tests
-│   │   └── DevFlow.slnf                          # Solution filter
-│   └── Client/                           # Maui.Client product
-│       ├── Microsoft.Maui.Client/                # CLI tool (maui)
-│       ├── Microsoft.Maui.Client.UnitTests/      # xUnit tests
-│       └── Client.slnf                           # Solution filter
+│   └── DevFlow/                          # DevFlow product
+│       ├── Microsoft.Maui.DevFlow.Agent.Core/   # Platform-agnostic agent (HTTP server, visual tree)
+│       ├── Microsoft.Maui.DevFlow.Agent/         # Platform-specific overrides (iOS/Android/macOS/Windows)
+│       ├── Microsoft.Maui.DevFlow.Agent.Gtk/     # GTK/Linux agent
+│       ├── Microsoft.Maui.DevFlow.Blazor/        # Blazor WebView CDP bridge
+│       ├── Microsoft.Maui.DevFlow.Blazor.Gtk/    # WebKitGTK CDP bridge
+│       ├── Microsoft.Maui.DevFlow.CLI/           # CLI global tool (maui-devflow)
+│       │   ├── Broker/                           # Connection management
+│       │   └── Mcp/Tools/                        # MCP tool implementations
+│       ├── Microsoft.Maui.DevFlow.Driver/        # Cross-platform driver (AgentClient)
+│       ├── Microsoft.Maui.DevFlow.Logging/       # JSONL file logger
+│       ├── Microsoft.Maui.DevFlow.Tests/         # xUnit tests
+│       └── DevFlow.slnf                          # Solution filter
 ├── samples/                              # Sample MAUI apps (not shipped)
 ├── playground/                           # Manual test/scratch apps
 ├── eng/                                  # Shared build infrastructure
@@ -154,7 +147,7 @@ maui-labs/
 ### NuGet Feed Configuration
 
 NuGet.config uses **internal dnceng proxy feeds only** — no direct nuget.org reference:
-- `dotnet-public`, `dotnet-tools`, `dotnet-eng`, `dotnet10`, `dotnet11`
+- `dotnet-public`, `dotnet-tools`, `dotnet-eng`, `dotnet10`
 
 **Do not** add `nuget.org` as a direct feed source. Package versions flow via Dependency Flow (Maestro/DARC).
 
@@ -168,31 +161,59 @@ NuGet.config uses **internal dnceng proxy feeds only** — no direct nuget.org r
 
 ## DevFlow MCP Tools
 
-DevFlow exposes 17 MCP tools for AI agent integration (in `src/DevFlow/Microsoft.Maui.DevFlow.CLI/Mcp/Tools/`):
+DevFlow exposes 49 MCP tools for AI agent integration (in `src/DevFlow/Microsoft.Maui.DevFlow.CLI/Mcp/Tools/`):
 
 | Tool | Purpose |
 |------|---------|
-| `maui_agents` | List connected MAUI DevFlow agents (running apps) |
+| `maui_list_agents` | List connected MAUI DevFlow agents (running apps) |
+| `maui_select_agent` | Select a specific agent for subsequent commands |
+| `maui_wait` | Wait for an agent to connect |
+| `maui_status` | Agent connection status, platform, app name |
 | `maui_tree` | Inspect visual tree — structured JSON hierarchy with IDs, types, bounds |
 | `maui_query` | Query elements by type, AutomationId, or text |
+| `maui_query_css` | Query elements by CSS selector |
 | `maui_element` | Get full element details |
+| `maui_hittest` | Find elements at screen coordinates |
 | `maui_tap` | Tap a UI element |
 | `maui_fill` | Fill text into Entry/Editor |
+| `maui_clear` | Clear text from an element |
 | `maui_scroll` | Scroll by delta, item index, or into view |
+| `maui_focus` | Set focus to an element |
 | `maui_navigate` | Shell navigation to a route |
+| `maui_resize` | Resize the app window |
 | `maui_screenshot` | Capture screenshot (page, element, or fullscreen) |
 | `maui_assert` | Assert element property equals expected value |
-| `maui_property` | Read any element property |
+| `maui_get_property` | Read any element property |
 | `maui_set_property` | Live-edit element properties |
 | `maui_logs` | Retrieve app logs (ILogger + WebView console) |
 | `maui_network` | List captured HTTP requests |
-| `maui_cdp` | Execute JavaScript in Blazor WebView via CDP |
+| `maui_network_detail` | Full request/response details |
+| `maui_network_clear` | Clear captured request buffer |
+| `maui_cdp_evaluate` | Execute JavaScript in Blazor WebView via CDP |
 | `maui_cdp_screenshot` | WebView screenshot via CDP |
-| `maui_recording` | Start/stop screen recording |
-| `maui_sensors` | List and stream device sensor data |
-| `maui_preferences` | Read/write app preferences |
-| `maui_secure_storage` | Read/write secure storage |
-| `maui_platform` | App info, device info, display, battery, connectivity |
+| `maui_cdp_source` | Get WebView page source |
+| `maui_cdp_webviews` | List available WebViews |
+| `maui_recording_start` | Start screen recording |
+| `maui_recording_stop` | Stop screen recording |
+| `maui_recording_status` | Check recording status |
+| `maui_sensors_list` | List available device sensors |
+| `maui_sensors_start` | Start a sensor |
+| `maui_sensors_stop` | Stop a sensor |
+| `maui_app_info` | App name, version, package, theme |
+| `maui_device_info` | Device manufacturer, model, OS |
+| `maui_display_info` | Screen density, size, orientation |
+| `maui_battery_info` | Battery level, state, power source |
+| `maui_connectivity` | Network access and connection profiles |
+| `maui_geolocation` | GPS coordinates |
+| `maui_preferences_list` | List preference keys |
+| `maui_preferences_get` | Read a preference value |
+| `maui_preferences_set` | Write a preference value |
+| `maui_preferences_delete` | Delete a preference |
+| `maui_preferences_clear` | Clear all preferences |
+| `maui_secure_storage_get` | Read secure storage value |
+| `maui_secure_storage_set` | Write secure storage value |
+| `maui_secure_storage_delete` | Delete secure storage entry |
+| `maui_secure_storage_clear` | Clear all secure storage |
 
 ## Important Notes
 

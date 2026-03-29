@@ -15,7 +15,6 @@ applyTo: "**/*Tests*/**,**/*.Tests.*"
 | Product | Test Project | Target |
 |---------|-------------|--------|
 | DevFlow | `src/DevFlow/Microsoft.Maui.DevFlow.Tests/` | `net10.0` |
-| Maui.Client | `src/Client/Microsoft.Maui.Client.UnitTests/` | `net10.0` |
 
 ## Running Tests
 
@@ -23,9 +22,8 @@ applyTo: "**/*Tests*/**,**/*.Tests.*"
 # All tests
 dotnet test MauiLabs.sln
 
-# Per-product
+# DevFlow tests
 dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Tests/
-dotnet test src/Client/Microsoft.Maui.Client.UnitTests/
 
 # Specific test
 dotnet test --filter "FullyQualifiedName~MyTestClass.MyTestMethod"
@@ -38,8 +36,8 @@ dotnet test --logger "console;verbosity=detailed"
 
 Tests run on **macOS and Windows** in CI (`.github/workflows/_build.yml`):
 
-- **macOS**: `./eng/common/cibuild.sh --configuration Release --prepareMachine`
-- **Windows**: `eng\common\cibuild.cmd -configuration Release -prepareMachine`
+- **macOS**: `./eng/common/cibuild.sh --configuration Release --prepareMachine --projects src/DevFlow/DevFlow.slnf`
+- **Windows**: `eng\common\cibuild.cmd -configuration Release -prepareMachine -projects src/DevFlow/DevFlow.slnf`
 
 Test results are uploaded as artifacts: `artifacts/TestResults/**/*.xml`
 
@@ -55,21 +53,6 @@ public void VisualTreeWalker_FindsElementById()
 {
     var walker = new VisualTreeWalker();
     // Test with real MAUI types where possible
-}
-```
-
-### Maui.Client Tests
-
-Client tests use **fake providers** to avoid real filesystem/SDK dependencies:
-
-```csharp
-[Fact]
-public async Task Doctor_DetectsMissingJdk()
-{
-    var fakeJdk = new FakeJdkManager(installed: false);
-    var doctor = new DoctorService(fakeJdk, ...);
-    var result = await doctor.RunAsync();
-    Assert.Contains(result.Issues, i => i.Component == "JDK");
 }
 ```
 
