@@ -104,7 +104,7 @@ open src/Cli/Cli.slnf
 dotnet build src/Cli/Cli.slnf
 
 # Run tests
-dotnet test src/Cli/Microsoft.Maui.Cli.UnitTests/
+dotnet test src/Cli/Microsoft.Maui.Cli.UnitTests/Microsoft.Maui.Cli.UnitTests.csproj
 
 # Run locally without installing
 dotnet run --project src/Cli/Microsoft.Maui.Cli/ -- doctor
