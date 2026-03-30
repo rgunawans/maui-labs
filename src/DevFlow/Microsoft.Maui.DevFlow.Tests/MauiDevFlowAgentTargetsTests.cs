@@ -155,7 +155,7 @@ public sealed class MauiDevFlowAgentTargetsTests : IDisposable
 
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "MauiLabs.sln")))
+            if (Directory.Exists(Path.Combine(directory.FullName, ".git")))
                 return directory.FullName;
 
             directory = directory.Parent;
