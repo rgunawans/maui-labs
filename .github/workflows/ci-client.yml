@@ -1,10 +1,10 @@
-name: CI - DevFlow
+name: CI - Client
 
 on:
   push:
     branches: [main]
     paths:
-      - 'src/DevFlow/**'
+      - 'src/Client/**'
       - 'eng/**'
       - 'Directory.Build.props'
       - 'Directory.Build.targets'
@@ -14,7 +14,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/DevFlow/**'
+      - 'src/Client/**'
       - 'eng/**'
       - 'Directory.Build.props'
       - 'Directory.Build.targets'
@@ -26,7 +26,8 @@ jobs:
   build:
     uses: ./.github/workflows/_build.yml
     with:
-      project-path: src/DevFlow/DevFlow.slnf
-      project-name: devflow
+      project-path: src/Client/Client.slnf
+      project-name: client
       run-tests: true
       pack: true
+      install-workloads: false
