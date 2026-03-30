@@ -13,11 +13,11 @@ pr: none
 
 parameters:
 - name: publishDevFlowNuget
-  displayName: 'Publish DevFlow packages to nuget.org'
+  displayName: 'Publish DevFlow packages to NuGet.org'
   type: boolean
   default: false
 - name: publishClientNuget
-  displayName: 'Publish Client packages to nuget.org'
+  displayName: 'Publish Client packages to NuGet.org'
   type: boolean
   default: false
 
