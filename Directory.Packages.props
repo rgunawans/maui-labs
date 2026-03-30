@@ -35,8 +35,8 @@
     <PackageVersion Include="Interop.UIAutomationClient" Version="$(InteropUIAutomationClientVersion)" />
   </ItemGroup>
 
-  <!-- MAUI Client Tool dependencies -->
-  <ItemGroup Label="Client">
+  <!-- MAUI Cli Tool dependencies -->
+  <ItemGroup Label="Cli">
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjectionVersion)" />
     <PackageVersion Include="Xamarin.Android.Tools.AndroidSdk" Version="$(XamarinAndroidToolsAndroidSdkVersion)" />
   </ItemGroup>
