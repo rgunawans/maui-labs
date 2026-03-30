@@ -185,6 +185,25 @@ public class AndroidProviderTests
 	}
 
 	[Fact]
+	public async Task InstallPackagesAsync_InvokesOnProgressForEachPackage()
+	{
+		// Arrange
+		var provider = new FakeAndroidProvider();
+		var packages = new[] { "platform-tools", "build-tools;35.0.0", "platforms;android-35" };
+		var progressCalls = new List<(string pkg, int idx, int total)>();
+
+		// Act
+		await provider.InstallPackagesAsync(packages, acceptLicenses: true,
+			onProgress: (pkg, idx, total) => progressCalls.Add((pkg, idx, total)));
+
+		// Assert
+		Assert.Equal(3, progressCalls.Count);
+		Assert.Equal(("platform-tools", 1, 3), progressCalls[0]);
+		Assert.Equal(("build-tools;35.0.0", 2, 3), progressCalls[1]);
+		Assert.Equal(("platforms;android-35", 3, 3), progressCalls[2]);
+	}
+
+	[Fact]
 	public async Task GetAvailablePackagesAsync_ReturnsAvailablePackages()
 	{
 		// Arrange
