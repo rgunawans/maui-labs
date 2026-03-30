@@ -125,7 +125,13 @@ public class FakeAndroidProvider : IAndroidProvider
 
 	public Task InstallPackagesAsync(IEnumerable<string> packages, bool acceptLicenses, Action<string, int, int>? onProgress, CancellationToken cancellationToken = default)
 	{
-		InstalledPackageSets.Add(packages.ToList());
+		var pkgList = packages.ToList();
+		InstalledPackageSets.Add(pkgList);
+		if (onProgress is not null)
+		{
+			for (var i = 0; i < pkgList.Count; i++)
+				onProgress(pkgList[i], i + 1, pkgList.Count);
+		}
 		return Task.CompletedTask;
 	}
 

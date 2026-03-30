@@ -106,9 +106,24 @@ public class SdkManager : IDisposable
 		SyncPaths();
 		EnsureAvailable();
 
+		var packageList = packages.ToList();
+
 		try
 		{
-			await _sdkManager.InstallAsync(packages, acceptLicenses, cancellationToken);
+			if (onProgress is null)
+			{
+				await _sdkManager.InstallAsync(packageList, acceptLicenses, cancellationToken);
+			}
+			else
+			{
+				// Install one at a time so we can report per-package progress
+				for (var i = 0; i < packageList.Count; i++)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					onProgress(packageList[i], i + 1, packageList.Count);
+					await _sdkManager.InstallAsync(new[] { packageList[i] }, acceptLicenses, cancellationToken);
+				}
+			}
 		}
 		catch (Exception ex) when (ex is not OperationCanceledException)
 		{
