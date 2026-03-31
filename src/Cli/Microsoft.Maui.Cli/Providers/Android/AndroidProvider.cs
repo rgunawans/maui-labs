@@ -239,7 +239,20 @@ public class AndroidProvider : IAndroidProvider
 
 	public async Task StopEmulatorAsync(string deviceSerial, CancellationToken cancellationToken = default)
 	{
+		// Capture the emulator's child process IDs before stopping so that any
+		// survivors (e.g. crashpad_handler) can be cleaned up afterwards.
+		// Without this, repeated start/stop cycles leave orphaned processes that
+		// accumulate and consume memory.
+		var emulatorPid = EmulatorProcessHelper.FindEmulatorProcessId(deviceSerial);
+		IReadOnlyList<int> childPids = emulatorPid.HasValue
+			? EmulatorProcessHelper.GetChildProcessIds(emulatorPid.Value)
+			: Array.Empty<int>();
+
 		await _adb.StopEmulatorAsync(deviceSerial, cancellationToken);
+
+		// Kill any child processes that were not cleaned up by the emulator shutdown.
+		if (childPids.Count > 0)
+			EmulatorProcessHelper.KillProcessIds(childPids);
 	}
 
 	public async Task<List<SdkPackage>> GetInstalledPackagesAsync(CancellationToken cancellationToken = default)
