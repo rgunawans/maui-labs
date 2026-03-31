@@ -111,6 +111,7 @@ extends:
                 -prepareMachine
                 -projects $(Build.SourcesDirectory)\src\Cli\Cli.slnf
                 $(_OfficialBuildArgs)
+                /p:ExcludeDriverFromPack=true
               displayName: Build and Test Cli
        
     - template: /eng/common/templates-official/post-build/post-build.yml@self
