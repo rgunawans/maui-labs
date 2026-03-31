@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS_BUILD</DefineConstants>
-    <IsPackable Condition="'$(ExcludeDriverFromPack)' != 'true'">true</IsPackable>
+    <IsPackable>true</IsPackable>
 
     <PackageId>Microsoft.Maui.DevFlow.Driver</PackageId>
     <IsShipping>true</IsShipping>

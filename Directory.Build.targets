@@ -2,6 +2,7 @@
 
   <Import Project="Sdk.targets" Sdk="Microsoft.DotNet.Arcade.Sdk" />
   <Import Project="$(MSBuildThisFileDirectory)eng/Common.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)eng/PackSubset.targets" />
 
   <!-- Workaround for dotnet/arcade#16611: Arcade SDK Sign.proj expects
        WixToolsPath at .packages/microsoft.wixtoolset.sdk/{ver}/tools/net472/{Platform}
