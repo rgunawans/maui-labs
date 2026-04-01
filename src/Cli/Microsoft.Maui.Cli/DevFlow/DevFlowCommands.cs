@@ -301,7 +301,7 @@ public class DevFlowCommands
         var queryTypeOption = new Option<string?>("--type") { Description = "Filter by element type" };
         var queryAutoIdOption = new Option<string?>("--automationId") { Description = "Filter by AutomationId" };
         var queryTextOption = new Option<string?>("--text") { Description = "Filter by text content" };
-        var querySelectorOption = new Option<string?>("--selector", "CSS selector (e.g. 'Button:visible', 'StackLayout > Label[Text^=\"Hello\"]')");
+        var querySelectorOption = new Option<string?>("--selector") { Description = "CSS selector (e.g. 'Button:visible', 'StackLayout > Label[Text^=\"Hello\"]')" };
         var queryFieldsOption = new Option<string?>("--fields") { Description = "Comma-separated fields to include (e.g. id,type,text,automationId,bounds)" };
         var queryFormatOption = new Option<string?>("--format") { Description = "Output format: compact (id,type,text,automationId,bounds only)" };
         var queryWaitUntilOption = new Option<string?>("--wait-until") { Description = "Wait condition: exists or gone" };
