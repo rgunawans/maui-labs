@@ -72,7 +72,8 @@ class DevFlowOutputWriter : IDevFlowOutputWriter
     }
 
     /// <summary>
-    /// Write a JsonElement to stdout with indentation.
+    /// Write a <see cref="JsonElement"/> to stdout.
+    /// In JSON mode, writes the element's raw JSON text. In human mode, writes indented JSON.
     /// </summary>
     public void WriteJsonElement(JsonElement element, bool json)
     {

@@ -17,7 +17,9 @@ public class DevFlowCommands
 {
     private static Command? _devflowCommand;
     [ThreadStatic] private static bool _errorOccurred;
-    private static IDevFlowOutputWriter s_output = null!;
+    [ThreadStatic] private static IDevFlowOutputWriter? s_output;
+
+    private static IDevFlowOutputWriter Output => s_output ?? throw new InvalidOperationException("DevFlowCommands not initialized. Call CreateDevFlowCommand first.");
 
     /// <summary>
     /// Creates the "devflow" command with all subcommands for integration into the MAUI CLI.
@@ -1710,7 +1712,7 @@ public class DevFlowCommands
         }
         catch (Exception ex)
         {
-            s_output.WriteError(ex.Message, json);
+            Output.WriteError(ex.Message, json);
             _errorOccurred = true;
         }
     }
@@ -1740,7 +1742,7 @@ public class DevFlowCommands
         }
         catch (Exception ex)
         {
-            s_output.WriteError(ex.Message, json);
+            Output.WriteError(ex.Message, json);
             _errorOccurred = true;
         }
     }
@@ -1758,7 +1760,7 @@ public class DevFlowCommands
         }
         catch (Exception ex)
         {
-            s_output.WriteError(ex.Message, json);
+            Output.WriteError(ex.Message, json);
             _errorOccurred = true;
         }
     }
@@ -1794,7 +1796,7 @@ public class DevFlowCommands
         }
         catch (Exception ex)
         {
-            s_output.WriteError(ex.Message, json);
+            Output.WriteError(ex.Message, json);
             _errorOccurred = true;
         }
     }
@@ -1818,7 +1820,7 @@ public class DevFlowCommands
         // Need at least one resolution option
         if (string.IsNullOrWhiteSpace(automationId) && string.IsNullOrWhiteSpace(type) && string.IsNullOrWhiteSpace(text))
         {
-            s_output.WriteError("Provide an element ID or use --automationId, --type, or --text to resolve", json, "InvocationError");
+            Output.WriteError("Provide an element ID or use --automationId, --type, or --text to resolve", json, "InvocationError");
             _errorOccurred = true;
             return null;
         }
@@ -1834,7 +1836,7 @@ public class DevFlowCommands
                 if (automationId != null) criteria.Add($"automationId=\"{automationId}\"");
                 if (type != null) criteria.Add($"type=\"{type}\"");
                 if (text != null) criteria.Add($"text=\"{text}\"");
-                s_output.WriteError($"No elements found matching {string.Join(", ", criteria)}", json,
+                Output.WriteError($"No elements found matching {string.Join(", ", criteria)}", json,
                     suggestions: new[] { "Run 'MAUI tree' to see available elements", "Check automationId spelling" });
                 _errorOccurred = true;
                 return null;
@@ -1842,7 +1844,7 @@ public class DevFlowCommands
 
             if (index >= results.Count)
             {
-                s_output.WriteError($"Index {index} out of range (found {results.Count} element(s))", json, "RuntimeError",
+                Output.WriteError($"Index {index} out of range (found {results.Count} element(s))", json, "RuntimeError",
                     suggestions: new[] { $"Use --index 0 through {results.Count - 1}" });
                 _errorOccurred = true;
                 return null;
@@ -1852,7 +1854,7 @@ public class DevFlowCommands
         }
         catch (Exception ex)
         {
-            s_output.WriteError(ex.Message, json);
+            Output.WriteError(ex.Message, json);
             _errorOccurred = true;
             return null;
         }
@@ -1865,14 +1867,14 @@ public class DevFlowCommands
     {
         if (id.Any(c => c < 0x20))
         {
-            s_output.WriteError($"Element ID contains control characters: '{id}'", json, "InvocationError",
+            Output.WriteError($"Element ID contains control characters: '{id}'", json, "InvocationError",
                 suggestions: new[] { "Element IDs should not contain control characters", "Run 'MAUI tree' to get valid IDs" });
             _errorOccurred = true;
             return;
         }
         if (id.Contains('?') || id.Contains('#'))
         {
-            s_output.WriteError($"Element ID contains '?' or '#': '{id}' — this looks like a URL fragment, not an element ID", json, "InvocationError",
+            Output.WriteError($"Element ID contains '?' or '#': '{id}' — this looks like a URL fragment, not an element ID", json, "InvocationError",
                 suggestions: new[] { "Run 'MAUI tree' to get valid element IDs" });
             _errorOccurred = true;
             return;
@@ -1914,7 +1916,7 @@ public class DevFlowCommands
             var passed = string.Equals(actualValue, expectedValue, StringComparison.Ordinal);
             if (json)
             {
-                s_output.WriteResult(new { passed, property = propertyName, expected = expectedValue, actual = actualValue, elementId = resolvedId }, json);
+                Output.WriteResult(new { passed, property = propertyName, expected = expectedValue, actual = actualValue, elementId = resolvedId }, json);
             }
             else
             {
@@ -1928,7 +1930,7 @@ public class DevFlowCommands
             }
             if (!passed) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     // ===== Command Descriptions (Schema Discovery) =====
@@ -2230,11 +2232,11 @@ public class DevFlowCommands
             var status = await client.GetStatusAsync(window);
             if (status == null)
             {
-                s_output.WriteError($"Cannot connect to agent at {host}:{port}", json);
+                Output.WriteError($"Cannot connect to agent at {host}:{port}", json);
                 _errorOccurred = true;
                 return;
             }
-            s_output.WriteResult(status, json, s =>
+            Output.WriteResult(status, json, s =>
             {
                 Console.WriteLine($"Agent: {s.Agent} v{s.Version}");
                 Console.WriteLine($"Platform: {s.Platform}");
@@ -2242,7 +2244,7 @@ public class DevFlowCommands
                 Console.WriteLine($"App: {s.AppName}");
             });
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiTreeAsync(string host, int port, bool json, int depth, int? window, string? fields, string? format)
@@ -2261,7 +2263,7 @@ public class DevFlowCommands
                 PrintTree(tree, 0);
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiQueryAsync(string host, int port, bool json, string? type, string? autoId, string? text, string? selector, string? fields, string? format, string? waitUntil, int timeout)
@@ -2275,7 +2277,7 @@ public class DevFlowCommands
                 var condition = waitUntil.ToLowerInvariant();
                 if (condition != "exists" && condition != "gone")
                 {
-                    s_output.WriteError("--wait-until must be 'exists' or 'gone'", json, "InvocationError");
+                    Output.WriteError("--wait-until must be 'exists' or 'gone'", json, "InvocationError");
                     _errorOccurred = true;
                     return;
                 }
@@ -2294,7 +2296,7 @@ public class DevFlowCommands
                     if (condition == "gone" && results.Count == 0) break;
                     if (DateTime.UtcNow >= deadline)
                     {
-                        s_output.WriteError(
+                        Output.WriteError(
                             $"Timeout after {timeout}s: condition '{waitUntil}' not met",
                             json, "RuntimeError", retryable: true,
                             suggestions: new[] { "Increase --timeout", "Check element identifiers with 'MAUI tree'" });
@@ -2317,7 +2319,7 @@ public class DevFlowCommands
 
             WriteQueryResults(queryResults, json, fields, format);
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static void WriteQueryResults(List<Microsoft.Maui.DevFlow.Driver.ElementInfo> results, bool json, string? fields, string? format)
@@ -2357,7 +2359,7 @@ public class DevFlowCommands
             else
                 Console.WriteLine(result);
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiTapAsync(string host, int port, bool json, string elementId)
@@ -2366,11 +2368,11 @@ public class DevFlowCommands
         {
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var success = await client.TapAsync(elementId);
-            s_output.WriteActionResult(success, "Tapped", elementId, json,
+            Output.WriteActionResult(success, "Tapped", elementId, json,
                 success ? $"Tapped: {elementId}" : $"Failed to tap: {elementId}");
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json, suggestions: new[] { "Run 'MAUI tree' to refresh element IDs" }); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json, suggestions: new[] { "Run 'MAUI tree' to refresh element IDs" }); _errorOccurred = true; }
     }
 
     private static async Task MauiFillAsync(string host, int port, bool json, string elementId, string text)
@@ -2379,11 +2381,11 @@ public class DevFlowCommands
         {
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var success = await client.FillAsync(elementId, text);
-            s_output.WriteActionResult(success, "Filled", elementId, json,
+            Output.WriteActionResult(success, "Filled", elementId, json,
                 success ? $"Filled: {elementId}" : $"Failed to fill: {elementId}");
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json, suggestions: new[] { "Run 'MAUI tree' to refresh element IDs" }); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json, suggestions: new[] { "Run 'MAUI tree' to refresh element IDs" }); _errorOccurred = true; }
     }
 
     private static async Task MauiClearAsync(string host, int port, bool json, string elementId)
@@ -2392,11 +2394,11 @@ public class DevFlowCommands
         {
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var success = await client.ClearAsync(elementId);
-            s_output.WriteActionResult(success, "Cleared", elementId, json,
+            Output.WriteActionResult(success, "Cleared", elementId, json,
                 success ? $"Cleared: {elementId}" : $"Failed to clear: {elementId}");
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json, suggestions: new[] { "Run 'MAUI tree' to refresh element IDs" }); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json, suggestions: new[] { "Run 'MAUI tree' to refresh element IDs" }); _errorOccurred = true; }
     }
 
     private static async Task MauiScreenshotAsync(string host, int port, bool json, string? output, int? window, string? id, string? selector, bool overwrite = false, int? maxWidth = null, string? scale = null)
@@ -2406,7 +2408,7 @@ public class DevFlowCommands
             var filename = output ?? $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png";
             if (!overwrite && File.Exists(filename))
             {
-                s_output.WriteError($"File already exists: {Path.GetFullPath(filename)} (use --overwrite to replace)", json, "InvocationError");
+                Output.WriteError($"File already exists: {Path.GetFullPath(filename)} (use --overwrite to replace)", json, "InvocationError");
                 _errorOccurred = true;
                 return;
             }
@@ -2438,7 +2440,7 @@ public class DevFlowCommands
 
             if (data == null)
             {
-                s_output.WriteError("Failed to capture screenshot", json);
+                Output.WriteError("Failed to capture screenshot", json);
                 _errorOccurred = true;
                 return;
             }
@@ -2453,7 +2455,7 @@ public class DevFlowCommands
             var fullPath = Path.GetFullPath(filename);
             if (json)
             {
-                s_output.WriteResult(new { path = fullPath, size = data.Length, maxWidth = maxWidth, scale = scale ?? "auto" }, json);
+                Output.WriteResult(new { path = fullPath, size = data.Length, maxWidth = maxWidth, scale = scale ?? "auto" }, json);
             }
             else
             {
@@ -2463,7 +2465,7 @@ public class DevFlowCommands
                 Console.WriteLine($"Screenshot saved: {fullPath} ({data.Length} bytes){target}{scaleInfo}");
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     /// <summary>
@@ -2610,14 +2612,14 @@ public class DevFlowCommands
             var value = await client.GetPropertyAsync(elementId, propertyName);
             if (json)
             {
-                s_output.WriteResult(new { property = propertyName, value }, json);
+                Output.WriteResult(new { property = propertyName, value }, json);
             }
             else
             {
                 Console.WriteLine(value != null ? $"{propertyName}: {value}" : $"Property '{propertyName}' not found");
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiSetPropertyAsync(string host, int port, bool json, string elementId, string propertyName, string value)
@@ -2628,16 +2630,16 @@ public class DevFlowCommands
             var success = await client.SetPropertyAsync(elementId, propertyName, value);
             if (success)
             {
-                s_output.WriteActionResult(true, "SetProperty", elementId, json,
+                Output.WriteActionResult(true, "SetProperty", elementId, json,
                     $"Set {propertyName} = {value}");
             }
             else
             {
-                s_output.WriteError($"Failed to set {propertyName}", json);
+                Output.WriteError($"Failed to set {propertyName}", json);
                 _errorOccurred = true;
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiElementAsync(string host, int port, bool json, string elementId)
@@ -2648,14 +2650,14 @@ public class DevFlowCommands
             var el = await client.GetElementAsync(elementId);
             if (el == null)
             {
-                s_output.WriteError($"Element '{elementId}' not found", json,
+                Output.WriteError($"Element '{elementId}' not found", json,
                     suggestions: new[] { "Run 'MAUI tree' to refresh element IDs", "Element IDs are ephemeral — re-query after navigation" });
                 _errorOccurred = true;
                 return;
             }
-            s_output.WriteResult(el, json);
+            Output.WriteResult(el, json);
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiNavigateAsync(string host, int port, bool json, string route)
@@ -2664,11 +2666,11 @@ public class DevFlowCommands
         {
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var success = await client.NavigateAsync(route);
-            s_output.WriteActionResult(success, "Navigated", route, json,
+            Output.WriteActionResult(success, "Navigated", route, json,
                 success ? $"Navigated to: {route}" : $"Failed to navigate to: {route}");
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiScrollAsync(string host, int port, bool json, string? elementId, double dx, double dy, bool animated, int? window, int? itemIndex = null, int? groupIndex = null, string? scrollToPosition = null)
@@ -2679,7 +2681,7 @@ public class DevFlowCommands
             var success = await client.ScrollAsync(elementId, dx, dy, animated, window, itemIndex, groupIndex, scrollToPosition);
             if (json)
             {
-                s_output.WriteActionResult(success, "Scrolled", elementId, json);
+                Output.WriteActionResult(success, "Scrolled", elementId, json);
             }
             else
             {
@@ -2692,7 +2694,7 @@ public class DevFlowCommands
             }
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiFocusAsync(string host, int port, bool json, string elementId)
@@ -2701,11 +2703,11 @@ public class DevFlowCommands
         {
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var success = await client.FocusAsync(elementId);
-            s_output.WriteActionResult(success, "Focused", elementId, json,
+            Output.WriteActionResult(success, "Focused", elementId, json,
                 success ? $"Focused: {elementId}" : $"Failed to focus: {elementId}");
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiResizeAsync(string host, int port, bool json, int width, int height, int? window)
@@ -2715,12 +2717,12 @@ public class DevFlowCommands
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var success = await client.ResizeAsync(width, height, window);
             if (json)
-                s_output.WriteActionResult(success, "Resized", $"{width}x{height}", json);
+                Output.WriteActionResult(success, "Resized", $"{width}x{height}", json);
             else
                 Console.WriteLine(success ? $"Resized to: {width}x{height}" : $"Failed to resize");
             if (!success) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiLogsAsync(string host, int port, bool json, int limit, int skip, string? source)
@@ -2748,7 +2750,7 @@ public class DevFlowCommands
                 PrintLogEntry(entry);
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiLogsFollowAsync(string host, int port, string? source, bool json, int replay)
@@ -3028,14 +3030,14 @@ public class DevFlowCommands
 
             if (req == null)
             {
-                s_output.WriteError($"Network request '{id}' not found.", json);
+                Output.WriteError($"Network request '{id}' not found.", json);
                 _errorOccurred = true;
                 return;
             }
 
             if (json)
             {
-                s_output.WriteResult(req, json);
+                Output.WriteResult(req, json);
                 return;
             }
 
@@ -3073,7 +3075,7 @@ public class DevFlowCommands
                 PrintBody(req.ResponseBody, req.ResponseBodyEncoding);
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task MauiNetworkClearAsync(string host, int port, bool json)
@@ -3082,11 +3084,11 @@ public class DevFlowCommands
         {
             using var client = new Microsoft.Maui.DevFlow.Driver.AgentClient(host, port);
             var result = await client.ClearNetworkRequestsAsync();
-            s_output.WriteActionResult(result, "NetworkCleared", null, json,
+            Output.WriteActionResult(result, "NetworkCleared", null, json,
                 result ? "Network request buffer cleared." : "Failed to clear.");
             if (!result) _errorOccurred = true;
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     // ── Network display helpers ──
@@ -3273,7 +3275,17 @@ public class DevFlowCommands
 
         // Auto-detect booted simulator
         var result = await ProcessRunner.RunAsync("xcrun", new[] { "simctl", "list", "devices", "booted", "-j" });
+
+        if (!result.Success || result.ExitCode != 0)
+        {
+            var baseMessage = $"Failed to resolve simulator UDID. 'xcrun simctl list devices booted -j' exited with code {result.ExitCode}.";
+            var error = result.StandardError;
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? baseMessage : baseMessage + " Error: " + error.Trim());
+        }
+
         var simOutput = result.StandardOutput;
+        if (string.IsNullOrWhiteSpace(simOutput))
+            throw new InvalidOperationException("Failed to resolve simulator UDID: no output received from 'xcrun simctl list devices booted -j'.");
 
         using var doc = JsonDocument.Parse(simOutput);
         if (doc.RootElement.TryGetProperty("devices", out var devices))
@@ -3329,6 +3341,12 @@ public class DevFlowCommands
             try
             {
                 var simResult = await ProcessRunner.RunAsync("xcrun", new[] { "simctl", "list", "devices", "booted", "-j" });
+
+                if (!simResult.Success || simResult.ExitCode != 0)
+                    throw new InvalidOperationException($"xcrun simctl failed with exit code {simResult.ExitCode}: {simResult.StandardError}");
+
+                if (string.IsNullOrWhiteSpace(simResult.StandardOutput))
+                    throw new InvalidOperationException("xcrun simctl returned no output.");
 
                 using var doc = JsonDocument.Parse(simResult.StandardOutput);
                 if (doc.RootElement.TryGetProperty("devices", out var devices))
@@ -3436,18 +3454,18 @@ public class DevFlowCommands
 
             if (alert is null)
             {
-                s_output.WriteResult(new { detected = false }, json, _ => Console.WriteLine("No alert detected"));
+                Output.WriteResult(new { detected = false }, json, _ => Console.WriteLine("No alert detected"));
                 return;
             }
 
-            s_output.WriteResult(new { detected = true, title = alert.Title, buttons = alert.Buttons.Select(b => new { label = b.Label, centerX = b.CenterX, centerY = b.CenterY }) }, json, _ =>
+            Output.WriteResult(new { detected = true, title = alert.Title, buttons = alert.Buttons.Select(b => new { label = b.Label, centerX = b.CenterX, centerY = b.CenterY }) }, json, _ =>
             {
                 Console.WriteLine($"Alert: {alert.Title ?? "(no title)"}");
                 foreach (var btn in alert.Buttons)
                     Console.WriteLine($"  Button: \"{btn.Label}\"");
             });
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task AlertDismissAsync(string? udid, int? pid, string host, int port, string? buttonLabel, bool json)
@@ -3482,11 +3500,11 @@ public class DevFlowCommands
             }
 
             if (alert is null)
-                s_output.WriteResult(new { dismissed = false }, json, _ => Console.WriteLine("No alert to dismiss"));
+                Output.WriteResult(new { dismissed = false }, json, _ => Console.WriteLine("No alert to dismiss"));
             else
-                s_output.WriteResult(new { dismissed = true, title = alert.Title }, json, _ => Console.WriteLine($"Dismissed: {alert.Title ?? "(alert)"}"));
+                Output.WriteResult(new { dismissed = true, title = alert.Title }, json, _ => Console.WriteLine($"Dismissed: {alert.Title ?? "(alert)"}"));
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task AlertTreeAsync(string? udid, int? pid, string host, int port, bool json)
@@ -3530,7 +3548,7 @@ public class DevFlowCommands
                 }
                 catch (JsonException)
                 {
-                    s_output.WriteResult(new { tree = treeResult }, json);
+                    Output.WriteResult(new { tree = treeResult }, json);
                 }
             }
             else
@@ -3538,7 +3556,7 @@ public class DevFlowCommands
                 Console.WriteLine(treeResult);
             }
         }
-        catch (Exception ex) { s_output.WriteError(ex.Message, json); _errorOccurred = true; }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     private static async Task PermissionAsync(string action, string? udid, string? bundleId, string service)
@@ -3644,13 +3662,13 @@ public class DevFlowCommands
                 var response = await http.GetStringAsync($"http://localhost:{Broker.BrokerServer.DefaultPort}/api/health");
                 var doc = JsonDocument.Parse(response);
                 var agents = doc.RootElement.GetProperty("agents").GetInt32();
-                s_output.WriteResult(new { running = true, port = Broker.BrokerServer.DefaultPort, agents, stateFile = false }, json,
+                Output.WriteResult(new { running = true, port = Broker.BrokerServer.DefaultPort, agents, stateFile = false }, json,
                     _ => Console.WriteLine($"Broker: running on port {Broker.BrokerServer.DefaultPort} ({agents} agent(s) connected) [no state file]"));
                 return;
             }
             catch { }
 
-            s_output.WriteResult(new { running = false }, json,
+            Output.WriteResult(new { running = false }, json,
                 _ => Console.WriteLine("Broker: not running"));
             return;
         }
@@ -3661,12 +3679,12 @@ public class DevFlowCommands
             var response = await http.GetStringAsync($"http://localhost:{port}/api/health");
             var doc = JsonDocument.Parse(response);
             var agents = doc.RootElement.GetProperty("agents").GetInt32();
-            s_output.WriteResult(new { running = true, port, agents }, json,
+            Output.WriteResult(new { running = true, port, agents }, json,
                 _ => Console.WriteLine($"Broker: running on port {port} ({agents} agent(s) connected)"));
         }
         catch
         {
-            s_output.WriteResult(new { running = false, port, stale = true }, json,
+            Output.WriteResult(new { running = false, port, stale = true }, json,
                 _ => Console.WriteLine($"Broker: not responding on port {port} (stale state file?)"));
         }
     }
@@ -3692,7 +3710,7 @@ public class DevFlowCommands
         var port = await Broker.BrokerClient.EnsureBrokerRunningAsync();
         if (port == null)
         {
-            s_output.WriteError("Broker unavailable", json);
+            Output.WriteError("Broker unavailable", json);
             _errorOccurred = true;
             return;
         }
@@ -3706,7 +3724,7 @@ public class DevFlowCommands
             if (json)
             {
                 var result = new { agents = Array.Empty<object>(), projects };
-                s_output.WriteResult(result, json);
+                Output.WriteResult(result, json);
             }
             else
             {
@@ -3733,7 +3751,7 @@ public class DevFlowCommands
 
         if (json)
         {
-            s_output.WriteResult(agents, json);
+            Output.WriteResult(agents, json);
         }
         else
         {
@@ -3779,7 +3797,7 @@ public class DevFlowCommands
         
         if (json)
         {
-            s_output.WriteResult(diagnostics, json);
+            Output.WriteResult(diagnostics, json);
             return;
         }
         
