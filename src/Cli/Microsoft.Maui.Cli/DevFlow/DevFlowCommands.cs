@@ -3816,6 +3816,10 @@ public class DevFlowCommands
         if (port == null)
         {
             Output.WriteError("Broker unavailable", json);
+            if (json)
+            {
+                Console.WriteLine("[]");
+            }
             _errorOccurred = true;
             return;
         }
