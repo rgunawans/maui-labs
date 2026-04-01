@@ -36,10 +36,10 @@ public class CommandConstructionTests
 	{
 		foreach (var option in command.Options)
 		{
-			Assert.DoesNotContain(' ', option.Name);
+			Assert.False(option.Name.Any(char.IsWhiteSpace), $"Option name contains whitespace: \"{option.Name}\" in command '{command.Name}'");
 			foreach (var alias in option.Aliases)
 			{
-				Assert.False(alias.Contains(' '), $"Option alias contains whitespace: \"{alias}\" in command '{command.Name}'");
+				Assert.False(alias.Any(char.IsWhiteSpace), $"Option alias contains whitespace: \"{alias}\" in command '{command.Name}'");
 			}
 		}
 
