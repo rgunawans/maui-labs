@@ -28,9 +28,14 @@
   </ItemGroup>
 
   <!-- Exclude native debug symbols (e.g. SkiaSharp PDBs) from the tool package to reduce size -->
-  <ItemGroup>
-    <Content Remove="runtimes\**\*.pdb" />
-  </ItemGroup>
+  <Target Name="ExcludeNativeRuntimePdbsFromPack" BeforeTargets="Pack;Publish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="'%(Extension)' == '.pdb' and $([System.String]::Copy('%(RelativePath)').StartsWith('runtimes'))" />
+      <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)"
+                                    Condition="'%(Extension)' == '.pdb' and $([System.String]::Copy('%(DestinationSubPath)').StartsWith('runtimes'))" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\..\DevFlow\Microsoft.Maui.DevFlow.Driver\Microsoft.Maui.DevFlow.Driver.csproj" />
