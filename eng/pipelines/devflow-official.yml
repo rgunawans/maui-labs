@@ -112,6 +112,23 @@ extends:
                 -projects $(Build.SourcesDirectory)\src\Cli\Cli.slnf
                 $(_OfficialBuildArgs)
               displayName: Build and Test Cli
+            # Cli.slnf includes DevFlow.Driver as a ProjectReference dependency, so Arcade
+            # packs it here too. The DevFlow job already produces the Driver nupkg — remove
+            # the duplicate to prevent "asset specified twice" errors in the merged manifest.
+            - powershell: |
+                $ErrorActionPreference = 'Stop'
+                $packDir = "$(Build.SourcesDirectory)\artifacts\packages\$(_BuildConfig)"
+                if (-not (Test-Path -Path $packDir)) {
+                  Write-Error "Expected package directory '$packDir' does not exist."
+                  exit 1
+                }
+                Get-ChildItem -Path $packDir -Recurse -Filter "*.nupkg" -ErrorAction Stop |
+                  Where-Object { $_.Name -notlike "Microsoft.Maui.Cli*" } |
+                  ForEach-Object {
+                    Write-Host "Removing non-Cli package: $($_.Name)"
+                    Remove-Item $_.FullName -Force -ErrorAction Stop
+                  }
+              displayName: Remove non-Cli packages to prevent duplicate assets
        
     - template: /eng/common/templates-official/post-build/post-build.yml@self
       parameters:
