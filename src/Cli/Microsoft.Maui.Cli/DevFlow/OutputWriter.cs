@@ -8,7 +8,7 @@ namespace Microsoft.Maui.Cli.DevFlow;
 /// JSON mode: raw data on stdout, structured errors on stderr.
 /// Human mode: formatted text on stdout, plain errors on stderr.
 /// </summary>
-static class OutputWriter
+class DevFlowOutputWriter : IDevFlowOutputWriter
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -28,7 +28,7 @@ static class OutputWriter
     /// Resolves whether JSON output mode is active.
     /// Priority: --no-json flag > --json flag > MAUIDEVFLOW_OUTPUT env var > TTY auto-detection.
     /// </summary>
-    public static bool ResolveJsonMode(bool jsonFlag, bool noJsonFlag)
+    public bool ResolveJsonMode(bool jsonFlag, bool noJsonFlag)
     {
         if (noJsonFlag) return false;
         if (jsonFlag) return true;
@@ -47,7 +47,7 @@ static class OutputWriter
     /// Write a successful result to stdout.
     /// In JSON mode, serializes the data. In human mode, calls the humanFormatter.
     /// </summary>
-    public static void WriteResult<T>(T data, bool json, Action<T>? humanFormatter = null)
+    public void WriteResult<T>(T data, bool json, Action<T>? humanFormatter = null)
     {
         if (json)
         {
@@ -66,7 +66,7 @@ static class OutputWriter
     /// <summary>
     /// Write raw JSON string to stdout (for data already serialized or from HTTP responses).
     /// </summary>
-    public static void WriteRawJson(string jsonString)
+    public void WriteRawJson(string jsonString)
     {
         Console.WriteLine(jsonString);
     }
@@ -74,7 +74,7 @@ static class OutputWriter
     /// <summary>
     /// Write a JsonElement to stdout with indentation.
     /// </summary>
-    public static void WriteJsonElement(JsonElement element, bool json)
+    public void WriteJsonElement(JsonElement element, bool json)
     {
         if (json)
         {
@@ -89,7 +89,7 @@ static class OutputWriter
     /// <summary>
     /// Write a simple success action result (for tap, fill, clear, etc.).
     /// </summary>
-    public static void WriteActionResult(bool success, string action, string? elementId, bool json, string? humanMessage = null)
+    public void WriteActionResult(bool success, string action, string? elementId, bool json, string? humanMessage = null)
     {
         if (json)
         {
@@ -106,7 +106,7 @@ static class OutputWriter
     /// Write a structured error to stderr and set error state.
     /// In JSON mode, outputs structured error JSON. In human mode, plain text.
     /// </summary>
-    public static void WriteError(string message, bool json, string errorType = "RuntimeError",
+    public void WriteError(string message, bool json, string errorType = "RuntimeError",
         bool retryable = false, string[]? suggestions = null)
     {
         if (json)
@@ -129,7 +129,7 @@ static class OutputWriter
     /// <summary>
     /// Write a single JSONL line (for streaming commands).
     /// </summary>
-    public static void WriteJsonLine<T>(T data)
+    public void WriteJsonLine<T>(T data)
     {
         Console.WriteLine(JsonSerializer.Serialize(data, s_compactJsonOptions));
     }
@@ -137,7 +137,7 @@ static class OutputWriter
     /// <summary>
     /// Serialize an object to indented JSON string.
     /// </summary>
-    public static string FormatJson<T>(T data)
+    public string FormatJson<T>(T data)
     {
         return JsonSerializer.Serialize(data, s_jsonOptions);
     }
