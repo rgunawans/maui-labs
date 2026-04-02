@@ -4,6 +4,7 @@
 using Microsoft.Maui.Cli.Errors;
 using Microsoft.Maui.Cli.Models;
 using Microsoft.Maui.Cli.Providers.Android;
+using Microsoft.Maui.Cli.Providers.Apple;
 using Microsoft.Maui.Cli.Utils;
 
 namespace Microsoft.Maui.Cli.Services;
@@ -14,10 +15,12 @@ namespace Microsoft.Maui.Cli.Services;
 public class DeviceManager : IDeviceManager
 {
 	readonly IAndroidProvider? _androidProvider;
+	readonly IAppleProvider? _appleProvider;
 
-	public DeviceManager(IAndroidProvider? androidProvider = null)
+	public DeviceManager(IAndroidProvider? androidProvider = null, IAppleProvider? appleProvider = null)
 	{
 		_androidProvider = androidProvider;
+		_appleProvider = appleProvider;
 	}
 
 	public async Task<IReadOnlyList<Device>> GetAllDevicesAsync(CancellationToken cancellationToken = default)
@@ -108,8 +111,12 @@ public class DeviceManager : IDeviceManager
 			}
 		}
 
-		// TODO: Get Apple devices when AppleProvider is implemented
-		// TODO: Get Windows devices when WindowsProvider is implemented
+		// Get Apple devices (simulators) when on macOS
+		if (_appleProvider != null)
+		{
+			var appleDevices = _appleProvider.GetDevices();
+			devices.AddRange(appleDevices);
+		}
 
 		return devices;
 	}
