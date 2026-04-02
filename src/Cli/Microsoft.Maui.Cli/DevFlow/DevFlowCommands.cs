@@ -701,7 +701,8 @@ public class DevFlowCommands
             var udid = ctx.GetValue(permGrantUdid);
             var bundleId = ctx.GetValue(permGrantBundle);
             var service = ctx.GetValue(permGrantServiceArg)!;
-            await PermissionAsync("grant", udid, bundleId, service);
+            var isJson = Output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
+            await PermissionAsync("grant", udid, bundleId, service, isJson);
         });
         permissionCommand.Add(permGrantCmd);
 
@@ -714,7 +715,8 @@ public class DevFlowCommands
             var udid = ctx.GetValue(permRevokeUdid);
             var bundleId = ctx.GetValue(permRevokeBundle);
             var service = ctx.GetValue(permRevokeServiceArg)!;
-            await PermissionAsync("revoke", udid, bundleId, service);
+            var isJson = Output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
+            await PermissionAsync("revoke", udid, bundleId, service, isJson);
         });
         permissionCommand.Add(permRevokeCmd);
 
@@ -727,7 +729,8 @@ public class DevFlowCommands
             var udid = ctx.GetValue(permResetUdid);
             var bundleId = ctx.GetValue(permResetBundle);
             var service = ctx.GetValue(permResetServiceArg)!;
-            await PermissionAsync("reset", udid, bundleId, service);
+            var isJson = Output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
+            await PermissionAsync("reset", udid, bundleId, service, isJson);
         });
         permissionCommand.Add(permResetCmd);
 
@@ -3559,7 +3562,7 @@ public class DevFlowCommands
         catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
-    private static async Task PermissionAsync(string action, string? udid, string? bundleId, string service)
+    private static async Task PermissionAsync(string action, string? udid, string? bundleId, string service, bool json)
     {
         try
         {
@@ -3573,12 +3576,14 @@ public class DevFlowCommands
 
             if (!privacyResult.Success)
             {
-                WriteError($"simctl privacy failed: {privacyResult.StandardError.Trim()}");
+                Output.WriteError($"simctl privacy failed: {privacyResult.StandardError.Trim()}", json);
+                _errorOccurred = true;
                 return;
             }
-            Console.WriteLine($"Permission {action}: {service}" + (bundleId != null ? $" for {bundleId}" : ""));
+            var message = $"Permission {action}: {service}" + (bundleId != null ? $" for {bundleId}" : "");
+            Output.WriteActionResult(true, $"permission-{action}", service, json, message);
         }
-        catch (Exception ex) { WriteError(ex.Message); }
+        catch (Exception ex) { Output.WriteError(ex.Message, json); _errorOccurred = true; }
     }
 
     /// <summary>
