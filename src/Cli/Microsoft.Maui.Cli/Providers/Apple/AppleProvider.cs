@@ -229,20 +229,46 @@ public class AppleProvider : IAppleProvider
 		}
 
 		// Simulator runtimes check
-		var runtimes = _runtimeService?.List(availableOnly: true);
-		if (runtimes is { Count: > 0 })
+		HealthCheck iosRuntimesCheck;
+		try
 		{
-			var iosRuntimes = runtimes.Where(r => r.Platform == "iOS").ToList();
-			checks.Add(new HealthCheck
+			var runtimes = _runtimeService?.List(availableOnly: true);
+			if (runtimes is { Count: > 0 })
+			{
+				var iosRuntimes = runtimes.Where(r => r.Platform == "iOS").ToList();
+				iosRuntimesCheck = new HealthCheck
+				{
+					Category = "apple",
+					Name = "iOS Runtimes",
+					Status = iosRuntimes.Count > 0 ? CheckStatus.Ok : CheckStatus.Warning,
+					Message = iosRuntimes.Count > 0
+						? $"{iosRuntimes.Count} iOS runtime(s) available (latest: {iosRuntimes.OrderByDescending(r => r.Version).First().Name})"
+						: "No iOS runtimes found. Install one via Xcode."
+				};
+			}
+			else
+			{
+				iosRuntimesCheck = new HealthCheck
+				{
+					Category = "apple",
+					Name = "iOS Runtimes",
+					Status = CheckStatus.Warning,
+					Message = "No simulator runtimes found. Install simulator runtimes via Xcode."
+				};
+			}
+		}
+		catch
+		{
+			iosRuntimesCheck = new HealthCheck
 			{
 				Category = "apple",
 				Name = "iOS Runtimes",
-				Status = iosRuntimes.Count > 0 ? CheckStatus.Ok : CheckStatus.Warning,
-				Message = iosRuntimes.Count > 0
-					? $"{iosRuntimes.Count} iOS runtime(s) available (latest: {iosRuntimes.OrderByDescending(r => r.Version).First().Name})"
-					: "No iOS runtimes found. Install one via Xcode."
-			});
+				Status = CheckStatus.Warning,
+				Message = "Unable to determine installed iOS simulator runtimes."
+			};
 		}
+
+		checks.Add(iosRuntimesCheck);
 
 		return checks;
 	}

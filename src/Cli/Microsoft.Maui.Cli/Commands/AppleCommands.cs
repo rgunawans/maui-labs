@@ -32,17 +32,18 @@ public static class AppleCommands
 
 		// maui apple xcode list
 		var listCommand = new Command("list", "List installed Xcode versions");
-		listCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+		listCommand.SetAction((ParseResult parseResult) =>
 		{
-			var appleProvider = Program.AppleProvider;
 			var formatter = Program.GetFormatter(parseResult);
-			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
 
 			if (!PlatformDetector.IsMacOS)
 			{
 				formatter.WriteWarning("Xcode is only available on macOS.");
 				return 1;
 			}
+
+			var appleProvider = Program.AppleProvider;
+			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
 
 			var installations = appleProvider.GetXcodeInstallations();
 			if (useJson)
@@ -84,18 +85,19 @@ public static class AppleCommands
 			platformOption
 		};
 
-		listCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+		listCommand.SetAction((ParseResult parseResult) =>
 		{
-			var appleProvider = Program.AppleProvider;
 			var formatter = Program.GetFormatter(parseResult);
-			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
-			var platform = parseResult.GetValue(platformOption);
 
 			if (!PlatformDetector.IsMacOS)
 			{
 				formatter.WriteWarning("Runtimes are only available on macOS.");
 				return 1;
 			}
+
+			var appleProvider = Program.AppleProvider;
+			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
+			var platform = parseResult.GetValue(platformOption);
 
 			var runtimes = appleProvider.GetRuntimes(platform, availableOnly: false);
 			if (useJson)
@@ -133,17 +135,18 @@ public static class AppleCommands
 
 		// maui apple simulator list
 		var listCommand = new Command("list", "List simulator devices");
-		listCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+		listCommand.SetAction((ParseResult parseResult) =>
 		{
-			var appleProvider = Program.AppleProvider;
 			var formatter = Program.GetFormatter(parseResult);
-			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
 
 			if (!PlatformDetector.IsMacOS)
 			{
 				formatter.WriteWarning("Simulators are only available on macOS.");
 				return 1;
 			}
+
+			var appleProvider = Program.AppleProvider;
+			var useJson = parseResult.GetValue(GlobalOptions.JsonOption);
 
 			var simulators = appleProvider.GetSimulators(availableOnly: false);
 			if (useJson)
@@ -174,17 +177,18 @@ public static class AppleCommands
 		// maui apple simulator start <name-or-udid>
 		var startNameArg = new Argument<string>("name-or-udid") { Description = "Simulator name or UDID to boot" };
 		var startCommand = new Command("start", "Boot a simulator") { startNameArg };
-		startCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+		startCommand.SetAction((ParseResult parseResult) =>
 		{
-			var appleProvider = Program.AppleProvider;
 			var formatter = Program.GetFormatter(parseResult);
-			var target = parseResult.GetValue(startNameArg);
 
 			if (!PlatformDetector.IsMacOS)
 			{
 				formatter.WriteWarning("Simulators are only available on macOS.");
 				return 1;
 			}
+
+			var appleProvider = Program.AppleProvider;
+			var target = parseResult.GetValue(startNameArg);
 
 			var success = appleProvider.BootSimulator(target!);
 			if (success)
@@ -198,17 +202,18 @@ public static class AppleCommands
 		// maui apple simulator stop <name-or-udid>
 		var stopNameArg = new Argument<string>("name-or-udid") { Description = "Simulator name or UDID to shut down (or 'all')" };
 		var stopCommand = new Command("stop", "Shut down a simulator") { stopNameArg };
-		stopCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+		stopCommand.SetAction((ParseResult parseResult) =>
 		{
-			var appleProvider = Program.AppleProvider;
 			var formatter = Program.GetFormatter(parseResult);
-			var target = parseResult.GetValue(stopNameArg);
 
 			if (!PlatformDetector.IsMacOS)
 			{
 				formatter.WriteWarning("Simulators are only available on macOS.");
 				return 1;
 			}
+
+			var appleProvider = Program.AppleProvider;
+			var target = parseResult.GetValue(stopNameArg);
 
 			var success = appleProvider.ShutdownSimulator(target!);
 			if (success)
@@ -222,17 +227,18 @@ public static class AppleCommands
 		// maui apple simulator delete <name-or-udid>
 		var deleteNameArg = new Argument<string>("name-or-udid") { Description = "Simulator name or UDID to delete" };
 		var deleteCommand = new Command("delete", "Delete a simulator") { deleteNameArg };
-		deleteCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+		deleteCommand.SetAction((ParseResult parseResult) =>
 		{
-			var appleProvider = Program.AppleProvider;
 			var formatter = Program.GetFormatter(parseResult);
-			var target = parseResult.GetValue(deleteNameArg);
 
 			if (!PlatformDetector.IsMacOS)
 			{
 				formatter.WriteWarning("Simulators are only available on macOS.");
 				return 1;
 			}
+
+			var appleProvider = Program.AppleProvider;
+			var target = parseResult.GetValue(deleteNameArg);
 
 			var success = appleProvider.DeleteSimulator(target!);
 			if (success)
