@@ -221,3 +221,47 @@ DevFlow exposes 49 MCP tools for AI agent integration (in `src/DevFlow/Microsoft
 - **`AgentClient`** (in `Microsoft.Maui.DevFlow.Driver`) is the public API consumed by NuGet users. Method signature changes are **binary and source breaking** for consumers.
 - The repo is at version **0.1.0-preview** — breaking changes are acceptable but should be documented.
 - **Platform conditionals**: Use `#if IOS`, `#if ANDROID`, `#if MACCATALYST`, `#if MACOS`, `#if WINDOWS` for platform-specific code in multi-targeting projects.
+
+## Skills Marketplace
+
+This repository also distributes agent skills as plugins under `plugins/`. Each subdirectory (e.g., `plugins/dotnet-maui-devflow`, `plugins/dotnet-maui-dev`) is an independent plugin.
+
+### Plugin Structure
+
+```
+plugins/<plugin-name>/
+ plugin.json              # Plugin manifest (name, version, description, skills path)
+ skills/
+ <skill-name>/    
+ SKILL.md         # Skill definition (required)        
+ references/      # Supporting documentation (optional)        
+```
+
+### Skill Format
+
+Each `SKILL.md` must have YAML frontmatter:
+
+```yaml
+---
+name: skill-name
+description: >-
+  What this skill does. USE FOR: specific scenarios.
+  DO NOT USE FOR: non-applicable contexts.
+---
+```
+
+The `description` field is  agent runtimes read only the description to decide whether to activate the skill. Include explicit "USE FOR" and "DO NOT USE FOR" guidance.critical 
+
+### Adding a New Skill
+
+1. Create `plugins/<plugin>/skills/<skill-name>/SKILL.md` with frontmatter + content
+2. Create `tests/<plugin>/<skill-name>/eval.yaml` with evaluation scenarios
+3. Run validation: download `skill-validator` from [dotnet/skills releases](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly), then:
+   ```bash
+   skill-validator check --plugin plugins/<plugin>
+   ```
+4. Submit a  the `skill-check` workflow validates structure automaticallyPR 
+
+### Evaluation
+
+Skills are evaluated using LLM-based pairwise comparison (with vs. without the skill). Evaluation runs are triggered by posting `/evaluate` on a PR. See `tests/` for `eval.yaml` examples.
