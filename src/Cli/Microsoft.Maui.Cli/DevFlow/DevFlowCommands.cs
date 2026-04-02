@@ -17,8 +17,8 @@ namespace Microsoft.Maui.Cli.DevFlow;
 public class DevFlowCommands
 {
     private static Command? _devflowCommand;
-    [ThreadStatic] private static bool _errorOccurred;
-    [ThreadStatic] private static IDevFlowOutputWriter? s_output;
+    private static bool _errorOccurred;
+    private static IDevFlowOutputWriter? s_output;
 
     private static IDevFlowOutputWriter Output => s_output ?? throw new InvalidOperationException("DevFlowCommands not initialized. Call CreateDevFlowCommand first.");
 
