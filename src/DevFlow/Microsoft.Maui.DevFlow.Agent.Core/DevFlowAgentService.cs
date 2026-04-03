@@ -1045,6 +1045,35 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             try
             {
                 var converted = ConvertPropertyValue(prop.PropertyType, body.Value);
+
+                // Use BindableObject.SetValue when possible so the handler mapper
+                // propagates the change to the native platform view.
+                if (el is BindableObject bindable)
+                {
+                    // Walk the type hierarchy to find the static BindableProperty field
+                    BindableProperty? bp = null;
+                    var searchType = type;
+                    var fieldName = $"{propName}Property";
+                    while (searchType != null && bp == null)
+                    {
+                        var bpField = searchType.GetField(fieldName,
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static |
+                            System.Reflection.BindingFlags.DeclaredOnly);
+                        // Try case-insensitive match if exact match fails
+                        bpField ??= Array.Find(
+                            searchType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly),
+                            f => f.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
+                        bp = bpField?.GetValue(null) as BindableProperty;
+                        searchType = searchType.BaseType;
+                    }
+
+                    if (bp != null)
+                    {
+                        bindable.SetValue(bp, converted);
+                        return "ok";
+                    }
+                }
+
                 prop.SetValue(el, converted);
                 return "ok";
             }
