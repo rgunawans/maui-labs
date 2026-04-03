@@ -333,6 +333,35 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         }
     }
 
+    /// <summary>
+    /// Starts the HTTP server without an Application binding.
+    /// Use when Application.Current is unavailable (e.g., Comet apps).
+    /// Endpoints requiring the app will return errors until BindApp() is called.
+    /// </summary>
+    public void StartServerOnly(IDispatcher dispatcher)
+    {
+        if (!_options.Enabled) return;
+        _dispatcher = dispatcher;
+        try
+        {
+            _server.Start();
+            Console.WriteLine($"[Microsoft.Maui.DevFlow.Agent] HTTP server started on port {_options.Port} (app not yet bound)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Microsoft.Maui.DevFlow.Agent] Failed to start HTTP server: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Late-binds the Application instance after the server is already running.
+    /// </summary>
+    public void BindApp(Application app)
+    {
+        _app = app;
+        Console.WriteLine("[Microsoft.Maui.DevFlow.Agent] Application bound to running agent");
+    }
+
     public async Task StopAsync()
     {
         await StopProfilerAsync();
