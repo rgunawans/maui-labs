@@ -69,14 +69,14 @@
   <!-- Workaround: On Windows, the Blazor wwwroot/ files (chobitsu.js, lib.module.js) get
        indexed into the PRI by MakePri. The PRI is packed into lib/ but the wwwroot files
        are packed into staticwebassets/ by the Razor SDK, so the PRI references paths that
-       don't exist in the NuGet package, causing MSB3030 in consuming projects.
-       These files are served by the Blazor static web asset pipeline, not the Windows
-       resource system, so exclude them from PRI generation entirely. -->
+       don't exist in the NuGet package, causing MSB3030 in consuming projects. These files
+       are delivered via the Blazor static web asset pipeline (StaticWebAsset items), not
+       the Windows resource system, so exclude them from PRI generation entirely. -->
   <Target Name="_ExcludeWwwrootFromPri"
-          BeforeTargets="_CalculateInputsForGenerateProjectPriFile"
+          BeforeTargets="GetMrtPackagingOutputs"
           Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <ItemGroup>
-      <Content Remove="@(Content)" Condition="$([System.String]::Copy('%(Link)').Contains('wwwroot'))" />
+      <Content Remove="wwwroot\**" />
     </ItemGroup>
   </Target>
 
