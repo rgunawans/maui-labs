@@ -204,6 +204,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     }
 
     public bool IsRunning => _server.IsRunning;
+    public bool IsAppBound => _app != null;
     public int Port => _options.Port;
 
     public DevFlowAgentService(AgentOptions? options = null)
@@ -319,7 +320,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// </summary>
     public void Start(Application app, IDispatcher dispatcher)
     {
-        if (!_options.Enabled) return;
+        if (_disposed || !_options.Enabled) return;
         _app = app;
         _dispatcher = dispatcher;
         try
@@ -331,6 +332,45 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         {
             Console.WriteLine($"[Microsoft.Maui.DevFlow.Agent] Failed to start HTTP server: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Starts the HTTP server without an Application binding.
+    /// Use when Application.Current is unavailable (e.g., Comet apps).
+    /// Endpoints requiring the app will return errors until BindApp() is called.
+    /// </summary>
+    public void StartServerOnly(IDispatcher dispatcher)
+    {
+        if (_disposed || !_options.Enabled) return;
+        _dispatcher = dispatcher;
+        try
+        {
+            _server.Start();
+            Console.WriteLine($"[Microsoft.Maui.DevFlow.Agent] HTTP server started on port {_options.Port} (app not yet bound)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Microsoft.Maui.DevFlow.Agent] Failed to start HTTP server: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Late-binds the Application instance after the server is already running.
+    /// </summary>
+    public void BindApp(Application app)
+    {
+        if (_disposed || !_options.Enabled) return;
+        _app = app;
+        try
+        {
+            _dispatcher = app.Dispatcher ?? _dispatcher;
+        }
+        catch (InvalidOperationException)
+        {
+            // Keep the dispatcher captured during server-only startup if the app
+            // has not been associated with one yet.
+        }
+        Console.WriteLine("[Microsoft.Maui.DevFlow.Agent] Application bound to running agent");
     }
 
     public async Task StopAsync()
