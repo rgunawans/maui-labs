@@ -1059,6 +1059,31 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         return string.Join(", ", parts);
     }
 
+    private static BindableProperty? FindBindableProperty(Type type, PropertyInfo property)
+    {
+        var fieldName = $"{property.Name}Property";
+
+        while (type != null)
+        {
+            var bpField = type.GetField(fieldName,
+                BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+
+            bpField ??= Array.Find(
+                type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly),
+                f => f.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
+
+            if (bpField?.GetValue(null) is BindableProperty candidate &&
+                candidate.PropertyName.Equals(property.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+
+            type = type.BaseType!;
+        }
+
+        return null;
+    }
+
     private async Task<HttpResponse> HandleSetProperty(HttpRequest request)
     {
         if (_app == null) return HttpResponse.Error("Agent not bound to app");
@@ -1088,30 +1113,11 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
 
                 // Use BindableObject.SetValue when possible so the handler mapper
                 // propagates the change to the native platform view.
-                if (el is BindableObject bindable)
+                if (el is BindableObject bindable &&
+                    FindBindableProperty(type, prop) is BindableProperty bp)
                 {
-                    // Walk the type hierarchy to find the static BindableProperty field
-                    BindableProperty? bp = null;
-                    var searchType = type;
-                    var fieldName = $"{propName}Property";
-                    while (searchType != null && bp == null)
-                    {
-                        var bpField = searchType.GetField(fieldName,
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static |
-                            System.Reflection.BindingFlags.DeclaredOnly);
-                        // Try case-insensitive match if exact match fails
-                        bpField ??= Array.Find(
-                            searchType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly),
-                            f => f.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
-                        bp = bpField?.GetValue(null) as BindableProperty;
-                        searchType = searchType.BaseType;
-                    }
-
-                    if (bp != null)
-                    {
-                        bindable.SetValue(bp, converted);
-                        return "ok";
-                    }
+                    bindable.SetValue(bp, converted);
+                    return "ok";
                 }
 
                 prop.SetValue(el, converted);

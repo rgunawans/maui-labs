@@ -1,147 +1,215 @@
-using System.Reflection;
+using System.Net;
+using System.Net.Sockets;
+using Microsoft.Maui;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.DevFlow.Agent.Core;
+using Microsoft.Maui.DevFlow.Driver;
+using Microsoft.Maui.Dispatching;
 
 namespace Microsoft.Maui.DevFlow.Tests;
 
-/// <summary>
-/// Tests that BindableProperty.SetValue correctly updates MAUI controls,
-/// verifying the fix for set-property not triggering native view updates.
-/// The agent's HandleSetProperty walks the type hierarchy to find the static
-/// BindableProperty field and uses BindableObject.SetValue instead of raw
-/// PropertyInfo.SetValue, which ensures handler mappers fire.
-/// </summary>
 public class SetPropertyBindableTests
 {
-    /// <summary>
-    /// Resolves a BindableProperty field by name, walking the type hierarchy.
-    /// This mirrors the logic in DevFlowAgentService.HandleSetProperty.
-    /// </summary>
-    private static BindableProperty? FindBindableProperty(Type type, string propertyName)
+    [Fact]
+    public async Task SetPropertyAsync_UpdatesButtonText_ThroughAgentEndpoint()
     {
-        var fieldName = $"{propertyName}Property";
-        var searchType = type;
-        while (searchType != null)
+        var button = new Button
         {
-            var bpField = searchType.GetField(fieldName,
-                BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
-            bpField ??= Array.Find(
-                searchType.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly),
-                f => f.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
-            if (bpField?.GetValue(null) is BindableProperty bp)
-                return bp;
-            searchType = searchType.BaseType;
+            AutomationId = "set-property-button",
+            Text = "Original"
+        };
+
+        using var harness = await SetPropertyTestHarness.CreateAsync(button);
+        var buttonId = await harness.GetElementIdAsync(button.AutomationId!);
+
+        var success = await harness.Client.SetPropertyAsync(buttonId, "text", "Updated");
+
+        Assert.True(success);
+        Assert.Equal("Updated", button.Text);
+        Assert.Equal("Updated", await harness.Client.GetPropertyAsync(buttonId, nameof(Button.Text)));
+    }
+
+    [Fact]
+    public async Task SetPropertyAsync_UpdatesInheritedBindableProperty_ThroughAgentEndpoint()
+    {
+        var button = new Button
+        {
+            AutomationId = "set-property-isenabled-button",
+            IsEnabled = true
+        };
+
+        using var harness = await SetPropertyTestHarness.CreateAsync(button);
+        var buttonId = await harness.GetElementIdAsync(button.AutomationId!);
+
+        var success = await harness.Client.SetPropertyAsync(buttonId, nameof(VisualElement.IsEnabled), bool.FalseString);
+
+        Assert.True(success);
+        Assert.False(button.IsEnabled);
+        Assert.Equal(bool.FalseString, await harness.Client.GetPropertyAsync(buttonId, nameof(VisualElement.IsEnabled)));
+    }
+
+    [Fact]
+    public async Task SetPropertyAsync_FallsBackToClrSetter_WhenBindableFieldMapsDifferentProperty()
+    {
+        var control = new MismatchedBindablePropertyView
+        {
+            AutomationId = "set-property-fallback-view",
+            StatusText = "Original"
+        };
+
+        using var harness = await SetPropertyTestHarness.CreateAsync(control);
+        var controlId = await harness.GetElementIdAsync(control.AutomationId!);
+
+        var success = await harness.Client.SetPropertyAsync(controlId, nameof(MismatchedBindablePropertyView.StatusText), "Updated");
+
+        Assert.True(success);
+        Assert.Equal("Updated", control.StatusText);
+        Assert.Null(control.BackingText);
+        Assert.Equal("Updated", await harness.Client.GetPropertyAsync(controlId, nameof(MismatchedBindablePropertyView.StatusText)));
+    }
+
+    private sealed class SetPropertyTestHarness : IDisposable
+    {
+        private readonly DevFlowAgentService _service;
+
+        public AgentClient Client { get; }
+
+        private SetPropertyTestHarness(DevFlowAgentService service, AgentClient client)
+        {
+            _service = service;
+            Client = client;
         }
-        return null;
+
+        public static async Task<SetPropertyTestHarness> CreateAsync(params View[] views)
+        {
+            var app = new TestApplication(views);
+
+            var service = new DevFlowAgentService(new AgentOptions { Port = GetFreePort() });
+            var client = new AgentClient("localhost", service.Port);
+
+            service.StartServerOnly(new ImmediateDispatcher());
+            service.BindApp(app);
+
+            var status = await WaitForStatusAsync(client);
+            Assert.NotNull(status);
+            Assert.True(status!.Running);
+
+            return new SetPropertyTestHarness(service, client);
+        }
+
+        public async Task<string> GetElementIdAsync(string automationId)
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var results = await Client.QueryAsync(automationId: automationId);
+                var match = results.FirstOrDefault();
+                if (match != null)
+                    return match.Id;
+
+                await Task.Delay(100);
+            }
+
+            throw new InvalidOperationException($"Could not find element with automation ID '{automationId}'.");
+        }
+
+        public void Dispose()
+        {
+            Client.Dispose();
+            _service.Dispose();
+        }
+
+        private static async Task<AgentStatus?> WaitForStatusAsync(AgentClient client)
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var status = await client.GetStatusAsync();
+                if (status != null)
+                    return status;
+
+                await Task.Delay(100);
+            }
+
+            return null;
+        }
+
+        private static int GetFreePort()
+        {
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            return ((IPEndPoint)listener.LocalEndpoint).Port;
+        }
     }
 
-    [Fact]
-    public void FindBindableProperty_FindsButtonTextProperty()
+    private sealed class ImmediateDispatcher : IDispatcher
     {
-        var bp = FindBindableProperty(typeof(Button), "Text");
-        Assert.NotNull(bp);
-        Assert.Equal(Button.TextProperty, bp);
+        public bool IsDispatchRequired => false;
+
+        public bool Dispatch(Action action)
+        {
+            action();
+            return true;
+        }
+
+        public bool DispatchDelayed(TimeSpan delay, Action action)
+        {
+            action();
+            return true;
+        }
+
+        public IDispatcherTimer CreateTimer() => new ImmediateDispatcherTimer();
     }
 
-    [Fact]
-    public void FindBindableProperty_FindsLabelTextProperty()
+    private sealed class ImmediateDispatcherTimer : IDispatcherTimer
     {
-        var bp = FindBindableProperty(typeof(Label), "Text");
-        Assert.NotNull(bp);
-        Assert.Equal(Label.TextProperty, bp);
+        public bool IsRepeating { get; set; }
+        public TimeSpan Interval { get; set; }
+        public bool IsRunning { get; private set; }
+        public event EventHandler? Tick
+        {
+            add { }
+            remove { }
+        }
+
+        public void Start()
+        {
+            IsRunning = true;
+        }
+
+        public void Stop()
+        {
+            IsRunning = false;
+        }
     }
 
-    [Fact]
-    public void FindBindableProperty_FindsInheritedProperty()
+    private sealed class MismatchedBindablePropertyView : ContentView
     {
-        // BackgroundColor is defined on VisualElement, not Button
-        var bp = FindBindableProperty(typeof(Button), "BackgroundColor");
-        Assert.NotNull(bp);
-        Assert.Equal(VisualElement.BackgroundColorProperty, bp);
+        public static readonly BindableProperty BackingTextProperty =
+            BindableProperty.Create(nameof(BackingText), typeof(string), typeof(MismatchedBindablePropertyView));
+
+        // This intentionally mismatches the CLR property name to verify the agent
+        // falls back to PropertyInfo.SetValue instead of writing the wrong property.
+        public static readonly BindableProperty StatusTextProperty = BackingTextProperty;
+
+        public string? BackingText
+        {
+            get => (string?)GetValue(BackingTextProperty);
+            set => SetValue(BackingTextProperty, value);
+        }
+
+        public string? StatusText { get; set; }
     }
 
-    [Fact]
-    public void FindBindableProperty_ReturnsNullForNonExistent()
+    private sealed class TestApplication : Application, IVisualTreeElement
     {
-        var bp = FindBindableProperty(typeof(Button), "NonExistentProp");
-        Assert.Null(bp);
-    }
+        private readonly IReadOnlyList<IVisualTreeElement> _children;
 
-    [Fact]
-    public void FindBindableProperty_IsCaseInsensitive()
-    {
-        var bp = FindBindableProperty(typeof(Button), "text");
-        Assert.NotNull(bp);
-        Assert.Equal(Button.TextProperty, bp);
-    }
+        public TestApplication(IEnumerable<View> views)
+        {
+            _children = views.Cast<IVisualTreeElement>().ToArray();
+        }
 
-    [Fact]
-    public void SetValue_ViaBindableProperty_UpdatesButtonText()
-    {
-        var button = new Button { Text = "Original" };
-        var bp = FindBindableProperty(typeof(Button), "Text");
-        Assert.NotNull(bp);
+        IReadOnlyList<IVisualTreeElement> IVisualTreeElement.GetVisualChildren() => _children;
 
-        button.SetValue(bp!, "Updated");
-
-        Assert.Equal("Updated", button.Text);
-    }
-
-    [Fact]
-    public void SetValue_ViaBindableProperty_UpdatesLabelText()
-    {
-        var label = new Label { Text = "Original" };
-        var bp = FindBindableProperty(typeof(Label), "Text");
-        Assert.NotNull(bp);
-
-        label.SetValue(bp!, "Updated");
-
-        Assert.Equal("Updated", label.Text);
-    }
-
-    [Fact]
-    public void SetValue_ViaBindableProperty_TriggersPropertyChanged()
-    {
-        var button = new Button { Text = "Original" };
-        string? changedProperty = null;
-        button.PropertyChanged += (_, e) => changedProperty = e.PropertyName;
-
-        var bp = FindBindableProperty(typeof(Button), "Text");
-        button.SetValue(bp!, "Updated");
-
-        Assert.Equal(nameof(Button.Text), changedProperty);
-    }
-
-    [Fact]
-    public void SetValue_ViaReflection_DoesNotTriggerPropertyChanged()
-    {
-        // This demonstrates the bug we fixed: raw reflection bypasses notifications
-        var button = new Button { Text = "Original" };
-        string? changedProperty = null;
-        button.PropertyChanged += (_, e) => changedProperty = e.PropertyName;
-
-        var prop = typeof(Button).GetProperty("Text")!;
-        prop.SetValue(button, "Updated");
-
-        // PropertyChanged fires because Button.Text setter calls SetValue internally,
-        // but this test documents the relationship — the real issue was that handler
-        // mappers (which update native views) don't fire through all reflection paths.
-        // The important assertion is that our BindableProperty path works (above tests).
-        Assert.Equal("Updated", button.Text);
-    }
-
-    [Theory]
-    [InlineData(typeof(Button), "Text")]
-    [InlineData(typeof(Button), "BackgroundColor")]
-    [InlineData(typeof(Button), "IsVisible")]
-    [InlineData(typeof(Button), "IsEnabled")]
-    [InlineData(typeof(Label), "Text")]
-    [InlineData(typeof(Label), "FontSize")]
-    [InlineData(typeof(Entry), "Text")]
-    [InlineData(typeof(Entry), "Placeholder")]
-    public void FindBindableProperty_ResolvesCommonProperties(Type controlType, string propertyName)
-    {
-        var bp = FindBindableProperty(controlType, propertyName);
-        Assert.NotNull(bp);
-        Assert.Equal($"{propertyName}Property", bp!.PropertyName + "Property");
+        IVisualTreeElement? IVisualTreeElement.GetVisualParent() => null;
     }
 }
