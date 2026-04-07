@@ -140,37 +140,8 @@ public static class AgentServiceExtensions
             {
                 ios.FinishedLaunching((_, _) =>
                 {
-                    // Capture the main thread dispatcher before switching to background
                     var mainDispatcher = Dispatching.Dispatcher.GetForCurrentThread();
-
-                    // Retry until Application.Current is available
-                    Task.Run(async () =>
-                    {
-                        for (int i = 0; i < 30; i++)
-                        {
-                            await Task.Delay(500);
-                            var app = Application.Current;
-                            if (app != null)
-                            {
-                                app.Dispatcher.Dispatch(() => service.Start(app, app.Dispatcher));
-                                Console.WriteLine($"[Microsoft.Maui.DevFlow] Agent started on port {options.Port}");
-                                return;
-                            }
-                        }
-
-                        // Application.Current never set (Comet apps, custom IApplication hosts).
-                        // Start the HTTP server without app binding so it's reachable;
-                        // tree/element endpoints will return errors until BindApp() is called.
-                        if (mainDispatcher != null)
-                        {
-                            mainDispatcher.Dispatch(() => service.StartServerOnly(mainDispatcher));
-                            Console.WriteLine($"[Microsoft.Maui.DevFlow] Agent started on port {options.Port} (app-less mode — Application.Current was null)");
-                        }
-                        else
-                        {
-                            Console.WriteLine("[Microsoft.Maui.DevFlow] Failed to start agent: Application.Current was null and no dispatcher available");
-                        }
-                    });
+                    Task.Run(() => StartWhenApplicationAvailableAsync(service, options, mainDispatcher));
                     return true;
                 });
             });
@@ -196,38 +167,54 @@ public static class AgentServiceExtensions
                 macos.DidFinishLaunching(_ =>
                 {
                     var mainDispatcher = Dispatching.Dispatcher.GetForCurrentThread();
-
-                    Task.Run(async () =>
-                    {
-                        for (int i = 0; i < 30; i++)
-                        {
-                            await Task.Delay(500);
-                            var app = Application.Current;
-                            if (app != null)
-                            {
-                                app.Dispatcher.Dispatch(() => service.Start(app, app.Dispatcher));
-                                Console.WriteLine($"[Microsoft.Maui.DevFlow] Agent started on port {options.Port}");
-                                return;
-                            }
-                        }
-
-                        // Application.Current never set — start HTTP server without app binding
-                        if (mainDispatcher != null)
-                        {
-                            mainDispatcher.Dispatch(() => service.StartServerOnly(mainDispatcher));
-                            Console.WriteLine($"[Microsoft.Maui.DevFlow] Agent started on port {options.Port} (app-less mode — Application.Current was null)");
-                        }
-                        else
-                        {
-                            Console.WriteLine("[Microsoft.Maui.DevFlow] Failed to start agent: Application.Current was null and no dispatcher available");
-                        }
-                    });
+                    Task.Run(() => StartWhenApplicationAvailableAsync(service, options, mainDispatcher));
                 });
             });
 #endif
         });
 
         return builder;
+    }
+
+    private static async Task StartWhenApplicationAvailableAsync(
+        DevFlowAgentService service,
+        AgentOptions options,
+        IDispatcher? mainDispatcher)
+    {
+        for (int i = 0; i < 30; i++)
+        {
+            await Task.Delay(500);
+            var app = Application.Current;
+            if (app != null)
+            {
+                app.Dispatcher.Dispatch(() => service.Start(app, app.Dispatcher));
+                Console.WriteLine($"[Microsoft.Maui.DevFlow] Agent started on port {options.Port}");
+                return;
+            }
+        }
+
+        if (mainDispatcher == null)
+        {
+            Console.WriteLine("[Microsoft.Maui.DevFlow] Failed to start agent: Application.Current was null and no dispatcher available");
+            return;
+        }
+
+        // Application.Current never set during the initial window. Start the HTTP server
+        // so DevFlow is reachable, then keep polling and bind once/if the app appears later.
+        mainDispatcher.Dispatch(() => service.StartServerOnly(mainDispatcher));
+        Console.WriteLine($"[Microsoft.Maui.DevFlow] Agent started on port {options.Port} (app-less mode — Application.Current was null)");
+
+        while (true)
+        {
+            await Task.Delay(500);
+            var app = Application.Current;
+            if (app == null)
+                continue;
+
+            app.Dispatcher.Dispatch(() => service.BindApp(app));
+            Console.WriteLine("[Microsoft.Maui.DevFlow] Application bound to running agent after delayed startup");
+            return;
+        }
     }
 
     /// <summary>

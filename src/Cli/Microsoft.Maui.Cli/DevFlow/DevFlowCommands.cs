@@ -3718,17 +3718,20 @@ public class DevFlowCommands
             using var server = new Broker.BrokerServer(
                 log: msg => Console.WriteLine(msg));
             await server.RunAsync(cts.Token);
+            return;
         }
         else
         {
             var port = await Broker.BrokerClient.EnsureBrokerRunningAsync();
             if (port.HasValue)
-                Console.WriteLine($"Broker running on port {port.Value}");
-            else
             {
-                Console.Error.WriteLine("Failed to start broker. Run with --foreground for diagnostics.");
-                Environment.ExitCode = 1;
+                Console.WriteLine($"Broker running on port {port.Value}");
+                return;
             }
+
+            const string errorMessage = "Failed to start broker. Run with --foreground for diagnostics.";
+            Console.Error.WriteLine(errorMessage);
+            throw new InvalidOperationException(errorMessage);
         }
     }
 
