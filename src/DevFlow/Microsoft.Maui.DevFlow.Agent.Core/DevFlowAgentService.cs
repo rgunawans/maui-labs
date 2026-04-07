@@ -204,6 +204,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     }
 
     public bool IsRunning => _server.IsRunning;
+    public bool IsAppBound => _app != null;
     public int Port => _options.Port;
 
     public DevFlowAgentService(AgentOptions? options = null)
@@ -319,7 +320,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// </summary>
     public void Start(Application app, IDispatcher dispatcher)
     {
-        if (!_options.Enabled) return;
+        if (_disposed || !_options.Enabled) return;
         _app = app;
         _dispatcher = dispatcher;
         try
@@ -340,7 +341,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// </summary>
     public void StartServerOnly(IDispatcher dispatcher)
     {
-        if (!_options.Enabled) return;
+        if (_disposed || !_options.Enabled) return;
         _dispatcher = dispatcher;
         try
         {
@@ -358,7 +359,17 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// </summary>
     public void BindApp(Application app)
     {
+        if (_disposed || !_options.Enabled) return;
         _app = app;
+        try
+        {
+            _dispatcher = app.Dispatcher ?? _dispatcher;
+        }
+        catch (InvalidOperationException)
+        {
+            // Keep the dispatcher captured during server-only startup if the app
+            // has not been associated with one yet.
+        }
         Console.WriteLine("[Microsoft.Maui.DevFlow.Agent] Application bound to running agent");
     }
 
