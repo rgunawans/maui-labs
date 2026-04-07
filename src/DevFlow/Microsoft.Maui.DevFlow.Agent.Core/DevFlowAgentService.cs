@@ -1059,6 +1059,31 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         return string.Join(", ", parts);
     }
 
+    private static BindableProperty? FindBindableProperty(Type type, PropertyInfo property)
+    {
+        var fieldName = $"{property.Name}Property";
+
+        while (type != null)
+        {
+            var bpField = type.GetField(fieldName,
+                BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+
+            bpField ??= Array.Find(
+                type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly),
+                f => f.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase));
+
+            if (bpField?.GetValue(null) is BindableProperty candidate &&
+                candidate.PropertyName.Equals(property.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+
+            type = type.BaseType!;
+        }
+
+        return null;
+    }
+
     private async Task<HttpResponse> HandleSetProperty(HttpRequest request)
     {
         if (_app == null) return HttpResponse.Error("Agent not bound to app");
@@ -1085,6 +1110,16 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             try
             {
                 var converted = ConvertPropertyValue(prop.PropertyType, body.Value);
+
+                // Use BindableObject.SetValue when possible so the handler mapper
+                // propagates the change to the native platform view.
+                if (el is BindableObject bindable &&
+                    FindBindableProperty(type, prop) is BindableProperty bp)
+                {
+                    bindable.SetValue(bp, converted);
+                    return "ok";
+                }
+
                 prop.SetValue(el, converted);
                 return "ok";
             }
