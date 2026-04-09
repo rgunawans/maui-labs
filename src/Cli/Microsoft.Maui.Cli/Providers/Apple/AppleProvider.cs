@@ -235,14 +235,14 @@ public class AppleProvider : IAppleProvider
 			var runtimes = _runtimeService?.List(availableOnly: true);
 			if (runtimes is { Count: > 0 })
 			{
-				var iosRuntimes = runtimes.Where(r => r.Platform == "iOS").ToList();
+				var iosRuntimes = runtimes.Where(r => string.Equals(r.Platform, "iOS", StringComparison.OrdinalIgnoreCase)).ToList();
 				iosRuntimesCheck = new HealthCheck
 				{
 					Category = "apple",
 					Name = "iOS Runtimes",
 					Status = iosRuntimes.Count > 0 ? CheckStatus.Ok : CheckStatus.Warning,
 					Message = iosRuntimes.Count > 0
-						? $"{iosRuntimes.Count} iOS runtime(s) available (latest: {iosRuntimes.OrderByDescending(r => r.Version).First().Name})"
+						? $"{iosRuntimes.Count} iOS runtime(s) available (latest: {iosRuntimes.OrderByDescending(r => Version.TryParse(r.Version, out var v) ? v : new Version(0, 0)).First().Name})"
 						: "No iOS runtimes found. Install one via Xcode."
 				};
 			}
@@ -257,14 +257,14 @@ public class AppleProvider : IAppleProvider
 				};
 			}
 		}
-		catch
+		catch (Exception ex)
 		{
 			iosRuntimesCheck = new HealthCheck
 			{
 				Category = "apple",
 				Name = "iOS Runtimes",
 				Status = CheckStatus.Warning,
-				Message = "Unable to determine installed iOS simulator runtimes."
+				Message = $"Unable to determine installed iOS simulator runtimes: {ex.Message}"
 			};
 		}
 
@@ -281,12 +281,9 @@ public class AppleProvider : IAppleProvider
 		var sims = _simulatorService.List(availableOnly: true);
 		return sims.Select(s =>
 		{
-			var platform = s.Platform?.ToLowerInvariant() switch
-			{
-				"ios" => Platforms.iOS,
-				"tvos" or "watchos" or "visionos" => s.Platform!.ToLowerInvariant(),
-				_ => Platforms.iOS
-			};
+			// Scope to iOS simulators only for now; tvOS/watchOS/visionOS
+			// are not yet recognized in the shared Platforms model.
+			var platform = Platforms.iOS;
 
 			return new Device
 			{
@@ -303,11 +300,11 @@ public class AppleProvider : IAppleProvider
 				Manufacturer = "Apple",
 				Version = s.OSVersion,
 				VersionName = s.Platform != null ? $"{s.Platform} {s.OSVersion}" : s.OSVersion,
-				Idiom = s.DeviceTypeIdentifier.Contains("iPad") ? DeviceIdiom.Tablet : DeviceIdiom.Phone,
+				Idiom = s.DeviceTypeIdentifier?.Contains("iPad") == true ? DeviceIdiom.Tablet : DeviceIdiom.Phone,
 				Details = new Dictionary<string, object>
 				{
-					["runtime"] = s.RuntimeIdentifier,
-					["device_type"] = s.DeviceTypeIdentifier,
+					["runtime"] = s.RuntimeIdentifier ?? "",
+					["device_type"] = s.DeviceTypeIdentifier ?? "",
 					["platform"] = s.Platform ?? ""
 				}
 			};
