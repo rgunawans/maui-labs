@@ -44,18 +44,21 @@ public class SdkManager : IDisposable
 		_sdkManager = new XatSdkManager(logger: CreateLogger(verbose));
 	}
 
-	void SyncPaths()
+	(string? SdkPath, string? JdkPath) SyncPaths()
 	{
-		_sdkManager.AndroidSdkPath = _getSdkPath();
-		_sdkManager.JavaSdkPath = _getJdkPath();
+		var sdkPath = _getSdkPath();
+		var jdkPath = _getJdkPath();
+		_sdkManager.AndroidSdkPath = sdkPath;
+		_sdkManager.JavaSdkPath = jdkPath;
+		return (sdkPath, jdkPath);
 	}
 
 	public string? SdkManagerPath
 	{
 		get
 		{
-			SyncPaths();
-			return ResolveSdkManagerPath(_getSdkPath()) ?? _sdkManager.FindSdkManagerPath();
+			var (sdkPath, _) = SyncPaths();
+			return ResolveSdkManagerPath(sdkPath) ?? _sdkManager.FindSdkManagerPath();
 		}
 	}
 
