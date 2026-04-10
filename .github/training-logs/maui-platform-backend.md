@@ -81,19 +81,17 @@ Skill location:
 
 ### Data Source
 
-Mined 9 session directories from `~/.copilot/session-state/` comprising **95 checkpoint files** across 7 backend categories:
+Mined **95 checkpoint files** from local Copilot CLI session histories across 7 backend categories:
 
-| Session | Platform | Checkpoints | Key Theme |
-|---------|----------|-------------|-----------|
-| `29cab573` | macOS/AppKit | 68 | Full backend implementation + visual audit |
-| `ed0effbf` | macOS | 5 | PushModalAsync native sheet modals |
-| `43fd580b` | macOS | 1 | Shell/SplitView/Sidebar branch |
-| `c1ade803` | macOS | 1 | Submit Pull Request |
-| `4d860db4` | GTK4/Linux | 2 | Import MAUI Platforms to maui-labs |
-| `749fcbc0` | GDUI | 3 | Visual snapshot testing infrastructure |
-| `50e86e3d` | GDUI | 7 | Audit spec parsing and visual testing |
-| `6815930f` | TUI | 6 | Terminal UI with steering support |
-| `da0b4be2` | Extensibility | 1 | Custom backends & multitargeting |
+| Platform | Checkpoints | Key Theme |
+|----------|-------------|-----------|
+| macOS/AppKit | 68 | Full backend implementation + visual audit |
+| macOS | 5 | PushModalAsync native sheet modals |
+| macOS | 1 | Shell/SplitView/Sidebar branch |
+| macOS | 1 | Submit Pull Request |
+| GTK4/Linux | 2 | Import MAUI Platforms to maui-labs |
+| TUI | 6 | Terminal UI with steering support |
+| Extensibility | 1 | Custom backends & multitargeting |
 
 ### Assessment
 
