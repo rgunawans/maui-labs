@@ -1,6 +1,6 @@
 # Empirical Patterns — Lessons from Building MAUI Backends
 
-Patterns extracted from building 7 MAUI platform backends (macOS/AppKit, Linux/GTK4, Blazor, GDUI/game-engine, TUI/terminal, Container-based Linux, and core extensibility work). Every item was discovered in practice, not theorized.
+Patterns extracted from building MAUI platform backends (macOS/AppKit, Linux/GTK4, Blazor, TUI/terminal, Container-based Linux, and core extensibility work). Every item was discovered in practice, not theorized.
 
 > **Provenance:** These patterns were mined from ~95 Copilot session checkpoints across multiple backend implementations. The session history is cataloged in `platforms/platform-backend-sessions.md` in this repo for anyone who wants to dig deeper into a specific backend's development history.
 
@@ -29,7 +29,7 @@ The macOS backend tracked 68 iterations across months of development. The order 
 
 1. **Audit before you code** — The checklist is your source of truth for gaps and priorities. Don't start implementing randomly; audit what MAUI requires, then work through it systematically.
 
-2. **Native toolkit quirks will surprise you** — AppKit crashes on missing images (`NSImage(fileName)` with a nonexistent path), GTK4's minimum-based allocation fights MAUI's frame-based layout, game engines (GDUI) need headless rendering pipelines. Every platform has its own "gotchas" that aren't documented.
+2. **Native toolkit quirks will surprise you** — AppKit crashes on missing images (`NSImage(fileName)` with a nonexistent path), GTK4's minimum-based allocation fights MAUI's frame-based layout. Every platform has its own "gotchas" that aren't documented.
 
 3. **Handler registration order matters** — Some MAUI stubs must be overridden with concrete types in a specific order. If controls don't appear, check that your handler is registered and that it's not shadowed by a default stub.
 
@@ -53,7 +53,7 @@ The macOS backend tracked 68 iterations across months of development. The order 
 
 11. **Use SQL/state tracking for audit progress** — Large audits (60+ pages, 40+ handlers) need structured tracking. Use the SQL tool's `todos` table or a custom table to track per-page/per-handler completion.
 
-12. **Visual snapshot testing works for headless backends** — GDUI used a `VisualMatrix`/SkiaSharp pipeline to render controls headlessly and compare against baselines. One catalog drives all controls/themes/states; cache `ScenarioCatalog.Build()` for performance.
+12. **Visual snapshot testing works for automated validation** — Headless rendering pipelines (e.g., SkiaSharp-based) can render controls and compare against baselines. One catalog drives all controls/themes/states for systematic visual regression testing.
 
 13. **Visual audit is the largest single time investment** — In the macOS session, 22 of 68 checkpoints (32%) were visual comparison work. Plan for multiple passes: first pass finds obvious issues, second pass catches regressions from fixes, third pass verifies edge cases. This isn't a sign something is wrong — it's the expected shape of backend development.
 
@@ -115,8 +115,6 @@ From importing the GTK4 backend into `dotnet/maui-labs`:
 
 Not all backends follow the traditional "native widget per control" pattern:
 
-- **GDUI (Game engine)**: Uses headless SkiaSharp rendering (`SkiaCanvas` → `SKBitmap`). Built a `VisualMatrix` bulk renderer with browser-reviewable HTML output and image-diff CI artifacts. Shared contracts (`design-system-catalog`, `specimen-manifest`, `control-traceability`) enable spec-backed validation.
-
 - **TUI (Terminal UI)**: Uses `XenoAtom.Terminal.UI`'s `LogControl` as the base primitive. Model-driven transcript with mutable reasoning entries keyed by `reasoningId`. Native mouse selection matters in terminal contexts.
 
 - **Blazor Backend**: Pure web rendering — all controls are HTML/CSS/JS. Different handler architecture from native backends.
@@ -131,7 +129,6 @@ Reference these existing backends for implementation patterns:
 |---------|----------|----------------------|--------|
 | **Linux/GTK4** | GTK4 via GirCore | `platforms/Linux.Gtk4/` in this repo (branch: `platforms/linux-gtk4-import`) | 43 handlers, 20 essentials |
 | **macOS/AppKit** | AppKit via Xamarin.Mac | [shinyorg/mauiplatforms](https://github.com/shinyorg/mauiplatforms) | 48+ handlers |
-| **GDUI** | Headless SkiaSharp | [redth/Maui.GDUI](https://github.com/redth/Maui.GDUI) | Game-engine rendering |
 | **Blazor** | HTML/CSS/JS | [Redth/Maui.Blazor](https://github.com/Redth/Maui.Blazor) | Web-based rendering |
 
 > **Session history:** The full catalog of Copilot sessions used to build these backends (26 sessions across 7 categories) is maintained at `platforms/platform-backend-sessions.md` in this repo.

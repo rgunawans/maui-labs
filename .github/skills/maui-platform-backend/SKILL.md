@@ -17,7 +17,7 @@ Guide for creating a complete .NET MAUI backend for a new target platform inside
 ## When to Use This Skill
 
 Use this skill when:
-- Creating a new .NET MAUI backend for a platform (e.g., Avalonia, WinUI3, Terminal/TUI, Godot)
+- Creating a new .NET MAUI backend for a platform (e.g., Avalonia, WinUI3, Terminal/TUI)
 - Implementing or fixing a specific control handler for an existing backend
 - Adding MAUI Essentials service implementations for a platform
 - Setting up build targets, NuGet packaging, or `dotnet new` templates for a backend
