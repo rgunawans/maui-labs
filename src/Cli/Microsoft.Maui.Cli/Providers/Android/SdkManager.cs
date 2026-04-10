@@ -50,11 +50,67 @@ public class SdkManager : IDisposable
 		_sdkManager.JavaSdkPath = _getJdkPath();
 	}
 
-	public string? SdkManagerPath { get { SyncPaths(); return _sdkManager.FindSdkManagerPath(); } }
+	public string? SdkManagerPath
+	{
+		get
+		{
+			SyncPaths();
+			return ResolveSdkManagerPath(_getSdkPath()) ?? _sdkManager.FindSdkManagerPath();
+		}
+	}
 
 	public bool IsAvailable => !string.IsNullOrEmpty(SdkManagerPath);
 
 	public void Dispose() => _sdkManager.Dispose();
+
+	internal static string? ResolveSdkManagerPath(string? sdkPath)
+	{
+		if (string.IsNullOrEmpty(sdkPath))
+			return null;
+
+		var ext = OperatingSystem.IsWindows() ? ".bat" : "";
+
+		static string? FindToolInDirectory(string directoryPath, string extension)
+		{
+			var toolPath = Path.Combine(directoryPath, "bin", "sdkmanager" + extension);
+			return File.Exists(toolPath) ? toolPath : null;
+		}
+
+		var cmdlineToolsDir = Path.Combine(sdkPath, "cmdline-tools");
+		if (Directory.Exists(cmdlineToolsDir))
+		{
+			var subdirs = new List<(string path, Version version)>();
+			foreach (var dir in Directory.GetDirectories(cmdlineToolsDir))
+			{
+				var name = Path.GetFileName(dir);
+				if (string.IsNullOrEmpty(name) || name.Equals("latest", StringComparison.OrdinalIgnoreCase))
+					continue;
+
+				Version.TryParse(name, out var version);
+				subdirs.Add((dir, version ?? new Version(0, 0)));
+			}
+
+			subdirs.Sort((a, b) => b.version.CompareTo(a.version));
+
+			foreach (var (dir, _) in subdirs)
+			{
+				var toolPath = FindToolInDirectory(dir, ext);
+				if (toolPath != null)
+					return toolPath;
+			}
+
+			var latestPath = FindToolInDirectory(Path.Combine(cmdlineToolsDir, "latest"), ext);
+			if (latestPath != null)
+				return latestPath;
+
+			var directPath = FindToolInDirectory(cmdlineToolsDir, ext);
+			if (directPath != null)
+				return directPath;
+		}
+
+		var legacyPath = Path.Combine(sdkPath, "tools", "bin", "sdkmanager" + ext);
+		return File.Exists(legacyPath) ? legacyPath : null;
+	}
 
 	public async Task<List<SdkPackage>> GetInstalledPackagesAsync(CancellationToken cancellationToken = default)
 	{

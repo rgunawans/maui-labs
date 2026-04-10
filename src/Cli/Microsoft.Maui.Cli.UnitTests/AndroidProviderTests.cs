@@ -27,10 +27,28 @@ public class AndroidProviderIsSdkInstalledTests : IDisposable
 	/// <summary>
 	/// Mirrors the <c>AndroidProvider.IsSdkInstalled</c> check so tests stay in sync with the implementation.
 	/// </summary>
-	static bool IsSdkInstalledCheck(string? sdkPath) =>
-		!string.IsNullOrEmpty(sdkPath)
-		&& Directory.Exists(sdkPath)
-		&& Directory.Exists(Path.Combine(sdkPath, "cmdline-tools"));
+	static bool IsSdkInstalledCheck(string? sdkPath)
+	{
+		if (string.IsNullOrEmpty(sdkPath) || !Directory.Exists(sdkPath))
+			return false;
+
+		var ext = OperatingSystem.IsWindows() ? ".bat" : "";
+		var candidates = new[]
+		{
+			Path.Combine(sdkPath, "cmdline-tools", "latest", "bin", "sdkmanager" + ext),
+			Path.Combine(sdkPath, "cmdline-tools", "bin", "sdkmanager" + ext),
+			Path.Combine(sdkPath, "tools", "bin", "sdkmanager" + ext)
+		};
+
+		if (candidates.Any(File.Exists))
+			return true;
+
+		var cmdlineToolsDir = Path.Combine(sdkPath, "cmdline-tools");
+		return Directory.Exists(cmdlineToolsDir)
+			&& Directory.GetDirectories(cmdlineToolsDir)
+				.Select(dir => Path.Combine(dir, "bin", "sdkmanager" + ext))
+				.Any(File.Exists);
+	}
 
 	[Fact]
 	public void IsSdkInstalled_ReturnsFalse_WhenSdkDirectoryExistsButCmdlineToolsMissing()
@@ -44,9 +62,20 @@ public class AndroidProviderIsSdkInstalledTests : IDisposable
 	}
 
 	[Fact]
-	public void IsSdkInstalled_ReturnsTrue_WhenSdkDirectoryAndCmdlineToolsBothExist()
+	public void IsSdkInstalled_ReturnsFalse_WhenCmdlineToolsExistsButSdkManagerIsMissing()
 	{
 		Directory.CreateDirectory(Path.Combine(_tempDir, "cmdline-tools"));
+
+		Assert.False(IsSdkInstalledCheck(_tempDir));
+	}
+
+	[Fact]
+	public void IsSdkInstalled_ReturnsTrue_WhenSdkManagerExistsUnderCmdlineTools()
+	{
+		var sdkManagerPath = Path.Combine(_tempDir, "cmdline-tools", "latest", "bin",
+			OperatingSystem.IsWindows() ? "sdkmanager.bat" : "sdkmanager");
+		Directory.CreateDirectory(Path.GetDirectoryName(sdkManagerPath)!);
+		File.WriteAllText(sdkManagerPath, string.Empty);
 
 		Assert.True(IsSdkInstalledCheck(_tempDir));
 	}
@@ -63,6 +92,36 @@ public class AndroidProviderIsSdkInstalledTests : IDisposable
 	public void IsSdkInstalled_ReturnsFalse_WhenSdkPathIsNull()
 	{
 		Assert.False(IsSdkInstalledCheck(null));
+	}
+}
+
+public class SdkManagerTests : IDisposable
+{
+	readonly string _tempDir;
+
+	public SdkManagerTests()
+	{
+		_tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+		Directory.CreateDirectory(_tempDir);
+	}
+
+	public void Dispose()
+	{
+		if (Directory.Exists(_tempDir))
+			Directory.Delete(_tempDir, recursive: true);
+	}
+
+	[Fact]
+	public void SdkManagerPath_FindsVersionedCmdlineToolsLayout()
+	{
+		var sdkManagerPath = Path.Combine(_tempDir, "cmdline-tools", "16.0", "bin",
+			OperatingSystem.IsWindows() ? "sdkmanager.bat" : "sdkmanager");
+		Directory.CreateDirectory(Path.GetDirectoryName(sdkManagerPath)!);
+		File.WriteAllText(sdkManagerPath, string.Empty);
+
+		using var sdkManager = new SdkManager(() => _tempDir, () => null);
+
+		Assert.Equal(sdkManagerPath, sdkManager.SdkManagerPath);
 	}
 }
 
