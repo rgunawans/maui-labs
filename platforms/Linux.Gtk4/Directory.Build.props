@@ -6,12 +6,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <MauiVersion>10.0.41</MauiVersion>
-    <!-- This is an experimental Linux-only backend. Disable warnings-as-errors
-         to match the repo default (TreatWarningsAsErrors=false in root props).
-         Arcade's cibuild.sh forces /warnaserror which catches CS0109, CS0612, CA1416 etc.
-         These should be cleaned up incrementally, not block CI. -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <!-- This is an experimental Linux-only backend. Arcade's cibuild.sh forces
+         /warnaserror on the command line (overrides TreatWarningsAsErrors in props).
+         Use WarningsNotAsErrors to exempt specific codes that need incremental cleanup.
+         CA1416: Platform compatibility (Linux-only backend targeting net10.0)
+         CS0108/CS0109: Member hiding (GTK handler mapper patterns)
+         CS0414: Assigned but unused fields
+         CS0612: Obsolete API usage (IFontNamedSizeService, NamedSize)
+         CS8602/CS8604/CS8766: Nullable reference analysis -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1416;CS0108;CS0109;CS0414;CS0612;CS8602;CS8604;CS8766</WarningsNotAsErrors>
     <!-- Set to false when the maui-labs DevFlow projects should not be referenced by the sample -->
     <EnableMauiDevFlow Condition="'$(EnableMauiDevFlow)' == ''">false</EnableMauiDevFlow>
   </PropertyGroup>
