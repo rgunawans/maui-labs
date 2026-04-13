@@ -14,10 +14,10 @@
     <DefineConstants>$(DefineConstants);MAUIDEVFLOW</DefineConstants>
   </PropertyGroup>
 
-  <!-- Common NuGet package properties for all src/ projects -->
+  <!-- Common NuGet package properties for all src/ projects.
+       Versions come from eng/Versions.props (PlatformMauiLinuxGtk4Version)
+       and Arcade computes the full package version including build suffix. -->
   <PropertyGroup>
-    <VersionPrefix>0.6.0</VersionPrefix>
-    <Version>$(VersionPrefix)</Version>
     <Authors>Microsoft</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/dotnet/maui-labs/tree/main/platforms/Linux.Gtk4</PackageProjectUrl>

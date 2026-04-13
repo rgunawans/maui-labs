@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>Microsoft.Maui.Platforms.Linux.Gtk4.Templates</PackageId>
-    <Version>0.1.0-preview.1</Version>
+    <Version>$(PlatformMauiLinuxGtk4Version)</Version>
     <Authors>Microsoft</Authors>
     <Description>Project templates for .NET MAUI apps running on Linux with GTK4.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
