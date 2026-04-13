@@ -197,7 +197,7 @@ class ShellBrowsePage : ContentPage
 			{
 				new Label { Text = "📂 Browse", FontSize = 22, FontAttributes = FontAttributes.Bold },
 				new Label { Text = "This is the Browse tab under the Explore section.", TextColor = Colors.DimGray },
-				new CollectionView
+				new ListView
 				{
 					ItemsSource = new[] { "Documents", "Pictures", "Music", "Videos", "Downloads" },
 					HeightRequest = 200,
