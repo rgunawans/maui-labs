@@ -6,8 +6,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <MauiVersion>10.0.41</MauiVersion>
-    <!-- Suppress platform compatibility warnings — this is a Linux-only backend
-         targeting net10.0 that intentionally uses Linux/GTK4-specific APIs. -->
+    <!-- This is an experimental Linux-only backend. Disable warnings-as-errors
+         to match the repo default (TreatWarningsAsErrors=false in root props).
+         Arcade's cibuild.sh forces /warnaserror which catches CS0109, CS0612, CA1416 etc.
+         These should be cleaned up incrementally, not block CI. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <!-- Set to false when the maui-labs DevFlow projects should not be referenced by the sample -->
     <EnableMauiDevFlow Condition="'$(EnableMauiDevFlow)' == ''">false</EnableMauiDevFlow>
