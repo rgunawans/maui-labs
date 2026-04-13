@@ -14,7 +14,7 @@
          CS0414: Assigned but unused fields
          CS0612: Obsolete API usage (IFontNamedSizeService, NamedSize)
          CS8600/CS8602/CS8604/CS8613/CS8766: Nullable reference analysis -->
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1416;CS0108;CS0109;CS0414;CS0612;CS8600;CS8602;CS8604;CS8613;CS8766</WarningsNotAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CA1416;CS0108;CS0109;CS0414;CS0612;CS0618;CS8600;CS8602;CS8604;CS8613;CS8766</WarningsNotAsErrors>
     <!-- Set to false when the maui-labs DevFlow projects should not be referenced by the sample -->
     <EnableMauiDevFlow Condition="'$(EnableMauiDevFlow)' == ''">false</EnableMauiDevFlow>
   </PropertyGroup>
