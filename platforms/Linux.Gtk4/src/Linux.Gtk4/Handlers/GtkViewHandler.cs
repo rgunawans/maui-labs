@@ -280,18 +280,18 @@ public abstract class GtkViewHandler<TVirtualView, TPlatformView> : ViewHandler<
 
 		var anchorPt = Graphene.Point.Alloc();
 		anchorPt.Init(anchorX, anchorY);
-		transform = transform.Translate(anchorPt);
+		transform = transform!.Translate(anchorPt)!;
 		anchorPt.Free();
 
 		if (hasRotation)
-			transform = transform.Rotate((float)view.Rotation);
+			transform = transform.Rotate((float)view.Rotation)!;
 
 		if (hasScale)
-			transform = transform.Scale((float)sx, (float)sy);
+			transform = transform.Scale((float)sx, (float)sy)!;
 
 		var negPt = Graphene.Point.Alloc();
 		negPt.Init(-anchorX, -anchorY);
-		transform = transform.Translate(negPt);
+		transform = transform.Translate(negPt)!;
 		negPt.Free();
 
 		layoutPanel.SetChildTransform(widget, transform);

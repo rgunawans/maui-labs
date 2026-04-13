@@ -52,7 +52,7 @@ public class LinuxWebAuthenticator : IWebAuthenticator
 
 			var responseQuery = System.Web.HttpUtility.ParseQueryString(responseUrl.Query);
 			var properties = new Dictionary<string, string>();
-			foreach (string key in responseQuery.AllKeys)
+			foreach (string? key in responseQuery.AllKeys)
 			{
 				if (key is not null)
 					properties[key] = responseQuery[key] ?? string.Empty;

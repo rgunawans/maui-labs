@@ -26,7 +26,7 @@ public class AlertsPage : ContentPage
 		simpleAlertBtn.Clicked += async (s, e) =>
 		{
 			resultLabel.Text = "Result: Alert requested...";
-			await ConnectedPage.DisplayAlert("Hello!", "This is a simple alert with one button.", "OK");
+			await ConnectedPage.DisplayAlertAsync("Hello!", "This is a simple alert with one button.", "OK");
 			resultLabel.Text = "Result: Simple alert dismissed";
 		};
 
@@ -34,7 +34,7 @@ public class AlertsPage : ContentPage
 		var confirmAlertBtn = new Button { Text = "Confirm Alert (Yes / No)" };
 		confirmAlertBtn.Clicked += async (s, e) =>
 		{
-			bool answer = await ConnectedPage.DisplayAlert("Confirm", "Do you want to proceed?", "Yes", "No");
+			bool answer = await ConnectedPage.DisplayAlertAsync("Confirm", "Do you want to proceed?", "Yes", "No");
 			resultLabel.Text = $"Result: Confirmed = {answer}";
 		};
 
@@ -42,7 +42,7 @@ public class AlertsPage : ContentPage
 		var actionSheetBtn = new Button { Text = "Action Sheet" };
 		actionSheetBtn.Clicked += async (s, e) =>
 		{
-			string action = await ConnectedPage.DisplayActionSheet(
+			string action = await ConnectedPage.DisplayActionSheetAsync(
 				"Choose an action",
 				"Cancel",
 				"Delete",
@@ -54,7 +54,7 @@ public class AlertsPage : ContentPage
 		var actionSheet2Btn = new Button { Text = "Action Sheet (no destructive)" };
 		actionSheet2Btn.Clicked += async (s, e) =>
 		{
-			string action = await ConnectedPage.DisplayActionSheet(
+			string action = await ConnectedPage.DisplayActionSheetAsync(
 				"Pick a color",
 				"Cancel",
 				null,

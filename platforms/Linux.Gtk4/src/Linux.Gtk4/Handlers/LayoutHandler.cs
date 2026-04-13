@@ -9,6 +9,8 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class LayoutHandler : GtkViewHandler<ILayout, GtkLayoutPanel>, ILayoutHandler
 {
+	object ILayoutHandler.PlatformView => base.PlatformView!;
+
 	public static IPropertyMapper<ILayout, LayoutHandler> Mapper =
 		new PropertyMapper<ILayout, LayoutHandler>(ViewMapper)
 		{

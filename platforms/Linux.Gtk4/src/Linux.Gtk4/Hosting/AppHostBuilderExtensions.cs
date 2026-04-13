@@ -127,7 +127,9 @@ public static partial class AppHostBuilderExtensions
 		builder.Services.AddSingleton<ITicker>(svc => new GtkPlatformTicker());
 
 		// Named font sizes (FontSize="Title", etc.)
+#pragma warning disable CS0612 // IFontNamedSizeService is obsolete but still needed for compatibility
 		Microsoft.Maui.Controls.DependencyService.Register<Microsoft.Maui.Controls.Internals.IFontNamedSizeService, GtkFontNamedSizeService>();
+#pragma warning restore CS0612
 
 		// Graphics platform services
 		builder.Services.AddSingleton<IStringSizeService, CairoStringSizeService>();
