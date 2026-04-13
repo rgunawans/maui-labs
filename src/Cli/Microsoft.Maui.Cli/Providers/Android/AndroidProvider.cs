@@ -32,10 +32,10 @@ public class AndroidProvider : IAndroidProvider
 	public string? SdkPath => _sdkPath ??= PlatformDetector.Paths.GetAndroidSdkPath();
 	public string? JdkPath => _jdkPath ??= _jdkManager.DetectedJdkPath ?? PlatformDetector.Paths.GetJdkPath();
 
-	public bool IsSdkInstalled => !string.IsNullOrEmpty(SdkPath) && Directory.Exists(SdkPath)
-		&& Directory.Exists(Path.Combine(SdkPath, "cmdline-tools"));
+	public bool IsSdkInstalled => !string.IsNullOrEmpty(SdkPath) && Directory.Exists(SdkPath);
 	public bool IsJdkInstalled => !string.IsNullOrEmpty(JdkPath) && Directory.Exists(JdkPath);
 	public bool SdkPathRequiresElevation => _sdkManager.SdkPathRequiresElevation();
+	bool IsSdkManagerInstalled => _sdkManager.IsAvailable;
 
 	public AndroidProvider(IJdkManager jdkManager, SdkManager? sdkManager = null, Adb? adb = null, AvdManager? avdManager = null)
 	{
@@ -351,7 +351,7 @@ public class AndroidProvider : IAndroidProvider
 		}
 
 		// Step 2: Install Android SDK if not present
-		if (!IsSdkInstalled)
+		if (!IsSdkManagerInstalled)
 		{
 			progress?.Report("Step 2/4: Installing Android SDK command-line tools...");
 			var targetSdkPath = sdkPath ?? PlatformDetector.Paths.DefaultAndroidSdkPath;
@@ -362,7 +362,7 @@ public class AndroidProvider : IAndroidProvider
 		}
 		else
 		{
-			progress?.Report("Step 2/4: Android SDK already installed ✓");
+			progress?.Report("Step 2/4: Android SDK command-line tools already installed ✓");
 		}
 
 		// Step 3: Accept licenses (only if --accept-licenses was passed)
