@@ -27,7 +27,7 @@ public partial class ShellHandler : GtkViewHandler<Shell, Gtk.Box>
 	int _flyoutWidth = 250;
 	bool _updatingSelection;
 
-	public static new IPropertyMapper<Shell, ShellHandler> Mapper =
+	public static IPropertyMapper<Shell, ShellHandler> Mapper =
 		new PropertyMapper<Shell, ShellHandler>(ViewMapper)
 		{
 			[nameof(Shell.CurrentItem)] = MapCurrentItem,

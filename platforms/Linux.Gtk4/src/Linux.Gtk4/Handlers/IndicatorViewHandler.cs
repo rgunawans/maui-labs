@@ -14,7 +14,7 @@ public class IndicatorViewHandler : GtkViewHandler<IView, Gtk.Box>
 {
 	readonly List<Gtk.DrawingArea> _dots = new();
 
-	public static new IPropertyMapper<IView, IndicatorViewHandler> Mapper =
+	public static IPropertyMapper<IView, IndicatorViewHandler> Mapper =
 		new PropertyMapper<IView, IndicatorViewHandler>(ViewMapper)
 		{
 			["Count"] = MapIndicators,

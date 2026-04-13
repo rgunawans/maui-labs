@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class SwitchHandler : GtkViewHandler<ISwitch, Gtk.Switch>
 {
-	public static new IPropertyMapper<ISwitch, SwitchHandler> Mapper =
+	public static IPropertyMapper<ISwitch, SwitchHandler> Mapper =
 		new PropertyMapper<ISwitch, SwitchHandler>(ViewMapper)
 		{
 			[nameof(ISwitch.IsOn)] = MapIsOn,

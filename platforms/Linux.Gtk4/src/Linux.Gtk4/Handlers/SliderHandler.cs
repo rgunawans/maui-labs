@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class SliderHandler : GtkViewHandler<ISlider, Gtk.Scale>
 {
-	public static new IPropertyMapper<ISlider, SliderHandler> Mapper =
+	public static IPropertyMapper<ISlider, SliderHandler> Mapper =
 		new PropertyMapper<ISlider, SliderHandler>(ViewMapper)
 		{
 			[nameof(ISlider.Minimum)] = MapMinimum,

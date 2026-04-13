@@ -25,7 +25,7 @@ public class CollectionViewHandler : GtkViewHandler<IView, Gtk.ScrolledWindow>
 	bool _updatingSelection;
 	INotifyCollectionChanged? _observedCollection;
 
-	public static new IPropertyMapper<IView, CollectionViewHandler> Mapper =
+	public static IPropertyMapper<IView, CollectionViewHandler> Mapper =
 		new PropertyMapper<IView, CollectionViewHandler>(ViewMapper)
 		{
 			["ItemsSource"] = MapItemsSource,

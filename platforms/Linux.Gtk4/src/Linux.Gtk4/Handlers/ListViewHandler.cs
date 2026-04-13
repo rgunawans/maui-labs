@@ -27,7 +27,7 @@ public class ListViewHandler : GtkViewHandler<ListView, Gtk.ScrolledWindow>
 	bool _updatingSelection;
 	INotifyCollectionChanged? _observableSource;
 
-	public static new IPropertyMapper<ListView, ListViewHandler> Mapper =
+	public static IPropertyMapper<ListView, ListViewHandler> Mapper =
 		new PropertyMapper<ListView, ListViewHandler>(ViewMapper)
 		{
 			[nameof(ListView.ItemsSource)] = MapItemsSource,

@@ -6,7 +6,7 @@ public class RadioButtonHandler : GtkViewHandler<IRadioButton, Gtk.CheckButton>
 {
 	static readonly Dictionary<string, WeakReference<Gtk.CheckButton>> _groupLeaders = new();
 
-	public static new IPropertyMapper<IRadioButton, RadioButtonHandler> Mapper =
+	public static IPropertyMapper<IRadioButton, RadioButtonHandler> Mapper =
 		new PropertyMapper<IRadioButton, RadioButtonHandler>(ViewMapper)
 		{
 			[nameof(IRadioButton.IsChecked)] = MapIsChecked,

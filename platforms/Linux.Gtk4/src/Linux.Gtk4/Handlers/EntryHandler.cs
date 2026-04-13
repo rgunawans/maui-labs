@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class EntryHandler : GtkViewHandler<IEntry, Gtk.Entry>
 {
-	public static new IPropertyMapper<IEntry, EntryHandler> Mapper =
+	public static IPropertyMapper<IEntry, EntryHandler> Mapper =
 		new PropertyMapper<IEntry, EntryHandler>(ViewMapper)
 		{
 			[nameof(IEntry.Text)] = MapText,

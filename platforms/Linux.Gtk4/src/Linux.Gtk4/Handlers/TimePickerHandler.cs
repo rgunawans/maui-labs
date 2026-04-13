@@ -6,7 +6,7 @@ public class TimePickerHandler : GtkViewHandler<ITimePicker, Gtk.Box>
 {
 	Gtk.Window? _dialog;
 
-	public static new IPropertyMapper<ITimePicker, TimePickerHandler> Mapper =
+	public static IPropertyMapper<ITimePicker, TimePickerHandler> Mapper =
 		new PropertyMapper<ITimePicker, TimePickerHandler>(ViewMapper)
 		{
 			[nameof(ITimePicker.Time)] = MapTime,

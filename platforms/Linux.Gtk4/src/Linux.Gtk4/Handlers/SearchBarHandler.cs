@@ -6,7 +6,7 @@ public class SearchBarHandler : GtkViewHandler<ISearchBar, Gtk.SearchEntry>
 {
 	int _maxLength = int.MaxValue;
 
-	public static new IPropertyMapper<ISearchBar, SearchBarHandler> Mapper =
+	public static IPropertyMapper<ISearchBar, SearchBarHandler> Mapper =
 		new PropertyMapper<ISearchBar, SearchBarHandler>(ViewMapper)
 		{
 			[nameof(ISearchBar.Text)] = MapText,

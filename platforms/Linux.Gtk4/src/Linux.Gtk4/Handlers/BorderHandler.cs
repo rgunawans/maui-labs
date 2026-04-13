@@ -6,7 +6,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class BorderHandler : GtkViewHandler<IBorderView, Platform.GtkLayoutPanel>
 {
-	public static new IPropertyMapper<IBorderView, BorderHandler> Mapper =
+	public static IPropertyMapper<IBorderView, BorderHandler> Mapper =
 		new PropertyMapper<IBorderView, BorderHandler>(ViewMapper)
 		{
 			[nameof(IBorderView.Content)] = MapContent,

@@ -17,7 +17,7 @@ public class TableViewHandler : GtkViewHandler<TableView, Gtk.ScrolledWindow>
 	Gtk.Box? _contentBox;
 	readonly List<Gtk.Widget> _sectionWidgets = [];
 
-	public static new IPropertyMapper<TableView, TableViewHandler> Mapper =
+	public static IPropertyMapper<TableView, TableViewHandler> Mapper =
 		new PropertyMapper<TableView, TableViewHandler>(ViewMapper)
 		{
 			[nameof(TableView.Root)] = MapRoot,

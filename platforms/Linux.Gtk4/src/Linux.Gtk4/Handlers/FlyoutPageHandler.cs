@@ -7,7 +7,7 @@ public class FlyoutPageHandler : GtkViewHandler<IFlyoutView, Gtk.Paned>
 {
 	int _lastPosition = 250;
 
-	public static new IPropertyMapper<IFlyoutView, FlyoutPageHandler> Mapper =
+	public static IPropertyMapper<IFlyoutView, FlyoutPageHandler> Mapper =
 		new PropertyMapper<IFlyoutView, FlyoutPageHandler>(ViewMapper)
 		{
 			[nameof(IFlyoutView.Flyout)] = MapFlyout,

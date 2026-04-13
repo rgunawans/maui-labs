@@ -6,7 +6,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class LabelHandler : GtkViewHandler<ILabel, Gtk.Label>
 {
-	public static new IPropertyMapper<ILabel, LabelHandler> Mapper =
+	public static IPropertyMapper<ILabel, LabelHandler> Mapper =
 		new PropertyMapper<ILabel, LabelHandler>(ViewMapper)
 		{
 			[nameof(ILabel.Text)] = MapText,

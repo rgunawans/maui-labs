@@ -6,7 +6,7 @@ public class DatePickerHandler : GtkViewHandler<IDatePicker, Gtk.Box>
 {
 	Gtk.Window? _dialog;
 
-	public static new IPropertyMapper<IDatePicker, DatePickerHandler> Mapper =
+	public static IPropertyMapper<IDatePicker, DatePickerHandler> Mapper =
 		new PropertyMapper<IDatePicker, DatePickerHandler>(ViewMapper)
 		{
 			[nameof(IDatePicker.Date)] = MapDate,

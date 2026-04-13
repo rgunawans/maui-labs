@@ -18,7 +18,7 @@ public class CarouselViewHandler : GtkViewHandler<IView, Gtk.Box>
 	int _currentPosition;
 	bool _isVertical;
 
-	public static new IPropertyMapper<IView, CarouselViewHandler> Mapper =
+	public static IPropertyMapper<IView, CarouselViewHandler> Mapper =
 		new PropertyMapper<IView, CarouselViewHandler>(ViewMapper)
 		{
 			["ItemsSource"] = MapItemsSource,

@@ -11,7 +11,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 /// </summary>
 public class GraphicsViewHandler : GtkViewHandler<IGraphicsView, Gtk.DrawingArea>
 {
-	public static new IPropertyMapper<IGraphicsView, GraphicsViewHandler> Mapper =
+	public static IPropertyMapper<IGraphicsView, GraphicsViewHandler> Mapper =
 		new PropertyMapper<IGraphicsView, GraphicsViewHandler>(ViewMapper)
 		{
 			[nameof(IGraphicsView.Drawable)] = MapDrawable,

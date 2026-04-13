@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class PickerHandler : GtkViewHandler<IPicker, Gtk.DropDown>
 {
-	public static new IPropertyMapper<IPicker, PickerHandler> Mapper =
+	public static IPropertyMapper<IPicker, PickerHandler> Mapper =
 		new PropertyMapper<IPicker, PickerHandler>(ViewMapper)
 		{
 			[nameof(IPicker.Title)] = MapTitle,

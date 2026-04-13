@@ -6,7 +6,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class FrameHandler : GtkViewHandler<IContentView, Gtk.Frame>
 {
-	public static new IPropertyMapper<IContentView, FrameHandler> Mapper =
+	public static IPropertyMapper<IContentView, FrameHandler> Mapper =
 		new PropertyMapper<IContentView, FrameHandler>(ViewMapper)
 		{
 			[nameof(IContentView.Content)] = MapContent,
