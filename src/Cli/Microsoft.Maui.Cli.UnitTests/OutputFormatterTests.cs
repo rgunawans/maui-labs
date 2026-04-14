@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Maui.Cli.Errors;
 using Microsoft.Maui.Cli.Models;
 using Microsoft.Maui.Cli.Output;
@@ -43,7 +44,11 @@ public class OutputFormatterTests
 		using var writer = new StringWriter(sb);
 		var formatter = new JsonOutputFormatter(writer);
 
-		var data = new { name = "test", value = 42 };
+		var data = new JsonObject
+		{
+			["name"] = "test",
+			["value"] = 42
+		};
 		formatter.Write(data);
 
 		var output = sb.ToString();

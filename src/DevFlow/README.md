@@ -54,16 +54,16 @@ dotnet tool install -g Microsoft.Maui.DevFlow.CLI
 
 ```bash
 # Visual tree
-maui-devflow agent tree
+maui-devflow ui tree
 
 # Take a screenshot
-maui-devflow agent screenshot -o screenshot.png
+maui-devflow ui screenshot -o screenshot.png
 
 # Tap an element
-maui-devflow agent interact tap --automationid "MyButton"
+maui-devflow ui tap --automationid "MyButton"
 
 # Start MCP server for AI agent integration
-maui-devflow mcp
+maui-devflow mcp-serve
 ```
 
 ## Features
@@ -91,6 +91,7 @@ maui-devflow mcp
 ## Documentation
 
 - [Broker Architecture](../../docs/DevFlow/broker.md)
+- [Protocol Spec](../../docs/DevFlow/spec/README.md)
 - [Android Setup](../../docs/DevFlow/setup-guides/android-setup.md)
 - [Apple Platforms Setup](../../docs/DevFlow/setup-guides/apple-platforms-setup.md)
 - [Windows Setup](../../docs/DevFlow/setup-guides/windows-setup.md)
@@ -107,6 +108,28 @@ dotnet build src/DevFlow/DevFlow.slnf
 # Run tests
 dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Tests/
 ```
+
+### Real app integration tests
+
+The simulator/emulator-driven suite is kept separate from the fast PR test pass and is intended to be run explicitly:
+
+```bash
+# Mac Catalyst
+DEVFLOW_TEST_PLATFORM=maccatalyst dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Agent.IntegrationTests/
+
+# iOS Simulator
+DEVFLOW_TEST_PLATFORM=ios DEVFLOW_TEST_IOS_VERSION=18.x dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Agent.IntegrationTests/
+
+# Android Emulator
+DEVFLOW_TEST_PLATFORM=android DEVFLOW_TEST_ANDROID_API=35 DEVFLOW_TEST_ANDROID_AVD=devflow-tests-api35 DEVFLOW_TEST_ANDROID_SERIAL=emulator-5580 dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Agent.IntegrationTests/
+
+# Windows (run on a Windows machine)
+DEVFLOW_TEST_PLATFORM=windows dotnet test src/DevFlow/Microsoft.Maui.DevFlow.Agent.IntegrationTests/
+```
+
+For local reliability, prefer running one platform suite at a time from a given repo worktree. Android fixture selection can be pinned with `DEVFLOW_TEST_ANDROID_AVD` and `DEVFLOW_TEST_ANDROID_SERIAL` when you want the harness to use a known emulator instance.
+
+There is also a manual GitHub Actions workflow at `.github/workflows/devflow-integration.yml` for running the same suite in CI.
 
 ## Version
 

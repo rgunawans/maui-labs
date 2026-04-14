@@ -41,7 +41,7 @@ public static partial class AndroidCommands
 									 sdkCheck.Status == Models.CheckStatus.Warning ? "⚠" : "✗";
 					formatter.WriteInfo($"{statusIcon} {sdkCheck.Message ?? "Android SDK"}");
 
-					if (sdkCheck.Details?.TryGetValue("path", out var path) == true)
+					if (sdkCheck.Details?.TryGetPropertyValue("path", out var path) == true)
 						formatter.WriteProgress($"Path: {path}");
 				}
 			}
@@ -195,7 +195,12 @@ public static partial class AndroidCommands
 				if (TryRequestElevation(androidProvider, formatter, useJson))
 				{
 					if (useJson)
-						formatter.Write(new { success = true, installed = packages, elevated = true });
+						formatter.Write(new CliCommandResult
+						{
+							Success = true,
+							Installed = packages,
+							Elevated = true
+						});
 					else
 						formatter.WriteSuccess("Packages installed successfully (elevated)");
 					return 0;
@@ -232,7 +237,11 @@ public static partial class AndroidCommands
 
 				if (useJson)
 				{
-					formatter.Write(new { success = true, installed = packages });
+					formatter.Write(new CliCommandResult
+					{
+						Success = true,
+						Installed = packages
+					});
 				}
 				else
 				{
@@ -517,7 +526,11 @@ public static partial class AndroidCommands
 
 				if (useJson)
 				{
-					formatter.Write(new { success = true, uninstalled = packages });
+					formatter.Write(new CliCommandResult
+					{
+						Success = true,
+						Uninstalled = packages
+					});
 				}
 				else
 				{

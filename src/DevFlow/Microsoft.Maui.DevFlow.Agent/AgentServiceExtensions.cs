@@ -78,7 +78,7 @@ public static class AgentServiceExtensions
         }
 
         // Fall back to assembly metadata port if broker didn't assign one
-        if (brokerReg?.AssignedPort == null)
+        if (!hasCustomPort && brokerReg?.AssignedPort == null)
         {
             var metaPort = ReadAssemblyMetadataPort();
             if (metaPort.HasValue)
