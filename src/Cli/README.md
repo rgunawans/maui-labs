@@ -88,7 +88,7 @@ maui apple simulator delete "iPhone 16 Pro"
 | `maui devflow ui tree` | Dump the visual tree of a running app |
 | `maui devflow ui screenshot` | Take a screenshot of a running app |
 | `maui devflow webview` | Blazor WebView automation via Chrome DevTools Protocol |
-| `maui devflow mcp-serve` | Start the MCP server for AI agent integration |
+| `maui devflow mcp` | Start the MCP server for AI agent integration |
 | `maui devflow broker` | Manage the DevFlow agent broker |
 
 ## Global Options

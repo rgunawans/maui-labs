@@ -396,11 +396,11 @@ public static partial class AndroidCommands
 				{
 					if (useJson)
 					{
-						formatter.Write(new
+						formatter.Write(new CliCommandResult
 						{
-							success = true,
-							status = "already_accepted",
-							message = "SDK licenses are already accepted"
+							Success = true,
+							Status = "already_accepted",
+							Message = "SDK licenses are already accepted"
 						});
 					}
 					else
@@ -416,11 +416,11 @@ public static partial class AndroidCommands
 				{
 					if (useJson)
 					{
-						formatter.Write(new
+						formatter.Write(new CliCommandResult
 						{
-							success = false,
-							status = "sdk_not_found",
-							message = "Android SDK not found. Run 'maui android install' first."
+							Success = false,
+							Status = "sdk_not_found",
+							Message = "Android SDK not found. Run 'maui android install' first."
 						});
 					}
 					else
@@ -433,14 +433,14 @@ public static partial class AndroidCommands
 				if (useJson)
 				{
 					// For IDE integration: return the command to run in a terminal
-					formatter.Write(new
+					formatter.Write(new CliCommandResult
 					{
-						success = true,
-						status = "requires_interaction",
-						message = "Run the following command in a terminal to accept licenses interactively",
-						command = licenseCommand.Value.Command,
-						arguments = licenseCommand.Value.Arguments,
-						full_command = $"{licenseCommand.Value.Command} {licenseCommand.Value.Arguments}"
+						Success = true,
+						Status = "requires_interaction",
+						Message = "Run the following command in a terminal to accept licenses interactively",
+						Command = licenseCommand.Value.Command,
+						Arguments = licenseCommand.Value.Arguments,
+						FullCommand = $"{licenseCommand.Value.Command} {licenseCommand.Value.Arguments}"
 					});
 				}
 				else

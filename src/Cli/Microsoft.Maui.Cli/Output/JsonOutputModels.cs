@@ -39,6 +39,10 @@ internal sealed record CliCommandResult
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 	public string? Status { get; init; }
 
+	[JsonPropertyName("message")]
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public string? Message { get; init; }
+
 	[JsonPropertyName("name")]
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 	public string? Name { get; init; }
@@ -58,6 +62,18 @@ internal sealed record CliCommandResult
 	[JsonPropertyName("path")]
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 	public string? Path { get; init; }
+
+	[JsonPropertyName("command")]
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public string? Command { get; init; }
+
+	[JsonPropertyName("arguments")]
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public string? Arguments { get; init; }
+
+	[JsonPropertyName("full_command")]
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public string? FullCommand { get; init; }
 
 	[JsonPropertyName("version")]
 	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

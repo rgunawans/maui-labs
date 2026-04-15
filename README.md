@@ -34,7 +34,7 @@ A comprehensive MAUI testing, automation, and debugging toolkit. The DevFlow CLI
 
 - **In-app HTTP agent** for visual tree inspection, element interaction, and screenshots
 - **Blazor CDP bridge** for Chrome DevTools Protocol on Blazor WebViews
-- **MCP server** for AI agent integration (via `maui devflow mcp-serve`)
+- **MCP server** for AI agent integration (via `maui devflow mcp`)
 - **Platform drivers** for iOS, Android, Mac Catalyst, Windows, and Linux/GTK
 - **Network monitoring** and **performance profiling**
 

@@ -3998,6 +3998,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         var replayMsg = JsonSerializer.Serialize(new
         {
             type = "replay",
+            timestamp = DateTimeOffset.UtcNow.ToString("O"),
             entries = recent.Select(e => e.ToSummary())
         });
         await AgentHttpServer.WebSocketSendTextAsync(stream, replayMsg, ct);
@@ -4028,7 +4029,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                         {
                             var id = idEl.GetString();
                             var entry = id != null ? NetworkStore.GetById(id) : null;
-                            var resp = JsonSerializer.Serialize(new { type = "details", entry });
+                            var resp = JsonSerializer.Serialize(new
+                            {
+                                type = "details",
+                                timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                                entry
+                            });
                             await AgentHttpServer.WebSocketSendTextAsync(stream, resp, cts.Token);
                         }
                         else if (msgType == "clear")
@@ -4048,7 +4054,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                 {
                     try
                     {
-                        var json = JsonSerializer.Serialize(new { type = "request", entry = entry.ToSummary() });
+                        var json = JsonSerializer.Serialize(new
+                        {
+                            type = "request",
+                            timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                            entry = entry.ToSummary()
+                        });
                         await AgentHttpServer.WebSocketSendTextAsync(stream, json, cts.Token);
                     }
                     catch { await cts.CancelAsync(); break; }
@@ -4097,7 +4108,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         if (replayCount > 0)
         {
             var recent = _logProvider.Reader.Read(replayCount, 0, sourceFilter);
-            var replayMsg = JsonSerializer.Serialize(new { type = "replay", entries = recent });
+            var replayMsg = JsonSerializer.Serialize(new
+            {
+                type = "replay",
+                timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                entries = recent
+            });
             await AgentHttpServer.WebSocketSendTextAsync(stream, replayMsg, ct);
         }
 
@@ -4133,7 +4149,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                 {
                     try
                     {
-                        var json = JsonSerializer.Serialize(new { type = "log", entry });
+                        var json = JsonSerializer.Serialize(new
+                        {
+                            type = "log",
+                            timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                            entry
+                        });
                         await AgentHttpServer.WebSocketSendTextAsync(stream, json, cts.Token);
                     }
                     catch { await cts.CancelAsync(); break; }
@@ -4171,7 +4192,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         if (string.IsNullOrWhiteSpace(requestedSessionId))
         {
             await AgentHttpServer.WebSocketSendTextAsync(stream,
-                JsonSerializer.Serialize(new { error = "sessionId query parameter is required" }), ct);
+                JsonSerializer.Serialize(new
+                {
+                    type = "error",
+                    timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                    error = "sessionId query parameter is required"
+                }), ct);
             return;
         }
 
@@ -4225,6 +4251,8 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                 {
                     await AgentHttpServer.WebSocketSendTextAsync(stream, JsonSerializer.Serialize(new
                     {
+                        type = "error",
+                        timestamp = DateTimeOffset.UtcNow.ToString("O"),
                         error = $"Profiler session '{requestedSessionId}' not found"
                     }), cts.Token);
                     break;
@@ -5636,7 +5664,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         if (string.IsNullOrEmpty(sensorName))
         {
             await AgentHttpServer.WebSocketSendTextAsync(stream,
-                JsonSerializer.Serialize(new { error = "sensor query parameter is required (e.g., ?sensor=accelerometer)" }), ct);
+                JsonSerializer.Serialize(new
+                {
+                    type = "error",
+                    timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                    error = "sensor query parameter is required (e.g., ?sensor=accelerometer)"
+                }), ct);
             return;
         }
 
@@ -5657,7 +5690,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         if (startError != null)
         {
             await AgentHttpServer.WebSocketSendTextAsync(stream,
-                JsonSerializer.Serialize(new { error = startError }), ct);
+                JsonSerializer.Serialize(new
+                {
+                    type = "error",
+                    timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                    error = startError
+                }), ct);
             return;
         }
 
@@ -5668,8 +5706,22 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         try
         {
             // Confirm subscription
+            var subscribedAt = DateTimeOffset.UtcNow.ToString("O");
             await AgentHttpServer.WebSocketSendTextAsync(stream,
-                JsonSerializer.Serialize(new { type = "subscribed", sensor = sensorName, speed = speed.ToString(), throttleMs = Sensors.ThrottleMs }), ct);
+                JsonSerializer.Serialize(new
+                {
+                    type = "subscribed",
+                    timestamp = subscribedAt,
+                    sensor = new
+                    {
+                        name = sensorName,
+                        available = Sensors.SupportedSensors.Contains(sensorName),
+                        active = true
+                    },
+                    sensorName = sensorName,
+                    speed = speed.ToString(),
+                    throttleMs = Sensors.ThrottleMs
+                }), ct);
 
             // Read loop (detects disconnection)
             var readTask = Task.Run(async () =>

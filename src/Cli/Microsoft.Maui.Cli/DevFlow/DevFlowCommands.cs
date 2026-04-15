@@ -1370,10 +1370,10 @@ public class DevFlowCommands
         devflowCommand.Add(commandsCmd);
 
         // ===== MCP server command =====
-        var mcpServeCmd = new Command("mcp-serve", "Start MCP (Model Context Protocol) server for AI agent integration via stdio");
-        mcpServeCmd.Aliases.Add("mcp");
-        mcpServeCmd.SetAction(async (ctx, ct) => { await Mcp.McpServerHost.RunAsync(); });
-        devflowCommand.Add(mcpServeCmd);
+        var mcpCmd = new Command("mcp", "Start MCP (Model Context Protocol) server for AI agent integration via stdio");
+        mcpCmd.Aliases.Add("mcp-serve");
+        mcpCmd.SetAction(async (ctx, ct) => { await Mcp.McpServerHost.RunAsync(); });
+        devflowCommand.Add(mcpCmd);
 
         _devflowCommand = devflowCommand;
 
@@ -2117,7 +2117,7 @@ public class DevFlowCommands
         new("broker stop", "Stop the broker daemon", true),
         new("broker status", "Show broker status", false),
         new("broker log", "Show broker log", false),
-        new("mcp-serve", "Start the MCP server", false),
+        new("mcp", "Start the MCP server", false),
         new("commands", "List all available commands", false),
         new("version", "Show CLI version", false),
     };

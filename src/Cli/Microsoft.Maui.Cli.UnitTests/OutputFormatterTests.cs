@@ -59,6 +59,32 @@ public class OutputFormatterTests
 	}
 
 	[Fact]
+	public void JsonOutputFormatter_WriteCliCommandResult_ProducesValidJson()
+	{
+		var sb = new StringBuilder();
+		using var writer = new StringWriter(sb);
+		var formatter = new JsonOutputFormatter(writer);
+
+		formatter.Write(new CliCommandResult
+		{
+			Success = true,
+			Status = "requires_interaction",
+			Message = "Run the command in a terminal",
+			Command = "sdkmanager",
+			Arguments = "--licenses",
+			FullCommand = "sdkmanager --licenses"
+		});
+
+		var output = sb.ToString();
+		Assert.Contains("\"success\": true", output);
+		Assert.Contains("\"status\": \"requires_interaction\"", output);
+		Assert.Contains("\"message\": \"Run the command in a terminal\"", output);
+		Assert.Contains("\"command\": \"sdkmanager\"", output);
+		Assert.Contains("\"arguments\": \"--licenses\"", output);
+		Assert.Contains("\"full_command\": \"sdkmanager --licenses\"", output);
+	}
+
+	[Fact]
 	public void JsonOutputFormatter_WriteException_ConvertsToErrorResult()
 	{
 		var sb = new StringBuilder();

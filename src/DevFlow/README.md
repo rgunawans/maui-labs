@@ -63,7 +63,7 @@ maui-devflow ui screenshot -o screenshot.png
 maui-devflow ui tap --automationid "MyButton"
 
 # Start MCP server for AI agent integration
-maui-devflow mcp-serve
+maui-devflow mcp
 ```
 
 ## Features
