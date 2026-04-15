@@ -13,7 +13,7 @@ A comprehensive testing, automation, and debugging toolkit for .NET MAUI applica
 | **Microsoft.Maui.DevFlow.Agent.Gtk** | GTK/Linux agent for Maui.Gtk apps. |
 | **Microsoft.Maui.DevFlow.Blazor** | Blazor WebView CDP bridge. Enables Chrome DevTools Protocol access for Blazor Hybrid content via Chobitsu. |
 | **Microsoft.Maui.DevFlow.Blazor.Gtk** | Blazor CDP bridge for WebKitGTK on Linux. |
-| **Microsoft.Maui.DevFlow.CLI** | Global CLI tool (`maui-devflow`) with 50+ commands for automation, debugging, and MCP server support. |
+| **Microsoft.Maui.DevFlow.CLI** | DevFlow command implementation used by the unified `maui devflow` CLI surface for automation, debugging, and MCP server support. |
 | **Microsoft.Maui.DevFlow.Driver** | Platform-aware app driver for iOS, Android, Mac Catalyst, Windows, and Linux. |
 | **Microsoft.Maui.DevFlow.Logging** | Buffered rotating JSONL file logger. No MAUI dependency. |
 
@@ -44,26 +44,26 @@ public static MauiApp CreateMauiApp()
 }
 ```
 
-### 3. Install the CLI tool
+### 3. Install the unified CLI tool
 
 ```bash
-dotnet tool install -g Microsoft.Maui.DevFlow.CLI
+dotnet tool install -g Microsoft.Maui.Cli --prerelease
 ```
 
 ### 4. Interact with your running app
 
 ```bash
 # Visual tree
-maui-devflow ui tree
+maui devflow ui tree
 
 # Take a screenshot
-maui-devflow ui screenshot -o screenshot.png
+maui devflow ui screenshot -o screenshot.png
 
 # Tap an element
-maui-devflow ui tap --automationid "MyButton"
+maui devflow ui tap --automationid "MyButton"
 
 # Start MCP server for AI agent integration
-maui-devflow mcp
+maui devflow mcp
 ```
 
 ## Features
