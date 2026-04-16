@@ -250,7 +250,7 @@ description: >-
 ---
 ```
 
-The `description` field is  agent runtimes read only the description to decide whether to activate the skill. Include explicit "USE FOR" and "DO NOT USE FOR" guidance.critical 
+The `description` field is critical — agent runtimes read only the description to decide whether to activate the skill. Include explicit "USE FOR" and "DO NOT USE FOR" guidance.
 
 ### Adding a New Skill
 
