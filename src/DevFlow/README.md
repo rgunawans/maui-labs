@@ -69,14 +69,48 @@ maui devflow mcp
 ## Features
 
 - **Visual Tree Inspection** — query the full MAUI visual tree via HTTP API or CLI
-- **Element Interaction** — tap, fill, scroll, navigate, and mutate properties
-- **Screenshots** — capture PNG screenshots from any platform
+- **Element Interaction** — tap, fill, scroll, navigate, focus, resize, and mutate properties
+- **Screenshots** — capture PNG screenshots from any platform (full window or per-element)
+- **Screen Recording** — start/stop video recording of app sessions
 - **Network Monitoring** — intercept and inspect HTTP requests/responses
-- **Performance Profiling** — CPU, memory, GC, and jank detection
-- **Blazor CDP Bridge** — Chrome DevTools Protocol for Blazor WebViews
+- **Performance Profiling** — CPU, memory, GC, and jank detection with markers and spans
+- **Blazor CDP Bridge** — Chrome DevTools Protocol for Blazor WebViews (DOM, JS eval, navigation, input)
 - **MCP Server** — 50+ structured tools for AI agent integration (Claude, etc.)
 - **Logging** — buffered JSONL file logging with WebView JS console capture
+- **Real-time Streaming** — WebSocket channels for logs, network, sensors, profiler, and UI events
+- **Storage Access** — read/write app preferences and secure storage remotely
+- **Device Introspection** — battery, connectivity, geolocation, display, permissions, and sensor data
+- **Dialog Handling** — detect and dismiss alerts/action sheets programmatically
+- **Batch Operations** — execute command sequences from stdin for scripting
 - **Multi-Platform** — iOS, Android, Mac Catalyst, Windows, Linux/GTK
+
+## CLI Commands
+
+All DevFlow commands are available under `maui devflow`. Run `maui devflow <command> --help` for details.
+
+| Command Group | Description |
+|---------------|-------------|
+| `ui` | Visual tree, element interaction, screenshots, recording, alerts, assertions |
+| `webview` | Blazor WebView automation — DOM, JS eval, navigation, input, screenshots |
+| `logs` | Fetch and stream application logs |
+| `network` | Monitor and inspect HTTP requests |
+| `storage` | Read/write app preferences and secure storage |
+| `agent` | Discover and inspect connected agents (status, list, wait, diagnose) |
+| `broker` | Manage the agent broker (start, stop, status, log) |
+| `batch` | Execute command sequences from stdin |
+| `commands` | List all available commands (schema discovery) |
+| `mcp` | Start the MCP server for AI agent integration |
+
+### DevFlow Global Options
+
+These options apply to all `maui devflow` subcommands:
+
+| Option | Description |
+|--------|-------------|
+| `--agent-port`, `-ap` | Agent HTTP port (default: 9223) |
+| `--agent-host`, `-ah` | Agent HTTP host (default: localhost) |
+| `--platform`, `-p` | Target platform (maccatalyst, android, ios, windows) |
+| `--no-json` | Force human-readable output |
 
 ## Platform Support
 
