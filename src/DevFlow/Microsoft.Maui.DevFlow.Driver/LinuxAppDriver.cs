@@ -175,20 +175,22 @@ public class LinuxAppDriver : AppDriverBase
         {
             try
             {
-                var psi = new ProcessStartInfo("ffmpeg", "-formats")
+                var psi = new ProcessStartInfo("ffmpeg", "-devices")
                 {
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false
                 };
                 using var proc = Process.Start(psi);
-                var output = proc?.StandardOutput.ReadToEnd() ?? "";
+                var stdout = proc?.StandardOutput.ReadToEnd() ?? "";
+                var stderr = proc?.StandardError.ReadToEnd() ?? "";
                 proc?.WaitForExit(5000);
-                if (!output.Contains("pipewire", StringComparison.OrdinalIgnoreCase))
+                if (!stdout.Contains("pipewire", StringComparison.OrdinalIgnoreCase) &&
+                    !stderr.Contains("pipewire", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
                         "Screen recording on Wayland requires ffmpeg with PipeWire support, but your ffmpeg build " +
-                        "does not include the 'pipewire' format. Install a PipeWire-enabled ffmpeg build, or run " +
+                        "does not include the 'pipewire' device. Install a PipeWire-enabled ffmpeg build, or run " +
                         "under X11 (GDK_BACKEND=x11) to use x11grab instead.");
                 }
             }
