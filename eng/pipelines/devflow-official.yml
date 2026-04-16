@@ -52,6 +52,10 @@ extends:
     settings:
       networkIsolationPolicy: Permissive
 
+    containers:
+      ubuntu2404:
+        image: mcr.microsoft.com/dotnet-buildtools/prereqs:ubuntu-24.04
+
     stages:
     - stage: build
       displayName: Build
@@ -118,8 +122,7 @@ extends:
 
           - job: LinuxGtk4
             displayName: Linux GTK4 - Ubuntu
-            container:
-              image: mcr.microsoft.com/dotnet-buildtools/prereqs:ubuntu-24.04
+            container: ubuntu2404
             pool:
               name: NetCore1ESPool-Internal
               image: build.azurelinux.3.amd64
