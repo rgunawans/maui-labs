@@ -12,6 +12,7 @@ permissions:
 tools:
   edit:
   bash:
+    - git
     - grep
     - find
     - cat
@@ -46,69 +47,118 @@ them to generate incorrect code.
 
 ## Step 1: Gather what changed
 
-Check which PRs were merged in the past 7 days. Review their titles, descriptions,
-and changed files to understand what evolved in the codebase.
+Use the GitHub tools to list PRs merged in the past 7 days. For each PR, note the
+number, title, and changed file paths.
+
+**Focus areas** — prioritize auditing when PRs touched:
+- `src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/` → MCP tools table
+- `*.csproj`, `*.slnf`, `global.json`, `NuGet.config` → packages, build commands, SDK version, feeds
+- `src/DevFlow/` project structure → architecture diagram
+- Pipeline YAML files → CI matrix
+
+If no PRs were merged in the past 7 days, stop silently — no audit needed.
 
 ## Step 2: Audit each AI config file
 
-For each file below, verify its contents against the actual source code.
-If a file listed below does not exist yet, skip it — do not create new files.
+**First, discover all AI config files:**
+```
+ls -la AGENTS.md .github/copilot-instructions.md 2>/dev/null
+find .github/instructions -name "*.instructions.md" 2>/dev/null | sort
+```
+Only audit files that exist — skip any that are missing (do not create new files).
+If you discover instruction files not listed below, audit them using the closest
+matching checklist section.
 
 ### AGENTS.md
 
-- **MCP tools table**: Scan every `[McpServerTool]` attribute in
-  `src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/*.cs`. The table in AGENTS.md must list every tool
-  with its correct name, source file, and description. Regenerate the entire
-  table from source rather than patching individual rows.
-- **Package list**: Check all `.csproj` files for `IsPackable=true` and
-  cross-reference with the documented package list.
-- **Build commands**: Verify solution filter paths (`ls src/DevFlow/*.slnf
-  src/Cli/*.slnf 2>/dev/null`) and ensure build commands are correct.
-- **NuGet feeds**: Compare `NuGet.config` with the documented feed list.
-- **SDK version**: Check `global.json` against documented version.
+- **MCP tools table**:
+  1. Run: `grep -rn "McpServerTool" src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/*.cs`
+  2. For each match, extract: tool name (from attribute), class name, source file path,
+     and description (from XML doc comment or attribute parameter).
+  3. Compare with AGENTS.md table — every tool must have exactly one row.
+  4. If ANY mismatch: regenerate the entire table sorted by tool name. Do not patch rows.
+  5. Verify: `grep -c "McpServerTool" src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/*.cs | tail -1`
+     count must equal the number of table rows.
+- **Package list**: Run `grep -rn "IsPackable" src --include="*.csproj"` and
+  cross-reference with the documented package list. Every `IsPackable=true` project
+  must appear in the list.
+- **Build commands**: Run `ls src/DevFlow/*.slnf src/Cli/*.slnf 2>/dev/null` and
+  verify AGENTS.md build commands reference these exact paths.
+- **NuGet feeds**: Run `grep '<add key=' NuGet.config` and compare with the documented feed list.
+- **SDK version**: Run `cat global.json` and verify the documented SDK version matches exactly.
 
 ### .github/copilot-instructions.md
 
-- **Platform patterns**: Verify that documented code patterns (Core/Platform,
-  `#if` guards, handler registration) still match actual source conventions.
-- **MCP tool conventions**: Check that naming conventions (`maui_` prefix,
-  snake_case, parameter ordering) match actual tools.
-- **Arcade gotchas**: Verify documented build system quirks are still relevant.
+- **Platform patterns**: Compare the documented multi-targeting pattern
+  (Core vs Platform projects, `#if IOS || MACCATALYST` guards, handler
+  registration steps) against actual files in `src/DevFlow/`. Run
+  `grep -r '#if ' src/DevFlow/Microsoft.Maui.DevFlow.Agent/` to check
+  which `#if` directives are actually used.
+- **MCP tool conventions**: Run `grep -rn 'McpServerTool' src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/`
+  and verify that documented naming conventions (`maui_` prefix, snake_case,
+  parameter ordering) match the actual tool attributes.
+- **Arcade gotchas**: Check that the "Arcade SDK Gotchas" section (e.g.,
+  "never modify `eng/common/`") is still accurate by verifying `eng/common/`
+  exists and `.arcaderc` / `global.json` SDK version match what's documented.
 
 ### .github/instructions/devflow-architecture.instructions.md
 
-- **Architecture diagram**: Verify project references in `.csproj` files match
-  the dependency graph. Check for new or removed projects.
-- **Communication protocols**: Verify WebSocket/HTTP patterns are still accurate.
-- **Package dependency graph**: Verify dependencies between shipping packages.
+- **Architecture diagram**: Run `grep -rn "ProjectReference" src --include="*.csproj"`
+  and verify the documented dependency graph matches actual project references.
+  Check for new or removed projects with `find src -name "*.csproj" | sort`.
+- **Communication protocols**: Verify WebSocket/HTTP handler patterns in
+  `src/DevFlow/Microsoft.Maui.DevFlow.Agent.Core/` still match documented patterns.
+- **Package dependency graph**: Cross-reference `PackageReference` entries in `.csproj`
+  files with the documented dependency chain between shipping packages.
 
 ### .github/instructions/mcp-tools.instructions.md
 
-- **Tool creation guide**: Verify the step-by-step guide produces valid tools
-  by cross-referencing with recently added tools.
-- **Naming conventions**: Check that Tool/Tools suffix guidance matches actual
-  class names in the codebase.
-- **Tools reference table**: Must match the AGENTS.md table exactly.
+- **Tool creation guide**: Cross-reference the step-by-step guide against the
+  most recently added tool in `src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/`.
+- **Naming conventions**: Run `grep -rn "class.*Tool" src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/`
+  and verify Tool/Tools suffix guidance matches actual class names.
+- **Tools reference table**: Must match the AGENTS.md table exactly (same rows,
+  same ordering). AGENTS.md is authoritative — if they diverge, update this file
+  to match AGENTS.md.
 
 ### .github/instructions/testing.instructions.md
 
-- **Test projects**: Verify documented test projects exist.
-- **Test patterns**: Check that xUnit patterns match actual test files.
-- **CI matrix**: Verify documented CI platforms match pipeline YAML files.
+- **Test projects**: Run `find src -name "*.Tests.csproj" -o -name "*Tests*.csproj" | sort`
+  and verify every result appears in the documented test project list.
+- **Test patterns**: Sample 2-3 recent test files and confirm xUnit patterns
+  (attributes, assertion style) match what's documented.
+- **CI matrix**: Run `find . -name "*.yml" -path "*pipeline*" -o -name "*.yml" -path "*azure*" | sort`
+  and verify documented CI platforms match the actual pipeline definitions.
 
 ### .github/instructions/packaging.instructions.md
 
-- **Package metadata**: Verify Arcade SDK version, signing config, CPM setup.
-- **Package list**: Must match AGENTS.md.
-- **Feed configuration**: Must match NuGet.config.
+- **Package metadata**: Run `cat global.json` for Arcade SDK version, verify
+  signing config in `eng/Signing.props`, and check CPM in `Directory.Packages.props`.
+- **Package list**: Must match AGENTS.md (cross-reference both lists).
+- **Feed configuration**: Must match `NuGet.config` (cross-reference with
+  `grep '<add key=' NuGet.config`).
+
+### Cross-file consistency (required)
+
+After auditing individual files, verify these stay in sync:
+- MCP tools table in `mcp-tools.instructions.md` must match `AGENTS.md` exactly.
+- Package list must match across `AGENTS.md` and `packaging.instructions.md`.
+- NuGet feed list must match across `NuGet.config`, `AGENTS.md`, and `packaging.instructions.md`.
 
 ## Step 3: Decide and act
 
-- If ANY file needs updating, make all corrections and open a single pull request.
-  In the PR description, list each change with a reference to the merged PR that
-  caused the drift.
-- If NOTHING needs updating, create an issue noting that all AI config files are
-  current, listing the PRs you reviewed.
+**If changes are needed:**
+1. Make all corrections and open a single pull request.
+2. PR description must include:
+   - Summary: "Updated N files based on M merged PRs"
+   - Table of changes: `| File | What changed | Caused by PR |`
+   - Example: `| AGENTS.md | Added maui_new_tool to MCP table | #142 |`
+
+**If no changes needed** and there were merged PRs to review, comment on the
+most recent merged PR confirming the AI docs are still in sync. Do NOT create
+an issue just to say "nothing changed."
+
+**If no merged PRs** in the past 7 days, stop silently.
 
 ## Rules
 
@@ -117,3 +167,7 @@ If a file listed below does not exist yet, skip it — do not create new files.
 - When updating the MCP tools table, regenerate the entire table from source.
 - Preserve existing formatting and structure of each file.
 - Be precise — wrong information in these files is worse than missing information.
+- Do not audit general documentation (README, etc.) unless it is explicitly
+  referenced by an AI config file section you are updating.
+- When verifying tables "match", ignore whitespace differences but content
+  (names, paths, versions) must be exact. File paths are case-sensitive.
