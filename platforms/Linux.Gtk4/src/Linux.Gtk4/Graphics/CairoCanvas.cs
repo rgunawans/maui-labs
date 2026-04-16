@@ -585,7 +585,7 @@ internal class CairoCanvas : global::Microsoft.Maui.Graphics.ICanvas
 		if (attributedText.Runs == null || attributedText.Runs.Count == 0)
 			return null;
 
-		var attrList = AttrList.New();
+		AttrList? attrList = null;
 		var text = attributedText.Text;
 
 		foreach (var run in attributedText.Runs)
@@ -598,20 +598,33 @@ internal class CairoCanvas : global::Microsoft.Maui.Graphics.ICanvas
 			if (attrs == null) continue;
 
 			if (attrs.ContainsKey(TextAttribute.Bold))
+			{
+				attrList ??= AttrList.New();
 				InsertPangoAttr(attrList, Pango.Functions.AttrWeightNew(Weight.Bold), byteStart, byteEnd);
+			}
 
 			if (attrs.ContainsKey(TextAttribute.Italic))
+			{
+				attrList ??= AttrList.New();
 				InsertPangoAttr(attrList, Pango.Functions.AttrStyleNew(Style.Italic), byteStart, byteEnd);
+			}
 
 			if (attrs.ContainsKey(TextAttribute.Underline))
+			{
+				attrList ??= AttrList.New();
 				InsertPangoAttr(attrList, Pango.Functions.AttrUnderlineNew(Underline.Single), byteStart, byteEnd);
+			}
 
 			if (attrs.ContainsKey(TextAttribute.Strikethrough))
+			{
+				attrList ??= AttrList.New();
 				InsertPangoAttr(attrList, Pango.Functions.AttrStrikethroughNew(true), byteStart, byteEnd);
+			}
 
 			if (attrs.TryGetValue(TextAttribute.FontSize, out var fontSizeStr)
 				&& float.TryParse(fontSizeStr, out float attrFontSize))
 			{
+				attrList ??= AttrList.New();
 				InsertPangoAttr(attrList, Pango.Functions.AttrSizeNew((int)(attrFontSize * Pango.Constants.SCALE)), byteStart, byteEnd);
 			}
 
@@ -622,6 +635,7 @@ internal class CairoCanvas : global::Microsoft.Maui.Graphics.ICanvas
 					ushort r = (ushort)(color.Red * 65535);
 					ushort g = (ushort)(color.Green * 65535);
 					ushort b = (ushort)(color.Blue * 65535);
+					attrList ??= AttrList.New();
 					InsertPangoAttr(attrList, Pango.Functions.AttrForegroundNew(r, g, b), byteStart, byteEnd);
 				}
 			}
