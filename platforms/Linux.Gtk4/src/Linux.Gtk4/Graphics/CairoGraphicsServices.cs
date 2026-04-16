@@ -118,7 +118,7 @@ internal class CairoBitmapExportContext : global::Microsoft.Maui.Graphics.Bitmap
 }
 
 /// <summary>
-/// IImageLoadingService implementation using Cairo PNG loading.
+/// IImageLoadingService implementation using Cairo and GdkPixbuf image loading.
 /// </summary>
 internal class CairoImageLoadingService : global::Microsoft.Maui.Graphics.IImageLoadingService
 {

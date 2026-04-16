@@ -112,10 +112,12 @@ internal class CairoPlatformImage : global::Microsoft.Maui.Graphics.IImage
 
 	/// <summary>
 	/// Creates a CairoPlatformImage from a stream.
+	/// The format value is validated for GTK support, while GdkPixbuf
+	/// detects the actual decoder from the stream contents.
 	/// </summary>
 	public static CairoPlatformImage? FromStream(Stream stream, ImageFormat format = ImageFormat.Png)
 	{
-		using var pixbuf = PixbufExtensions.LoadFromStream(stream);
+		using var pixbuf = PixbufExtensions.LoadFromStream(stream, format);
 		if (pixbuf is null)
 			return null;
 

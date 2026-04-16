@@ -123,8 +123,7 @@ internal static class PixbufExtensions
 		if (pixbuf is null)
 			throw new InvalidOperationException("Unable to create an image buffer from the Cairo surface.");
 
-		var format = imageFormat.ToImageExtension()
-			?? throw new NotSupportedException($"Image format '{imageFormat}' is not supported on GTK.");
+		var format = GetImageExtension(imageFormat);
 
 		using var outputStream = MemoryOutputStream.NewResizable();
 		var success = pixbuf.SaveToStreamv(outputStream, format, null, null, null);
@@ -136,9 +135,10 @@ internal static class PixbufExtensions
 		stream.Write(bytes.GetRegionSpan<byte>(0, bytes.GetSize()));
 	}
 
-	public static Pixbuf? LoadFromStream(Stream stream)
+	public static Pixbuf? LoadFromStream(Stream stream, ImageFormat imageFormat = ImageFormat.Png)
 	{
 		ArgumentNullException.ThrowIfNull(stream);
+		_ = GetImageExtension(imageFormat);
 
 		using var loader = PixbufLoader.New();
 		const int bufferSize = 8192;
@@ -157,6 +157,10 @@ internal static class PixbufExtensions
 		var pixbuf = loader.GetPixbuf();
 		return pixbuf?.Copy();
 	}
+
+	private static string GetImageExtension(ImageFormat imageFormat) =>
+		imageFormat.ToImageExtension()
+		?? throw new NotSupportedException($"Image format '{imageFormat}' is not supported on GTK.");
 
 	private static string? ToImageExtension(this ImageFormat imageFormat) =>
 		imageFormat switch
