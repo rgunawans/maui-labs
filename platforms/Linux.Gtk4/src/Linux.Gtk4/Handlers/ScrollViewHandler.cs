@@ -1,4 +1,3 @@
-using Gtk;
 using Microsoft.Maui;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Platform;
@@ -112,10 +111,10 @@ public class ScrollViewHandler : GtkViewHandler<IScrollView, Gtk.ScrolledWindow>
 			// The Viewport's default scroll policy is MINIMUM, but our CustomLayout
 			// returns minimum=0 (to prevent window growth). Set policy to NATURAL
 			// so the Viewport uses natural size for scroll extent.
-			if (handler.PlatformView?.GetFirstChild() is Viewport viewport)
+			if (handler.PlatformView?.GetFirstChild() is Gtk.Viewport viewport)
 			{
-				viewport.VscrollPolicy = ScrollablePolicy.Natural;
-				viewport.HscrollPolicy = ScrollablePolicy.Natural;
+				viewport.VscrollPolicy = Gtk.ScrollablePolicy.Natural;
+				viewport.HscrollPolicy = Gtk.ScrollablePolicy.Natural;
 			}
 		}
 	}
