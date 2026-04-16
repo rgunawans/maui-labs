@@ -4,7 +4,7 @@ A comprehensive, platform-agnostic checklist for implementing a complete .NET MA
 
 > **Existing Reference Implementations:**
 > - **macOS (AppKit):** [shinyorg/mauiplatforms](https://github.com/shinyorg/mauiplatforms) — `src/Platform.Maui.MacOS/`
-> - **Linux (GTK4):** [Redth/Maui.Gtk](https://github.com/Redth/Maui.Gtk) — `src/Platform.Maui.Linux.Gtk4/`
+> - **Linux (GTK4):** [`platforms/Linux.Gtk4/`](../../platforms/Linux.Gtk4/) in this repo
 > - **MAUI Source Code:** [dotnet/maui](https://github.com/dotnet/maui)
 
 ---
@@ -40,7 +40,7 @@ Before we start coding, help me research and plan:
 
 3. **Project structure:**
    - Reference the macOS backend at https://github.com/shinyorg/mauiplatforms
-     and the GTK4 backend at https://github.com/Redth/Maui.Gtk for structure patterns
+     and the GTK4 backend at `platforms/Linux.Gtk4/` in this repo for structure patterns
    - Plan the NuGet package structure with MSBuild .targets/.props files
    - Plan the Essentials project structure (separate from the UI handlers)
 
@@ -84,7 +84,7 @@ using [UI_TOOLKIT]. I need:
    - Window scope and application scope support
 
 Use the macOS backend (https://github.com/shinyorg/mauiplatforms/tree/main/src/Platform.Maui.MacOS)
-and GTK4 backend (https://github.com/Redth/Maui.Gtk/tree/main/src/Platform.Maui.Linux.Gtk4)
+and GTK4 backend (`platforms/Linux.Gtk4/` in this repo)
 as references for the implementation pattern.
 ```
 
@@ -104,7 +104,7 @@ https://github.com/dotnet/maui/tree/main/src/Core/src/Handlers/[Control]/
 
 And the existing implementations:
 - macOS: https://github.com/shinyorg/mauiplatforms/blob/main/src/Platform.Maui.MacOS/Handlers/[Control]Handler.cs
-- GTK4: https://github.com/Redth/Maui.Gtk/blob/main/src/Platform.Maui.Linux.Gtk4/Handlers/[Control]Handler.cs
+- GTK4: `platforms/Linux.Gtk4/src/Linux.Gtk4/Handlers/[Control]Handler.cs` (in this repo)
 - iOS: https://github.com/dotnet/maui/blob/main/src/Core/src/Handlers/[Control]/[Control]Handler.iOS.cs
 - Android: https://github.com/dotnet/maui/blob/main/src/Core/src/Handlers/[Control]/[Control]Handler.Android.cs
 
@@ -135,7 +135,7 @@ setDefault?.Invoke(null, new object[] { new [Platform][Service]() });
 
 Reference implementations:
 - macOS: https://github.com/shinyorg/mauiplatforms/tree/main/src/Platform.Maui.Essentials.MacOS/
-- GTK4: https://github.com/Redth/Maui.Gtk/tree/main/src/Platform.Maui.Linux.Gtk4.Essentials/
+- GTK4: `platforms/Linux.Gtk4/src/Linux.Gtk4.Essentials/` (in this repo)
 
 
 ### Prompt 5: Resizetizer & Build Targets
@@ -152,7 +152,7 @@ Create MSBuild targets for the [PLATFORM_NAME] MAUI backend to handle:
 Reference:
 - MAUI Resizetizer targets: https://github.com/dotnet/maui/tree/main/src/SingleProject/Resizetizer/src/nuget/buildTransitive/
 - macOS targets: https://github.com/shinyorg/mauiplatforms/blob/main/src/Platform.Maui.MacOS/build/
-- GTK4 targets: https://github.com/Redth/Maui.Gtk/tree/main/src/Platform.Maui.Linux.Gtk4/buildTransitive/
+- GTK4 targets: `platforms/Linux.Gtk4/src/Linux.Gtk4/buildTransitive/` (in this repo)
 
 Known issue: Resizetizer is tightly coupled to MAUI SDK platforms.
 See https://github.com/dotnet/maui/issues/34102 and https://github.com/dotnet/maui/issues/34222
@@ -1464,7 +1464,7 @@ Track your MAUI DevFlow integration progress:
 
 ### Existing Backends
 - [macOS (AppKit)](https://github.com/shinyorg/mauiplatforms) — Full macOS backend with 48+ handlers
-- [Linux (GTK4)](https://github.com/Redth/Maui.Gtk) — Full Linux/GTK4 backend with comprehensive handlers
+- [Linux (GTK4)](../../platforms/Linux.Gtk4/) — Full Linux/GTK4 backend with comprehensive handlers (in this repo)
 
 ### Development Tools
 - [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) — Agentic development toolkit for MAUI app inspection and debugging

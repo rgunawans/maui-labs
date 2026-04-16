@@ -1,6 +1,6 @@
 # Project Structure & Conventions
 
-The canonical project structure for new MAUI backends in the `dotnet/maui-labs` repository, based on the Linux.Gtk4 backend at `platforms/Linux.Gtk4/` (branch: `platforms/linux-gtk4-import`).
+The canonical project structure for new MAUI backends in the `dotnet/maui-labs` repository, based on the Linux.Gtk4 backend at `platforms/Linux.Gtk4/` on `main`.
 
 ---
 

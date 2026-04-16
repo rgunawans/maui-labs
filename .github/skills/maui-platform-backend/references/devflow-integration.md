@@ -16,9 +16,9 @@ When building a new MAUI backend, you're operating blind — no Visual Studio XA
 This creates a tight debugging loop:
 1. Make a handler change
 2. Build and run the app
-3. `maui devflow tree` — verify the control rendered
-4. `maui devflow screenshot` — visually confirm
-5. `maui devflow element <id>` — inspect bounds and properties
+3. `maui devflow ui tree` — verify the control rendered
+4. `maui devflow ui screenshot` — visually confirm
+5. `maui devflow ui element <id>` — inspect bounds and properties
 6. Find the issue, fix it, repeat
 
 **Without DevFlow**: you're `Console.WriteLine`-debugging handler property mappings.
@@ -122,18 +122,18 @@ maui devflow broker start
 dotnet run --project samples/[Platform.Name].Sample -p:EnableMauiDevFlow=true
 
 # Inspect visual tree
-maui devflow tree
+maui devflow ui tree
 
 # Take screenshot
-maui devflow screenshot --output render-check.png
+maui devflow ui screenshot --output render-check.png
 
 # Interact
-maui devflow tap MyButton
-maui devflow fill MyEntry "Hello from terminal"
+maui devflow ui tap MyButton
+maui devflow ui fill MyEntry "Hello from terminal"
 
 # Check element properties
-maui devflow query --type Label
-maui devflow element <elementId>
+maui devflow ui query --type Label
+maui devflow ui element <elementId>
 ```
 
 ---
@@ -142,7 +142,7 @@ maui devflow element <elementId>
 
 ### Control not rendering
 ```bash
-maui devflow tree    # Is the element in the tree?
+maui devflow ui tree    # Is the element in the tree?
 ```
 - **Missing from tree**: Check handler registration in `AppHostBuilderExtensions.cs`
 - **In tree but invisible**: Check bounds — zero width/height means `GetDesiredSize` returned empty
@@ -150,7 +150,7 @@ maui devflow tree    # Is the element in the tree?
 
 ### Wrong size/position
 ```bash
-maui devflow element <id>    # Check Bounds, WindowBounds
+maui devflow ui element <id>    # Check Bounds, WindowBounds
 ```
 - Verify `GetDesiredSize` delegates to `CrossPlatformMeasure`
 - Verify `PlatformArrange` applies the `Rect` to the native view's frame correctly
@@ -158,8 +158,8 @@ maui devflow element <id>    # Check Bounds, WindowBounds
 
 ### Property not applying
 ```bash
-maui devflow get-property <id> Text       # Check MAUI-side value
-maui devflow get-property <id> IsVisible  # Check visibility
+maui devflow ui property <id> Text       # Check MAUI-side value
+maui devflow ui property <id> IsVisible  # Check visibility
 ```
 - Verify the property mapper entry in your handler
 - Check that the mapper method reads from `virtualView` (not cached state)
@@ -195,5 +195,5 @@ These evolve together:
 | [ ] Window Size | | `GetNativeWindowSize()` returns dimensions |
 | [ ] Registration | | `AddMauiDevFlowAgent()` for DI |
 | [ ] Broker Integration | | Agent connects to broker for port assignment |
-| [ ] CLI Compatibility | | `maui devflow tree/screenshot/tap` all work |
+| [ ] CLI Compatibility | | `maui devflow ui tree/screenshot/tap` all work |
 | [ ] Blazor CDP | | (Optional) Chrome DevTools Protocol for Blazor WebView |

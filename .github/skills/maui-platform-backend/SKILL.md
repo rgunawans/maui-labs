@@ -37,7 +37,7 @@ Before writing any code, research the target platform:
 4. **Map MAUI concepts to platform APIs**: gesture system, text rendering, image loading, font system, web engine
 5. **Review known extensibility gaps** — see [references/extensibility-gaps.md](references/extensibility-gaps.md) for workarounds
 
-**Reference the canonical implementation**: Study the Linux.Gtk4 backend at `platforms/Linux.Gtk4/` (branch: `platforms/linux-gtk4-import`). To browse it without switching branches, use `github-mcp-server-get_file_contents` (owner: `dotnet`, repo: `maui-labs`, ref: `refs/heads/platforms/linux-gtk4-import`, path: `platforms/Linux.Gtk4/`) or `git show platforms/linux-gtk4-import:platforms/Linux.Gtk4/`. Also reference the MAUI source at [dotnet/maui](https://github.com/dotnet/maui).
+**Reference the canonical implementation**: Study the Linux.Gtk4 backend at `platforms/Linux.Gtk4/` on `main`. It includes three subprojects: core handlers (`Linux.Gtk4`), essentials (`Linux.Gtk4.Essentials`), and Blazor WebView (`Linux.Gtk4.BlazorWebView`). Also reference the MAUI source at [dotnet/maui](https://github.com/dotnet/maui).
 
 ### Phase 1: Scaffold Project Structure
 
@@ -114,7 +114,7 @@ Use the full checklist in [references/implementation-checklist.md](references/im
 
 - **Kill stale app processes before retesting**: This is the #1 source of false negatives. Old app binaries mask fixes and waste debugging time. Always kill and restart the app after rebuilding. On macOS: `pkill -f YourApp.Sample` or use Activity Monitor.
 - **Side-by-side screenshot comparison**: Run your backend and a reference platform (Mac Catalyst, iOS Simulator) on separate DevFlow ports. Compare screenshots page-by-page. This is the most effective audit technique.
-- **Use `maui-devflow wait` before inspecting**: Don't use arbitrary sleeps. `maui-devflow wait --project ... --timeout 30` gates on actual agent connection, preventing false "element not found" errors.
+- **Use `maui devflow wait` before inspecting**: Don't use arbitrary sleeps. `maui devflow wait --project ... --timeout 30` gates on actual agent connection, preventing false "element not found" errors.
 - **Verify .NET binding existence for native APIs**: Platform APIs documented in Apple/GTK docs may not have .NET bindings, or may have different names (e.g., `NSColor.LabelColor` doesn't exist — use `NSColor.ControlText`; `NSAccessibilityNotifications` doesn't exist — use string literal `"AXAnnouncementRequested"`). Always verify bindings compile before building complex logic around them.
 - **Use file logging, not Console.WriteLine, for native debugging**: Console output from native toolkit callbacks may not reach your terminal. File logging exposes view hierarchy issues, scroll timing, and lifecycle ordering that console output misses.
 - **Audit-first workflow**: Create a checklist of every handler and feature, audit what exists, identify gaps. The checklist becomes your source of truth — don't start implementing randomly.
