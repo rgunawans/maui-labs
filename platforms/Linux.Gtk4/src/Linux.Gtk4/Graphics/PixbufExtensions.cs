@@ -1,3 +1,4 @@
+using System.Buffers;
 using Cairo;
 using GdkPixbuf;
 using Gio;
@@ -142,15 +143,22 @@ internal static class PixbufExtensions
 
 		using var loader = PixbufLoader.New();
 		const int bufferSize = 8192;
-		var buffer = new byte[bufferSize];
+		var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
 
-		while (true)
+		try
 		{
-			var bytesRead = stream.Read(buffer, 0, bufferSize);
-			if (bytesRead == 0)
-				break;
+			while (true)
+			{
+				var bytesRead = stream.Read(buffer, 0, bufferSize);
+				if (bytesRead == 0)
+					break;
 
-			loader.Write(buffer.AsSpan(0, bytesRead));
+				loader.Write(buffer.AsSpan(0, bytesRead));
+			}
+		}
+		finally
+		{
+			ArrayPool<byte>.Shared.Return(buffer);
 		}
 
 		loader.Close();
