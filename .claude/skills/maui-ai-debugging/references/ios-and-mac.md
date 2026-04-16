@@ -206,10 +206,9 @@ Key subcommands beyond the basics:
   ```bash
   rm -rf ~/Library/Saved\ Application\ State/<bundle-id>.savedState
   ```
-  Or detect and dismiss via AppleScript:
-  ```bash
-  osascript -e 'tell application "System Events" to tell process "AppName" to click button "Reopen" of window 1'
-  ```
+  If the "Reopen windows?" dialog is already on screen, ask the user to dismiss it manually,
+  then relaunch. Do not use AppleScript here by default — it steals focus from the user's
+  desktop session.
 - **"Unable to lookup in current state: Shutdown"**: Simulator not booted. Run `xcrun simctl boot <UDID>`.
 - **Build error NETSDK1005 "Assets file doesn't have a target"**: Wrong TFM. Check
   `<TargetFrameworks>` in .csproj and use matching version (e.g. `net10.0-ios` not `net9.0-ios`).
@@ -306,14 +305,16 @@ Use these to test and validate dialog detection and dismissal workflows.
 
 ### Toggle dark mode
 ```bash
-# macOS (affects Mac Catalyst apps)
-osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true'
-osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to false'
-
-# iOS Simulator
+# Preferred when available: use an in-app theme toggle so the host desktop is unaffected.
+#
+# iOS Simulator (safe: affects the simulator only)
 xcrun simctl ui <UDID> appearance dark
 xcrun simctl ui <UDID> appearance light
 ```
+
+For **Mac Catalyst**, changing system appearance affects the user's entire macOS desktop. Only do
+that with explicit user approval; otherwise prefer app-level theme controls and verify via
+`maui devflow ui property` / WebView inspection.
 
 ### Verify dark mode via inspection
 Use `maui devflow` to verify colors without relying on screenshots:

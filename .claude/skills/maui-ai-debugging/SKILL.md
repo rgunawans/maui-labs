@@ -6,9 +6,11 @@ description: >
   macOS (AppKit), or Linux/GTK, (2) Inspecting or interacting with a running app's UI (visual tree, tapping,
   filling text, screenshots, property queries), (3) Debugging Blazor WebView content via CDP, (4) Managing
   simulators or emulators, (5) Setting up MauiDevFlow in a MAUI project, (6) Completing a build-deploy-inspect-fix
-  feedback loop, (7) Handling permission dialogs and system alerts, (8) Managing multiple simultaneous apps via
-  the broker daemon. Covers: the unified `maui devflow` CLI, androidsdk.tool, appledev.tools, adb, xcrun simctl, xdotool,
-  and dotnet build/run for all MAUI target platforms including macOS (AppKit) and Linux/GTK.
+  feedback loop, (7) Handling permission dialogs and in-app/simulator alerts, (8) Managing multiple simultaneous
+  apps via the broker daemon. Covers: the unified `maui devflow` CLI, androidsdk.tool, appledev.tools, adb,
+  xcrun simctl, Linux `xdotool`-backed driver caveats, and dotnet build/run for all MAUI target platforms
+  including macOS (AppKit) and Linux/GTK. Do not use for generic desktop automation, AppleScript macros, or
+  arbitrary host-level `xdotool` control unrelated to MAUI app debugging.
 ---
 
 # MAUI AI Debugging
@@ -282,7 +284,8 @@ maui devflow ui fill <entryId> "Hello World"
 maui devflow recording stop
 ```
 
-**Platform tools used automatically:**
+**Platform tools used automatically by MauiDevFlow's recording backend** (implementation detail —
+do not invoke these directly unless the user explicitly asked for host-level recording):
 - **Android:** `adb screenrecord` (max 180s, capped with warning)
 - **iOS Simulator:** `xcrun simctl io recordVideo`
 - **Mac Catalyst / macOS (AppKit):** `screencapture -v` (targets app window when possible)
@@ -547,18 +550,22 @@ For detailed platform-specific setup, simulator/emulator management, and trouble
 **CRITICAL:** Never run commands that steal focus, move windows, simulate mouse/keyboard input,
 or otherwise disrupt the user's desktop. The user is likely working on the same computer.
 
-**Never use:**
-- `osascript` to focus/activate windows, click UI elements, or send keystrokes
+Some platform reference notes mention `osascript` or `xdotool`. Treat those as **implementation
+details or explicit-consent edge cases**, not the default debugging workflow.
+
+**Never directly use:**
+- `osascript` to focus/activate windows, click UI elements, send keystrokes, or change host macOS appearance without the user's approval
 - `screencapture` interactively (the MauiDevFlow screenshot command captures in-process instead)
-- `xdotool` focus/activate/key commands that affect the active window
+- `xdotool` focus/activate/key commands from the shell that affect the active window
 - Any command that moves the mouse cursor or simulates input at the OS level
 - `open -a` to bring apps to the foreground (use `open` only to launch, not to focus)
 
 **Instead:** All inspection and interaction goes through `maui devflow` CLI commands, which
-communicate with the in-app agent over HTTP — no foreground focus required. If you need
-something that would require OS-level control (e.g., dismissing a system dialog outside the
-app), **ask the user** to do it manually rather than attempting automation that would hijack
-their input.
+communicate with the in-app agent over HTTP — no foreground focus required. Simulator-scoped
+commands such as `xcrun simctl privacy`, `xcrun simctl ui <UDID> appearance ...`, and
+`xcrun simctl io screenshot` are fine because they target the simulator rather than the user's
+desktop. If recovery requires OS-level control outside the app, **ask the user** to do it
+manually or get explicit approval before making a disruptive host-level change.
 
 ## Tips
 
