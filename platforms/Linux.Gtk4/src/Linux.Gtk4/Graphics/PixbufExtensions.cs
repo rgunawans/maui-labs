@@ -17,29 +17,35 @@ internal static class PixbufExtensions
 		var translate = x != 0 || y != 0;
 		var scale = width.HasValue && height.HasValue && (width.Value != pixbuf.Width || height.Value != pixbuf.Height);
 
-		if (translate || scale)
+		var saved = translate || scale;
+		if (saved)
 			context.Save();
 
-		if (translate)
-			context.Translate(x, y);
-
-		if (scale)
-			context.Scale(width!.Value / pixbuf.Width, height!.Value / pixbuf.Height);
-
-		Gdk.Functions.CairoSetSourcePixbuf(context, pixbuf, 0, 0);
-
-		using var source = context.GetSource();
-		if (source is SurfacePattern pattern)
+		try
 		{
-			pattern.Filter = width > pixbuf.Width || height > pixbuf.Height
-				? Filter.Fast
-				: Filter.Good;
+			if (translate)
+				context.Translate(x, y);
+
+			if (scale)
+				context.Scale(width!.Value / pixbuf.Width, height!.Value / pixbuf.Height);
+
+			Gdk.Functions.CairoSetSourcePixbuf(context, pixbuf, 0, 0);
+
+			using var source = context.GetSource();
+			if (source is SurfacePattern pattern)
+			{
+				pattern.Filter = width > pixbuf.Width || height > pixbuf.Height
+					? Filter.Fast
+					: Filter.Good;
+			}
+
+			context.Paint();
 		}
-
-		context.Paint();
-
-		if (translate || scale)
-			context.Restore();
+		finally
+		{
+			if (saved)
+				context.Restore();
+		}
 	}
 
 	public static Pixbuf? CreatePixbuf(this ImageSurface? surface)
