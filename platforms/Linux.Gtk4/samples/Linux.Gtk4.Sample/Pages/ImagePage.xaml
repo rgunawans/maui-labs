@@ -107,8 +107,8 @@
             <HorizontalStackLayout Spacing="12">
                 <Button Text="Start / Stop"
                         Clicked="AnimationStartStop_Clicked" />
-                <Button Text="Use Online GIF"
-                        Clicked="UseOnlineSource_Clicked" />
+                <Button Text="Load GIF via URI"
+                        Clicked="UseUriSource_Clicked" />
             </HorizontalStackLayout>
         </VerticalStackLayout>
     </ScrollView>

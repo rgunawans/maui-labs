@@ -35,9 +35,15 @@ public partial class ImagePage : ContentPage
 		AnimatedGifImage.IsAnimationPlaying = e.Value;
 	}
 
-	void UseOnlineSource_Clicked(object? sender, EventArgs e)
+	void UseUriSource_Clicked(object? sender, EventArgs e)
 	{
-		AnimatedGifImage.Source = ImageSource.FromUri(new Uri("https://raw.githubusercontent.com/dotnet/maui/126f47aaf9d5c01224f54fe1c6bfb1c8299cc2fe/src/Compatibility/ControlGallery/src/iOS/GifTwo.gif"));
+		var imagePath = Path.Combine(AppContext.BaseDirectory, "animated_heart.gif");
+		if (!File.Exists(imagePath))
+		{
+			return;
+		}
+
+		AnimatedGifImage.Source = ImageSource.FromUri(new Uri(imagePath));
 		AnimationSwitch.IsToggled = true;
 	}
 }
