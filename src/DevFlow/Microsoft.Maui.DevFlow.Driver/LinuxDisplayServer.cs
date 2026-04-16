@@ -55,20 +55,7 @@ internal static class LinuxDisplayServer
     {
         try
         {
-            var psi = new ProcessStartInfo("pgrep", "-x ydotoold")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
-            using var proc = Process.Start(psi);
-            if (proc == null) return false;
-            if (!proc.WaitForExit(3000))
-            {
-                try { proc.Kill(); } catch { }
-                return false;
-            }
-            return proc.ExitCode == 0;
+            return Process.GetProcessesByName("ydotoold").Length > 0;
         }
         catch
         {
