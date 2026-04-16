@@ -1,9 +1,10 @@
 ---
 name: dotnet-workload-info
 description: >-
-  Discover .NET SDK versions, workload sets, manifest versions, and workload dependencies (Xcode, JDK, Android SDK) from live NuGet APIs. Use when asked about: .NET SDK
-  requirements/versions, workload set versions, workload manifest versions, Xcode version requirements, JDK version requirements, Android SDK packages, or MAUI NuGet package
-  versions. Triggers on questions like "What Xcode is required for .NET 10?" or "What's the latest workload set?"
+  Discover .NET SDK versions, workload sets, manifest versions, and workload dependencies (Xcode, JDK, Android SDK) from live NuGet APIs.
+  USE FOR: .NET SDK requirements/versions, workload set versions, workload manifest versions, Xcode version requirements, JDK version requirements, Android SDK packages, MAUI NuGet package versions.
+  DO NOT USE FOR: Installing workloads (use `dotnet workload install`), general MAUI debugging, app build failures.
+  Triggers on questions like "What Xcode is required for .NET 10?" or "What's the latest workload set?"
 ---
 
 # .NET Workload Info Discovery
@@ -46,16 +47,19 @@ Extract `latest-sdk` and derive SDK band:
 
 ### Step 2: Find Workload Set Package / Version
 
-Use the dotnet workload search version command to discover the latest workload set version:
+Use the `dotnet workload search version` command to discover the latest workload set version (requires .NET SDK 9.0.200+ with workload sets support):
 
-```
-dotnet workload search version --format json --take 1
-# Returns: [{"workloadVersion":"10.0.103"}]
+```bash
+dotnet workload search version
+# Returns: workload set version, e.g. 10.0.103
 ```
 
+```powershell
+dotnet workload search version
 ```
-dotnet workload search version --format json --take 1 | ConvertFrom-Json
-```
+
+> **Note**: This command requires .NET SDK 9.0.200 or later. If unavailable, use the NuGet API instead:
+> `https://api.nuget.org/v3/registration5-gz-semver2/microsoft.net.workloads.10.0.100/index.json`
 
 The returned workloadVersion is the CLI version to use with --version flag.
 

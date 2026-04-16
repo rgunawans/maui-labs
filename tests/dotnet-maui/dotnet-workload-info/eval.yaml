@@ -23,7 +23,7 @@ scenarios:
 
   - name: "Convert between CLI and NuGet workload set versions"
     prompt: |
-      I'm writing a script that uses `dotnet workload search version --format json`
+      I'm writing a script that uses `dotnet workload search version`
       to get the workload set version, then needs to download the workload set
       package from NuGet. The CLI returns version "10.0.103". What's the NuGet
       package ID and version I need for the download URL?
@@ -35,7 +35,7 @@ scenarios:
       - type: "output_matches"
         pattern: "v3-flatcontainer/microsoft\\.net\\.workloads"
       - type: "output_matches"
-        pattern: "workload search version.*--format json|--format json.*workload search"
+        pattern: "workload search version"
     rubric:
       - "Correctly converts CLI version 10.0.103 to NuGet version 10.103.0"
       - "Derives the SDK band as 10.0.100 from the CLI version"

@@ -1,6 +1,11 @@
 ---
 name: ios-slim-bindings
-description: Create and update slim/native platform interop bindings for iOS in .NET MAUI and .NET for iOS projects. Guides through creating Swift/Objective-C wrappers, configuring Xcode projects, generating C# API definitions, and integrating native iOS libraries using the Native Library Interop (NLI) approach. Use when asked about iOS bindings, xcframework integration, Swift interop, Objective Sharpie, or bridging native iOS SDKs to .NET.
+description: >-
+  Create and update slim/native platform interop bindings for iOS in .NET MAUI and .NET for iOS projects.
+  Guides through creating Swift/Objective-C wrappers, configuring Xcode projects, generating C# API definitions,
+  and integrating native iOS libraries using the Native Library Interop (NLI) approach.
+  USE FOR: iOS bindings, xcframework integration, Swift interop, Objective Sharpie, bridging native iOS SDKs to .NET.
+  DO NOT USE FOR: Android bindings (use android-slim-bindings), general MAUI app development, NuGet package issues.
 ---
 
 # When to use this skill
@@ -43,7 +48,7 @@ This skill guides the creation of **Native Library Interop (Slim Bindings)** for
 | libraryName | yes | `FirebaseMessaging`, `Lottie` | Name of the native iOS library to bind |
 | bindingProjectName | yes | `MyBinding.MaciOS` | Name for the C# binding project |
 | dependencySource | no | `cocoapods`, `spm`, `xcframework` | How the native library is distributed |
-| targetFrameworks | no | `net9.0-ios;net9.0-maccatalyst` | Target frameworks (default: latest .NET iOS + Mac Catalyst) |
+| targetFrameworks | no | `net10.0-ios;net10.0-maccatalyst` | Target frameworks (default: latest .NET iOS + Mac Catalyst) |
 | exposedApis | no | List of specific APIs | Which native APIs to expose (helps scope the wrapper) |
 
 # Project Structure

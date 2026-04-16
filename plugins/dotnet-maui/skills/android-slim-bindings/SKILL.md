@@ -1,6 +1,11 @@
 ---
 name: android-slim-bindings
-description: Create and update slim/native platform interop bindings for Android in .NET MAUI and .NET for Android projects. Guides through creating Java/Kotlin wrappers, configuring Gradle projects, resolving Maven dependencies, generating C# bindings, and integrating native Android libraries using the Native Library Interop (NLI) approach. Use when asked about Android bindings, AAR/JAR integration, Kotlin interop, Maven dependencies, or bridging native Android SDKs to .NET.
+description: >-
+  Create and update slim/native platform interop bindings for Android in .NET MAUI and .NET for Android projects.
+  Guides through creating Java/Kotlin wrappers, configuring Gradle projects, resolving Maven dependencies,
+  generating C# bindings, and integrating native Android libraries using the Native Library Interop (NLI) approach.
+  USE FOR: Android bindings, AAR/JAR integration, Kotlin interop, Maven dependencies, bridging native Android SDKs to .NET.
+  DO NOT USE FOR: iOS/macOS bindings (use ios-slim-bindings), general MAUI app development, NuGet package issues.
 ---
 
 # When to use this skill
@@ -46,7 +51,7 @@ This skill guides the creation of **Native Library Interop (Slim Bindings)** for
 | libraryName | yes | `FirebaseMessaging`, `OkHttp` | Name of the native Android library to bind |
 | bindingProjectName | yes | `MyBinding.Android` | Name for the C# binding project |
 | dependencySource | no | `maven`, `aar`, `jar` | How the native library is distributed |
-| targetFrameworks | no | `net9.0-android` | Target frameworks (default: latest .NET Android) |
+| targetFrameworks | no | `net10.0-android` | Target frameworks (default: latest .NET Android) |
 | exposedApis | no | List of specific APIs | Which native APIs to expose (helps scope the wrapper) |
 | mavenCoordinates | no | `com.example:library:1.0.0` | Maven coordinates if library is from Maven repository |
 
@@ -184,7 +189,7 @@ dotnet package search "artifact=androidx.core:core" --source https://api.nuget.o
 
 ## Step 8: Customize Bindings with Metadata
 
-Edit `Transforms/Metadata.xml` to rename packages, classes, parameters, and remove internal types. Examine `obj/Debug/net9.0-android/api.xml` after building to construct correct XPath expressions.
+Edit `Transforms/Metadata.xml` to rename packages, classes, parameters, and remove internal types. Examine `obj/Debug/net10.0-android/api.xml` after building to construct correct XPath expressions.
 
 ## Step 9: Build and Verify
 
