@@ -20,6 +20,7 @@ class MainShell : FlyoutPage
 		("🏠 Home", () => new HomePage()),
 		("🧩 XAML Runtime", () => new XamlRuntimePage()),
 		("🖼️ Image / Font / Icon", () => new ResourceAssetsPage()),
+		("🖼️ Image Showcase", () => new ImagePage()),
 #if FONTAWESOME_SAMPLE
 		("🔣 FontAwesome Icons", () => new FontAwesomePage()),
 #endif
