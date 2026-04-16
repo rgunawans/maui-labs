@@ -2,7 +2,7 @@
 
 Patterns extracted from building MAUI platform backends (macOS/AppKit, Linux/GTK4, Blazor, TUI/terminal, Container-based Linux, and core extensibility work). Every item was discovered in practice, not theorized.
 
-> **Provenance:** These patterns were mined from ~95 Copilot session checkpoints across multiple backend implementations. The session history is cataloged in `platforms/platform-backend-sessions.md` in this repo for anyone who wants to dig deeper into a specific backend's development history.
+> **Provenance:** These patterns were mined from ~95 Copilot session checkpoints across multiple backend implementations.
 
 ---
 
@@ -127,8 +127,6 @@ Reference these existing backends for implementation patterns:
 
 | Backend | Platform | Repository / Location | Status |
 |---------|----------|----------------------|--------|
-| **Linux/GTK4** | GTK4 via GirCore | `platforms/Linux.Gtk4/` in this repo (branch: `platforms/linux-gtk4-import`) | 43 handlers, 20 essentials |
+| **Linux/GTK4** | GTK4 via GirCore | `platforms/Linux.Gtk4/` in this repo | 43 handlers, 20 essentials |
 | **macOS/AppKit** | AppKit via Xamarin.Mac | [shinyorg/mauiplatforms](https://github.com/shinyorg/mauiplatforms) | 48+ handlers |
 | **Blazor** | HTML/CSS/JS | [Redth/Maui.Blazor](https://github.com/Redth/Maui.Blazor) | Web-based rendering |
-
-> **Session history:** The full catalog of Copilot sessions used to build these backends (26 sessions across 7 categories) is maintained at `platforms/platform-backend-sessions.md` in this repo.

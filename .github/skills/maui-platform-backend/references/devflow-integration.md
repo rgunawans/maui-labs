@@ -49,19 +49,22 @@ public class MyPlatformAgentService : DevFlowAgentService
     protected override VisualTreeWalker CreateTreeWalker()
         => new MyPlatformVisualTreeWalker();
 
-    protected override async Task<bool> TryNativeTap(VisualElement element)
+    protected override bool TryNativeTap(VisualElement ve)
     {
         // Use platform API to programmatically click/tap the native view
+        return false;
     }
 
-    protected override async Task<byte[]?> CaptureScreenshotAsync()
+    protected override async Task<byte[]?> CaptureScreenshotAsync(VisualElement rootElement)
     {
         // Use platform screenshot API to capture the window as PNG
+        return null;
     }
 
-    protected override Size? GetNativeWindowSize()
+    protected override (double width, double height) GetNativeWindowSize(IWindow window)
     {
         // Return the current window dimensions from the native window
+        return (0, 0);
     }
 }
 
@@ -113,7 +116,7 @@ public static MauiApp CreateMauiApp()
 
 ```bash
 # Install CLI
-dotnet tool install -g Microsoft.Maui.Cli
+dotnet tool install -g Microsoft.Maui.Cli --prerelease
 
 # Start broker (auto-discovers agents)
 maui devflow broker start
