@@ -152,7 +152,8 @@ internal static class PixbufExtensions
 		}
 
 		loader.Close();
-		return loader.GetPixbuf();
+		var pixbuf = loader.GetPixbuf();
+		return pixbuf?.Copy();
 	}
 
 	private static string? ToImageExtension(this ImageFormat imageFormat) =>
