@@ -57,7 +57,7 @@ If a file listed below does not exist yet, skip it — do not create new files.
 ### AGENTS.md
 
 - **MCP tools table**: Scan every `[McpServerTool]` attribute in
-  `src/DevFlow/**/Mcp/Tools/*.cs`. The table in AGENTS.md must list every tool
+  `src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/*.cs`. The table in AGENTS.md must list every tool
   with its correct name, source file, and description. Regenerate the entire
   table from source rather than patching individual rows.
 - **Package list**: Check all `.csproj` files for `IsPackable=true` and
