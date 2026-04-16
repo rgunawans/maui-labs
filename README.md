@@ -69,7 +69,7 @@ This repository is also a marketplace for distributable agent skills for .NET MA
 ```bash
 # Install via Copilot CLI
 /plugin marketplace add dotnet/maui-labs
-/plugin install dotnet-maui@dotnet-maui-labs-skills
+/plugin install dotnet-maui@dotnet-maui-labs
 ```
 
 See [plugins/](plugins/) for the full catalog and [plugins/CONTRIBUTING.md](plugins/CONTRIBUTING.md) for how to add skills.
