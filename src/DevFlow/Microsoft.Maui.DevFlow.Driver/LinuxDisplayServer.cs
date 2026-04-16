@@ -104,9 +104,10 @@ internal static class LinuxDisplayServer
     public static string GetFfmpegCaptureFormat() => IsWayland ? "pipewire" : "x11grab";
 
     /// <summary>
-    /// Returns the ffmpeg input source for screen capture.
+    /// Returns the default capture display identifier for the current session.
+    /// For X11, returns the DISPLAY value (e.g. ":0"). For Wayland/PipeWire, returns "0".
     /// </summary>
-    public static string GetFfmpegCaptureInput()
+    public static string GetDefaultCaptureDisplay()
     {
         if (IsWayland)
             return "0"; // PipeWire default screen source

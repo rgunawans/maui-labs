@@ -94,7 +94,7 @@ public class LinuxAppDriver : AppDriverBase
             fullPath = Path.ChangeExtension(fullPath, ".mp4");
 
         var captureFormat = LinuxDisplayServer.GetFfmpegCaptureFormat();
-        var captureInput = LinuxDisplayServer.GetFfmpegCaptureInput();
+        var captureInput = LinuxDisplayServer.GetDefaultCaptureDisplay();
         var psi = new ProcessStartInfo("ffmpeg",
             $"-f {captureFormat} -framerate 30 -t {timeoutSeconds} -i {captureInput} -y \"{fullPath}\"")
         {
