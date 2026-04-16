@@ -221,3 +221,37 @@ DevFlow exposes 49 MCP tools for AI agent integration (in `src/DevFlow/Microsoft
 - **`AgentClient`** (in `Microsoft.Maui.DevFlow.Driver`) is the public API consumed by NuGet users. Method signature changes are **binary and source breaking** for consumers.
 - The repo is at version **0.1.0-preview** — breaking changes are acceptable but should be documented.
 - **Platform conditionals**: Use `#if IOS`, `#if ANDROID`, `#if MACCATALYST`, `#if MACOS`, `#if WINDOWS` for platform-specific code in multi-targeting projects.
+
+## Skills Marketplace
+
+This repository also distributes agent skills as a plugin under `plugins/dotnet-maui/`.
+
+### Plugin Structure
+
+```
+plugins/<plugin-name>/
+ plugin.json              # Plugin manifest (name, version, description, skills path)
+ skills/
+ <skill-name>/    
+ SKILL.md         # Skill definition (required)        
+ references/      # Supporting documentation (optional)        
+```
+
+### Skill Format
+
+Each `SKILL.md` must have YAML frontmatter:
+
+```yaml
+---
+name: skill-name
+description: >-
+  What this skill does. USE FOR: specific scenarios.
+  DO NOT USE FOR: non-applicable contexts.
+---
+```
+
+The `description` field is critical — agent runtimes read only the description to decide whether to activate the skill. Include explicit "USE FOR" and "DO NOT USE FOR" guidance.
+
+### Adding a New Skill
+
+See [plugins/CONTRIBUTING.md](plugins/CONTRIBUTING.md) for the full guide, including skill structure, SKILL.md format, evaluation tests, and the PR checklist.
