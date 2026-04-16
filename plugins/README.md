@@ -15,7 +15,7 @@ Distributable agent skills for .NET MAUI development. Installable via the Copilo
 /plugin marketplace add dotnet/maui-labs
 
 # Install the plugin
-/plugin install dotnet-maui@dotnet-maui-labs-skills
+/plugin install dotnet-maui@dotnet-maui-labs
 ```
 
 ## Adding Skills
