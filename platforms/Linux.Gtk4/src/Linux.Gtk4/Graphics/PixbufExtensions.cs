@@ -148,14 +148,13 @@ internal static class PixbufExtensions
 		_ = GetImageExtension(imageFormat);
 
 		using var loader = PixbufLoader.New();
-		const int bufferSize = 8192;
-		var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+		var buffer = ArrayPool<byte>.Shared.Rent(8192);
 
 		try
 		{
 			while (true)
 			{
-				var bytesRead = stream.Read(buffer, 0, bufferSize);
+				var bytesRead = stream.Read(buffer, 0, buffer.Length);
 				if (bytesRead == 0)
 					break;
 
