@@ -140,6 +140,17 @@ extends:
               inputs:
                 useGlobalJson: true
             - script: |
+                sudo apt-get update
+                sudo apt-get install -y \
+                  libgtk-4-dev \
+                  libwebkitgtk-6.0-dev \
+                  gobject-introspection \
+                  libgirepository1.0-dev \
+                  gir1.2-gtk-4.0 \
+                  gir1.2-webkit-6.0 \
+                  pkg-config
+              displayName: Install GTK4 dependencies
+            - script: |
                 ./eng/common/cibuild.sh \
                   --configuration $(_BuildConfig) \
                   --prepareMachine \
