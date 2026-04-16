@@ -243,7 +243,10 @@ public class LinuxAppDriver : AppDriverBase
                 UseShellExecute = false
             };
             using var proc = Process.Start(psi);
-            proc?.WaitForExit(5000);
+            if (proc != null && !proc.WaitForExit(5000))
+            {
+                try { proc.Kill(); } catch { }
+            }
         }
         catch
         {
@@ -268,7 +271,10 @@ public class LinuxAppDriver : AppDriverBase
                 UseShellExecute = false
             };
             using var proc = Process.Start(psi);
-            proc?.WaitForExit(5000);
+            if (proc != null && !proc.WaitForExit(5000))
+            {
+                try { proc.Kill(); } catch { }
+            }
         }
         catch
         {
