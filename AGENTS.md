@@ -254,14 +254,4 @@ The `description` field is critical — agent runtimes read only the description
 
 ### Adding a New Skill
 
-1. Create `plugins/<plugin>/skills/<skill-name>/SKILL.md` with frontmatter + content
-2. Create `tests/<plugin>/<skill-name>/eval.yaml` with evaluation scenarios
-3. Run validation: download `skill-validator` from [dotnet/skills releases](https://github.com/dotnet/skills/releases/tag/skill-validator-nightly), then:
-   ```bash
-   skill-validator check --plugin plugins/<plugin>
-   ```
-4. Submit a PR — the `skill-check` workflow validates structure automatically.
-
-### Evaluation
-
-Skills are evaluated using LLM-based pairwise comparison (with vs. without the skill). Evaluation runs are triggered by posting `/evaluate` on a PR. See `tests/` for `eval.yaml` examples.
+See [plugins/CONTRIBUTING.md](plugins/CONTRIBUTING.md) for the full guide, including skill structure, SKILL.md format, evaluation tests, and the PR checklist.
