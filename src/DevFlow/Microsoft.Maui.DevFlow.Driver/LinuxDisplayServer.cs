@@ -34,8 +34,13 @@ internal static class LinuxDisplayServer
                 UseShellExecute = false
             };
             using var proc = Process.Start(psi);
-            proc?.WaitForExit(3000);
-            return proc?.ExitCode == 0;
+            if (proc == null) return false;
+            if (!proc.WaitForExit(3000))
+            {
+                try { proc.Kill(); } catch { }
+                return false;
+            }
+            return proc.ExitCode == 0;
         }
         catch
         {
@@ -57,8 +62,13 @@ internal static class LinuxDisplayServer
                 UseShellExecute = false
             };
             using var proc = Process.Start(psi);
-            proc?.WaitForExit(3000);
-            return proc?.ExitCode == 0;
+            if (proc == null) return false;
+            if (!proc.WaitForExit(3000))
+            {
+                try { proc.Kill(); } catch { }
+                return false;
+            }
+            return proc.ExitCode == 0;
         }
         catch
         {
