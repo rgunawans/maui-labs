@@ -26,7 +26,7 @@
 # needed on dotnet/docs-maui. If updates are needed, it opens a draft PR directly
 # on docs-maui. If not, it comments on the source PR explaining why.
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"59f14757a5f3aad0f61c1352e5ae5553187f7ef292f0b699014a557722550480","compiler_version":"v0.53.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"e44f3b14641b355646e272cbd8c191073fa8b12120cd0c2d64dcbccd547446db","compiler_version":"v0.53.5"}
 
 name: "PR Documentation Check"
 "on":
