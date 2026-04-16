@@ -155,7 +155,7 @@ Key simulation is used by the CLI for alert dismissal and keyboard input.
 
 - Wayland screen recording uses `ffmpeg -f pipewire` instead of `x11grab`
 - Requires PipeWire to be installed and running (standard on modern Wayland desktops)
-- Check ffmpeg PipeWire support: `ffmpeg -formats | grep pipewire`
+- Check ffmpeg PipeWire support: `ffmpeg -devices | grep pipewire`
 - If PipeWire is not available, you can force X11 with `GDK_BACKEND=x11` and use `x11grab`
 - The first recording on Wayland may trigger a system permission dialog for screen sharing
 
