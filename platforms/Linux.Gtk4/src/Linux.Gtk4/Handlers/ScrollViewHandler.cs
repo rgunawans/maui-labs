@@ -1,3 +1,4 @@
+using Gtk;
 using Microsoft.Maui;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Platform;
@@ -98,13 +99,6 @@ public class ScrollViewHandler : GtkViewHandler<IScrollView, Gtk.ScrolledWindow>
 		scrollView.ScrollFinished();
 	}
 
-	[System.Runtime.InteropServices.DllImport("libgtk-4.so.1")]
-	static extern void gtk_scrollable_set_vscroll_policy(IntPtr scrollable, int policy);
-	[System.Runtime.InteropServices.DllImport("libgtk-4.so.1")]
-	static extern void gtk_scrollable_set_hscroll_policy(IntPtr scrollable, int policy);
-
-	const int GTK_SCROLL_NATURAL = 1;
-
 	public static void MapContent(ScrollViewHandler handler, IScrollView scrollView)
 	{
 		_ = handler.MauiContext ?? throw new InvalidOperationException("MauiContext not set.");
@@ -118,12 +112,10 @@ public class ScrollViewHandler : GtkViewHandler<IScrollView, Gtk.ScrolledWindow>
 			// The Viewport's default scroll policy is MINIMUM, but our CustomLayout
 			// returns minimum=0 (to prevent window growth). Set policy to NATURAL
 			// so the Viewport uses natural size for scroll extent.
-			var viewport = handler.PlatformView?.GetFirstChild();
-			if (viewport != null)
+			if (handler.PlatformView?.GetFirstChild() is Viewport viewport)
 			{
-				var handle = viewport.Handle.DangerousGetHandle();
-				gtk_scrollable_set_vscroll_policy(handle, GTK_SCROLL_NATURAL);
-				gtk_scrollable_set_hscroll_policy(handle, GTK_SCROLL_NATURAL);
+				viewport.VscrollPolicy = ScrollablePolicy.Natural;
+				viewport.HscrollPolicy = ScrollablePolicy.Natural;
 			}
 		}
 	}
