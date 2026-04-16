@@ -66,7 +66,7 @@ jobs:
           MERGE_BASE=$(git merge-base "$BASE" "$HEAD")
 
           HAS_SKILL_CHANGES=$(git diff --name-only --diff-filter=ACMR "$MERGE_BASE" "$HEAD" | \
-            grep -E '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' | head -1)
+            grep -E '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' | head -1 || true)
 
           if [ -n "$HAS_SKILL_CHANGES" ]; then
             echo "needs_eval=true" >> "$GITHUB_OUTPUT"
@@ -240,12 +240,12 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           # Consolidate results if any exist
-          JSON_FILES=$(find artifacts/eval-results -name results.json 2>/dev/null || true)
-          if [ -n "$JSON_FILES" ]; then
+          mapfile -t JSON_FILES < <(find artifacts/eval-results -name results.json 2>/dev/null || true)
+          if [ "${#JSON_FILES[@]}" -gt 0 ]; then
             {
               echo "## Skill Evaluation Results"
               echo ""
-              for f in $JSON_FILES; do
+              for f in "${JSON_FILES[@]}"; do
                 skill=$(basename "$(dirname "$f")")
                 echo "### $skill"
                 cat "$(dirname "$f")/results.md" 2>/dev/null || echo "_No markdown report_"

@@ -260,7 +260,7 @@ The `description` field is critical — agent runtimes read only the description
    ```bash
    skill-validator check --plugin plugins/<plugin>
    ```
-4. Submit a  the `skill-check` workflow validates structure automaticallyPR 
+4. Submit a PR — the `skill-check` workflow validates structure automatically.
 
 ### Evaluation
 

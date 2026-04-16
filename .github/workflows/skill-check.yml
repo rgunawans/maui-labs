@@ -53,7 +53,10 @@ jobs:
 
       - name: Run skill-validator check
         run: |
-          plugin_args=$(for d in plugins/*/; do echo "--plugin $d"; done)
+          plugin_args=()
+          for d in plugins/*/; do
+            plugin_args+=(--plugin "$d")
+          done
           /tmp/skill-validator/bin/skill-validator check \
-            $plugin_args \
+            "${plugin_args[@]}" \
             --allowed-external-deps eng/allowed-external-deps.txt
