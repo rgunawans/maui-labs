@@ -52,9 +52,13 @@ extends:
     settings:
       networkIsolationPolicy: Permissive
 
-    containers:
-      ubuntu2404:
-        image: mcr.microsoft.com/dotnet-buildtools/prereqs:ubuntu-24.04
+    # TODO: Linux GTK4 build disabled until a dotnet-buildtools-prereqs image
+    # with GTK4/WebKitGTK dev packages is available. CFS network isolation
+    # blocks apt-get in containers on the internal pool.
+    # See: https://github.com/dotnet/dotnet-buildtools-prereqs-docker
+    # containers:
+    #   ubuntu2404:
+    #     image: mcr.microsoft.com/dotnet-buildtools/prereqs:ubuntu-24.04
 
     stages:
     - stage: build
@@ -120,43 +124,44 @@ extends:
                 $(_OfficialBuildArgs)
               displayName: Build and Test Cli
 
-          - job: LinuxGtk4
-            displayName: Linux GTK4 - Ubuntu
-            container: ubuntu2404
-            pool:
-              name: NetCore1ESPool-Internal
-              image: build.azurelinux.3.amd64
-              os: linux
-            strategy:
-              matrix:
-                Release:
-                  _BuildConfig: Release
-                  _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
-                    /p:TeamName=$(_TeamName)
-                    /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
-            steps:
-            - task: UseDotNet@2
-              displayName: Install .NET SDK
-              inputs:
-                useGlobalJson: true
-            - script: |
-                sudo apt-get update
-                sudo apt-get install -y \
-                  libgtk-4-dev \
-                  libwebkitgtk-6.0-dev \
-                  gobject-introspection \
-                  libgirepository1.0-dev \
-                  gir1.2-gtk-4.0 \
-                  gir1.2-webkit-6.0 \
-                  pkg-config
-              displayName: Install GTK4 dependencies
-            - script: |
-                ./eng/common/cibuild.sh \
-                  --configuration $(_BuildConfig) \
-                  --prepareMachine \
-                  --projects $(Build.SourcesDirectory)/platforms/Linux.Gtk4/Linux.Gtk4.slnx \
-                  $(_OfficialBuildArgs)
-              displayName: Build and Pack Linux GTK4
+          # TODO: Re-enable when dotnet-buildtools-prereqs image with GTK4 deps is available
+          # - job: LinuxGtk4
+          #   displayName: Linux GTK4 - Ubuntu
+          #   container: ubuntu2404
+          #   pool:
+          #     name: NetCore1ESPool-Internal
+          #     image: build.azurelinux.3.amd64
+          #     os: linux
+          #   strategy:
+          #     matrix:
+          #       Release:
+          #         _BuildConfig: Release
+          #         _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
+          #           /p:TeamName=$(_TeamName)
+          #           /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+          #   steps:
+          #   - task: UseDotNet@2
+          #     displayName: Install .NET SDK
+          #     inputs:
+          #       useGlobalJson: true
+          #   - script: |
+          #       sudo apt-get update
+          #       sudo apt-get install -y \
+          #         libgtk-4-dev \
+          #         libwebkitgtk-6.0-dev \
+          #         gobject-introspection \
+          #         libgirepository1.0-dev \
+          #         gir1.2-gtk-4.0 \
+          #         gir1.2-webkit-6.0 \
+          #         pkg-config
+          #     displayName: Install GTK4 dependencies
+          #   - script: |
+          #       ./eng/common/cibuild.sh \
+          #         --configuration $(_BuildConfig) \
+          #         --prepareMachine \
+          #         --projects $(Build.SourcesDirectory)/platforms/Linux.Gtk4/Linux.Gtk4.slnx \
+          #         $(_OfficialBuildArgs)
+          #     displayName: Build and Pack Linux GTK4
        
     - template: /eng/common/templates-official/post-build/post-build.yml@self
       parameters:
