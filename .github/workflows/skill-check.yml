@@ -36,12 +36,20 @@ jobs:
           gh release download skill-validator-nightly \
             --repo dotnet/skills \
             --pattern "skill-validator-linux-x64.tar.gz" \
+            --pattern "checksums.sha256" \
             --dir /tmp/skill-validator
 
-          mkdir -p /tmp/skill-validator/bin
-          tar -xzf /tmp/skill-validator/skill-validator-linux-x64.tar.gz \
-            -C /tmp/skill-validator/bin
-          chmod +x /tmp/skill-validator/bin/skill-validator
+          # Verify checksum before extracting
+          cd /tmp/skill-validator
+          if [ -f checksums.sha256 ]; then
+            grep "skill-validator-linux-x64.tar.gz" checksums.sha256 | sha256sum --check --strict
+          else
+            echo "::warning::No checksums.sha256 found in release — skipping verification"
+          fi
+
+          mkdir -p bin
+          tar -xzf skill-validator-linux-x64.tar.gz -C bin
+          chmod +x bin/skill-validator
 
       - name: Run skill-validator check
         run: |

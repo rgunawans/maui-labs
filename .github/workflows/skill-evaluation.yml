@@ -6,6 +6,13 @@
 #
 # Security: workflow YAML always runs from the default branch (enforced by issue_comment trigger).
 # For fork PRs, only users with write+ permission can trigger evaluation.
+# NOTE: /evaluate runs untrusted PR content (skill definitions + eval.yaml) with the
+# COPILOT_GITHUB_TOKEN secret. This is acceptable because:
+#   1. Only write+ collaborators can trigger it (permission gate)
+#   2. skill-validator is the only consumer of the token (no arbitrary code execution)
+#   3. persist-credentials: false prevents token reuse after checkout
+# The COPILOT_GITHUB_TOKEN is used by skill-validator to authenticate LLM API calls
+# for pairwise evaluation (with-skill vs without-skill comparison).
 name: skill-evaluation
 
 on:
@@ -100,6 +107,8 @@ jobs:
       should_run: ${{ steps.check.outputs.should_run }}
       pr_number: ${{ github.event.issue.number }}
       pr_head_sha: ${{ steps.pr-info.outputs.head_sha }}
+      pr_head_repo: ${{ steps.pr-info.outputs.head_repo }}
+      is_fork: ${{ steps.pr-info.outputs.is_fork }}
     steps:
       - name: Check permissions
         id: check
@@ -119,14 +128,17 @@ jobs:
               -X POST -f body="⚠️ Only collaborators with write access can trigger evaluation." --silent || true
           fi
 
-      - name: Get PR head SHA
+      - name: Get PR info
         if: steps.check.outputs.should_run == 'true'
         id: pr-info
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          HEAD_SHA=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}" --jq '.head.sha')
-          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          PR_JSON=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}" \
+            --jq '{head_sha: .head.sha, head_repo: .head.repo.full_name, base_repo: .base.repo.full_name}')
+          echo "head_sha=$(echo "$PR_JSON" | jq -r '.head_sha')" >> "$GITHUB_OUTPUT"
+          echo "head_repo=$(echo "$PR_JSON" | jq -r '.head_repo')" >> "$GITHUB_OUTPUT"
+          echo "is_fork=$([ "$(echo "$PR_JSON" | jq -r '.head_repo')" != "$(echo "$PR_JSON" | jq -r '.base_repo')" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   # Run evaluation
   evaluate:
@@ -143,6 +155,7 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@v6
         with:
+          repository: ${{ needs.gate.outputs.pr_head_repo }}
           ref: ${{ needs.gate.outputs.pr_head_sha }}
           persist-credentials: false
 
@@ -153,12 +166,20 @@ jobs:
           gh release download skill-validator-nightly \
             --repo dotnet/skills \
             --pattern "skill-validator-linux-x64.tar.gz" \
+            --pattern "checksums.sha256" \
             --dir /tmp/skill-validator
 
-          mkdir -p /tmp/skill-validator/bin
-          tar -xzf /tmp/skill-validator/skill-validator-linux-x64.tar.gz \
-            -C /tmp/skill-validator/bin
-          chmod +x /tmp/skill-validator/bin/skill-validator
+          # Verify checksum before extracting
+          cd /tmp/skill-validator
+          if [ -f checksums.sha256 ]; then
+            grep "skill-validator-linux-x64.tar.gz" checksums.sha256 | sha256sum --check --strict
+          else
+            echo "::warning::No checksums.sha256 found in release — skipping verification"
+          fi
+
+          mkdir -p bin
+          tar -xzf skill-validator-linux-x64.tar.gz -C bin
+          chmod +x bin/skill-validator
 
       - name: Discover skills to evaluate
         id: discover
