@@ -12,6 +12,7 @@ public partial class ImagePage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		AnimatedGifImage.IsAnimationPlaying = AnimationSwitch.IsToggled;
 
 		var imagePath = Path.Combine(AppContext.BaseDirectory, "dotnet_bot.png");
 		if (!File.Exists(imagePath))
@@ -27,6 +28,11 @@ public partial class ImagePage : ContentPage
 	void AnimationStartStop_Clicked(object? sender, EventArgs e)
 	{
 		AnimationSwitch.IsToggled = !AnimationSwitch.IsToggled;
+	}
+
+	void AnimationSwitch_Toggled(object? sender, ToggledEventArgs e)
+	{
+		AnimatedGifImage.IsAnimationPlaying = e.Value;
 	}
 
 	void UseOnlineSource_Clicked(object? sender, EventArgs e)

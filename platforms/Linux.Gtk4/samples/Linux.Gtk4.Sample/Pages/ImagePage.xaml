@@ -95,13 +95,14 @@
             <Label Text="Animated GIF"
                    FontAttributes="Bold" />
             <Switch x:Name="AnimationSwitch"
-                    IsToggled="True" />
+                    IsToggled="True"
+                    Toggled="AnimationSwitch_Toggled" />
             <Image x:Name="AnimatedGifImage"
                    Source="animated_heart.gif"
                    WidthRequest="200"
                    HeightRequest="200"
                    HorizontalOptions="Center"
-                   IsAnimationPlaying="{Binding Source={x:Reference AnimationSwitch}, Path=IsToggled}" />
+                    IsAnimationPlaying="True" />
 
             <HorizontalStackLayout Spacing="12">
                 <Button Text="Start / Stop"
