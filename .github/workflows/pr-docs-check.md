@@ -52,7 +52,6 @@ tools:
   github:
     toolsets: [repos, issues, pull_requests]
     github-token: ${{ secrets.MAUI_BOT_TOKEN }}
-  web-fetch:
 
 safe-outputs:
   github-token: ${{ secrets.MAUI_BOT_TOKEN }}
@@ -82,7 +81,7 @@ documentation updates are needed on the `dotnet/docs-maui` documentation site.
 ## Step 1: Gather PR Information
 
 Use the GitHub tools to read the full pull request details for the PR number above,
-including the title, description, author, base branch, and the full diff of changes.
+including the title, description, author, labels, base branch, and the full diff of changes.
 
 If this was triggered via `workflow_dispatch`, use the `pr_number` input to look up
 the PR details. If the PR number is invalid or the PR cannot be found, stop and
@@ -95,6 +94,7 @@ needed because the PR was not merged, then **stop**.
 Before doing a deep analysis, check if this PR can be **skipped entirely**:
 
 **Skip if:**
+- PR has the `no-docs-needed` label
 - PR author is a bot (`dotnet-maestro[bot]`, `dependabot[bot]`, `github-actions[bot]`)
 - PR title contains "backport" (case-insensitive)
 - ALL changed files are tests only (paths containing `/tests/`, `/TestUtils/`,
@@ -106,41 +106,64 @@ If the PR is skipped, comment on the PR with a brief one-line message confirming
 no documentation updates are needed and why, then **stop**.
 
 **Always proceed with analysis if:**
-- Any file in `src/Cli/Microsoft.Maui.Cli/DevFlow/` was changed (CLI DevFlow code)
+- Any file in `src/Cli/Microsoft.Maui.Cli/DevFlow/` was changed (CLI DevFlow commands)
+- Any file in `src/Cli/Microsoft.Maui.Cli/Commands/` was changed (CLI commands)
 - Any file in `src/DevFlow/**/Mcp/Tools/` was changed (MCP tool changes)
 - Any `.csproj` file with `IsPackable=true` was changed (package changes)
 
 ## Step 3: Analyze Changes for Documentation Needs
 
-Review the PR diff for user-facing changes that affect documentation:
+Review the PR diff for user-facing changes that affect documentation.
 
-- **New or changed MCP tools** — new tools, renamed tools, changed parameters.
-  These directly affect the MauiDevFlow docs page.
-- **New public APIs** — new methods, classes, or properties in public-facing
-  packages (AgentClient, DevFlow CLI, etc.)
-- **New features or capabilities** — new platform support, new debugging
-  capabilities, new protocol features
-- **Breaking changes** — removed or renamed APIs, behavioral changes
-- **New CLI commands or flags** — changes to the `maui` CLI or `maui devflow`
-  subcommands that users interact with
-- **Package changes** — new packages, removed packages, changed package contents
+**PROCEED with a docs PR if the change includes any of:**
+- New or changed CLI commands, flags, or options
+- New or changed MCP tools (new tools, renamed tools, changed parameters)
+- New public APIs in user-facing packages (AgentClient, DevFlow CLI, etc.)
+- New features or capabilities (new platform support, new debugging features)
+- Breaking changes — removed or renamed APIs, behavioral changes
+- Changed system requirements (minimum .NET version, new dependencies)
+- New NuGet packages
+- Behavioral changes users will notice (e.g., a CLI flag works differently)
 
-Changes that do NOT need documentation:
-- Internal refactoring with no public API surface changes
+**SKIP (no docs PR needed) if the change is only:**
+- Internal refactoring with no public API or behavior change
 - Test-only changes
 - Bug fixes that don't change documented behavior
-- Dependency version bumps
+- Dependency version bumps with no user impact
 - Code style or formatting changes
+- Performance improvements that don't change usage patterns
+- Help text or error message fixes (these are self-documenting)
+
+**When uncertain, PROCEED.** Draft PRs are cheap; missing docs are expensive.
 
 ## Step 4: If Documentation IS Needed
 
 ### 4a: Check Existing Documentation
 
-Use the GitHub tools to read the current documentation in `dotnet/docs-maui`:
+Use the GitHub tools to read the current documentation in `dotnet/docs-maui`.
+The developer-tools documentation lives under `docs/developer-tools/` with this structure:
 
-- Read `docs/ai-development/dev-flow.md` — this is the main MauiDevFlow docs page
-- Check the TOC at `docs/TOC.yml` for the AI-assisted development section structure
-- Identify which sections of `dev-flow.md` need updating
+**CLI documentation** (`docs/developer-tools/cli/`):
+- `index.md` — .NET MAUI CLI overview
+- `environment-diagnostics.md` — Environment diagnostics with `maui doctor`
+- `android-management.md` — Android SDK and emulator management
+- `device-management.md` — Device management
+
+**DevFlow documentation** (`docs/developer-tools/devflow/`):
+- `index.md` — DevFlow overview
+- `visual-tree-screenshots.md` — Visual tree inspection and screenshots
+- `element-interaction.md` — Element interaction and automation
+- `blazor-cdp.md` — Blazor WebView debugging with CDP
+- `mcp-server.md` — MCP server for AI agents
+- `network-profiling.md` — Network monitoring and profiling
+- `broker.md` — DevFlow broker architecture
+- `setup-windows.md` — DevFlow Windows setup
+- `setup-android.md` — DevFlow Android setup
+- `setup-apple.md` — DevFlow Apple platforms setup
+
+Also check:
+- `docs/developer-tools/index.md` — Landing page for the developer-tools section
+- `docs/TOC.yml` — Table of contents (update if adding new pages)
 
 Before making changes, check if there are any open draft PRs on `dotnet/docs-maui`
 with the `docs-from-code` label from recent maui-labs merges. If so, note any
@@ -154,11 +177,14 @@ The documentation is written in Microsoft Learn Markdown format:
 
 ### 4b: Open a Draft PR on docs-maui
 
-Make the changes to the documentation files and open a draft pull request on
-`dotnet/docs-maui`. The PR should:
+Make the changes to the appropriate documentation files and open a draft pull
+request on `dotnet/docs-maui`. Match changes to the right page:
+- CLI command changes → update the relevant `docs/developer-tools/cli/` page
+- DevFlow feature changes → update the relevant `docs/developer-tools/devflow/` page
+- New capabilities that don't fit existing pages → create a new page and add it to `docs/TOC.yml`
 
-- Update `docs/ai-development/dev-flow.md` with the new information
-- Update the `ms.date` field in the frontmatter to today's date
+The PR should:
+- Update the `ms.date` field in the frontmatter of changed files to today's date
 - Include a clear PR title describing the documentation update
 - In the PR body, link to the source PR in `dotnet/maui-labs` that triggered the change
 - Keep changes minimal — only update what's needed for this specific PR
