@@ -117,6 +117,8 @@ public class DeviceManager : IDeviceManager
 			devices.AddRange(appleDevices);
 		}
 
+		// TODO: Get Windows devices when WindowsProvider is implemented
+
 		return devices;
 	}
 
