@@ -52,6 +52,7 @@ and changed files to understand what evolved in the codebase.
 ## Step 2: Audit each AI config file
 
 For each file below, verify its contents against the actual source code.
+If a file listed below does not exist yet, skip it — do not create new files.
 
 ### AGENTS.md
 
@@ -62,7 +63,7 @@ For each file below, verify its contents against the actual source code.
 - **Package list**: Check all `.csproj` files for `IsPackable=true` and
   cross-reference with the documented package list.
 - **Build commands**: Verify solution filter paths (`ls src/DevFlow/*.slnf
-  src/Client/*.slnf 2>/dev/null`) and ensure build commands are correct.
+  src/Cli/*.slnf 2>/dev/null`) and ensure build commands are correct.
 - **NuGet feeds**: Compare `NuGet.config` with the documented feed list.
 - **SDK version**: Check `global.json` against documented version.
 
@@ -111,7 +112,7 @@ For each file below, verify its contents against the actual source code.
 
 ## Rules
 
-- Only modify files listed in the `allowed-files` safe output config.
+- Only modify AI configuration and documentation files covered by this audit (AGENTS.md, copilot-instructions.md, instruction files, and related docs).
 - Never modify source code, tests, or build pipelines.
 - When updating the MCP tools table, regenerate the entire table from source.
 - Preserve existing formatting and structure of each file.
