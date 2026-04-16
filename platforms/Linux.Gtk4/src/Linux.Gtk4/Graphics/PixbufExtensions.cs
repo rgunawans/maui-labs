@@ -46,6 +46,8 @@ internal static class PixbufExtensions
 		if (surface is null)
 			return null;
 
+		Cairo.Internal.Surface.Flush(surface.Handle);
+
 		var surfaceData = surface.GetData();
 		var bytesPerPixel = surface.Format == Format.Argb32 ? 4 : 3;
 		var pixbufData = new byte[surfaceData.Length / 4 * bytesPerPixel];
