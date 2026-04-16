@@ -81,7 +81,11 @@ directly to `http://localhost:<port>`. No port forwarding (unlike Android) or en
 
 ## Key Simulation
 
-The `LinuxAppDriver` automatically detects the display server and uses the appropriate tool:
+The `LinuxAppDriver` automatically detects the display server and uses the appropriate
+**driver-mediated** key simulation backend. This is an implementation detail for Linux
+automation support, **not** a recommendation for an AI agent to invoke these tools directly
+from the shell. Prefer `maui devflow ui fill`, `maui devflow ui tap`, and `maui devflow batch`
+for normal interaction.
 
 - **X11 sessions**: Uses `xdotool` (human-readable key names, no daemon needed)
 - **Wayland sessions**: Uses `ydotool` (Linux input event keycodes, requires `ydotoold` daemon)
@@ -117,7 +121,8 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 ydotoold &
 ```
 
-Key simulation is used by the CLI for alert dismissal and keyboard input.
+Key simulation is used by the driver for alert dismissal and keyboard input.
+Only the driver backend should reach for `xdotool` or `ydotool`.
 
 ## Platform Differences
 
@@ -130,7 +135,7 @@ Key simulation is used by the CLI for alert dismissal and keyboard input.
 | Network | Varies by platform | Direct localhost |
 | Screenshots | `VisualDiagnostics` | GTK `WidgetPaintable` → `Texture.SaveToPng()` |
 | Native tap | Platform gesture system | `Gtk.Widget.Activate()` |
-| Key simulation | Platform-specific | `xdotool` (X11) / `ydotool` (Wayland) |
+| Key simulation | Driver-mediated backend | `xdotool` (X11) / `ydotool` (Wayland) |
 | Screen recording | Platform-specific | `ffmpeg` with `x11grab` (X11) / `pipewire` (Wayland) |
 | Blazor WebView | WKWebView / WebView2 / Chrome | WebKitGTK 6.0 |
 
@@ -146,6 +151,7 @@ Key simulation is used by the CLI for alert dismissal and keyboard input.
 
 - On Wayland, `xdotool` does not work — install `ydotool` and start `ydotoold`
 - On X11, `xdotool` is preferred over `ydotool` (simpler, no daemon)
+- Prefer DevFlow commands over direct key injection wherever possible
 - If `ydotool` fails silently, check that `ydotoold` daemon is running: `pgrep -x ydotoold`
 - If `ydotool` gives permission errors, ensure your user is in the `input` group and `/dev/uinput` is group-writable
 - Ensure the app window has focus for key events
