@@ -77,8 +77,8 @@ matching checklist section.
      and description (from XML doc comment or attribute parameter).
   3. Compare with AGENTS.md table — every tool must have exactly one row.
   4. If ANY mismatch: regenerate the entire table sorted by tool name. Do not patch rows.
-  5. Verify: `grep -c "McpServerTool" src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/*.cs | tail -1`
-     count must equal the number of table rows.
+  5. Verify: `grep -rl "McpServerTool" src/Cli/Microsoft.Maui.Cli/DevFlow/Mcp/Tools/*.cs | wc -l`
+     and compare against the number of table rows (one tool per file).
 - **Package list**: Run `grep -rn "IsPackable" src --include="*.csproj"` and
   cross-reference with the documented package list. Every `IsPackable=true` project
   must appear in the list.
@@ -123,11 +123,11 @@ matching checklist section.
 
 ### .github/instructions/testing.instructions.md
 
-- **Test projects**: Run `find src -name "*.Tests.csproj" -o -name "*Tests*.csproj" | sort`
+- **Test projects**: Run `find src -type f \( -name "*.Tests.csproj" -o -name "*Tests*.csproj" \) | sort`
   and verify every result appears in the documented test project list.
 - **Test patterns**: Sample 2-3 recent test files and confirm xUnit patterns
   (attributes, assertion style) match what's documented.
-- **CI matrix**: Run `find . -name "*.yml" -path "*pipeline*" -o -name "*.yml" -path "*azure*" | sort`
+- **CI matrix**: Run `find . -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -E "pipeline|azure" | sort`
   and verify documented CI platforms match the actual pipeline definitions.
 
 ### .github/instructions/packaging.instructions.md
@@ -141,9 +141,15 @@ matching checklist section.
 ### Cross-file consistency (required)
 
 After auditing individual files, verify these stay in sync:
-- MCP tools table in `mcp-tools.instructions.md` must match `AGENTS.md` exactly.
-- Package list must match across `AGENTS.md` and `packaging.instructions.md`.
-- NuGet feed list must match across `NuGet.config`, `AGENTS.md`, and `packaging.instructions.md`.
+- **MCP tools table**: Extract tool names from both `AGENTS.md` and
+  `mcp-tools.instructions.md` and diff them:
+  `grep '|' AGENTS.md | grep -i tool | sort` vs equivalent in mcp-tools file.
+  AGENTS.md is authoritative — update mcp-tools to match if they diverge.
+- **Package list**: Extract package names from `AGENTS.md` and
+  `packaging.instructions.md` and verify both list the same packages.
+  Cross-check with `grep -rn "IsPackable" src --include="*.csproj"`.
+- **NuGet feeds**: Run `grep '<add key=' NuGet.config` and verify the same
+  feeds appear in both `AGENTS.md` and `packaging.instructions.md`.
 
 ## Step 3: Decide and act
 
