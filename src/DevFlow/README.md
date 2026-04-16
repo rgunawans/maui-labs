@@ -90,7 +90,8 @@ All DevFlow commands are available under `maui devflow`. Run `maui devflow <comm
 
 | Command Group | Description |
 |---------------|-------------|
-| `ui` | Visual tree, element interaction, screenshots, recording, alerts, assertions |
+| `ui` | Visual tree, element interaction, screenshots, alerts, assertions |
+| `recording` | Start, stop, and manage screen recordings of app sessions |
 | `webview` | Blazor WebView automation — DOM, JS eval, navigation, input, screenshots |
 | `logs` | Fetch and stream application logs |
 | `network` | Monitor and inspect HTTP requests |
@@ -107,7 +108,7 @@ These options apply to all `maui devflow` subcommands:
 
 | Option | Description |
 |--------|-------------|
-| `--agent-port`, `-ap` | Agent HTTP port (default: 9223) |
+| `--agent-port`, `-ap` | Agent HTTP port (auto-discovered via broker/.mauidevflow; falls back to 9223) |
 | `--agent-host`, `-ah` | Agent HTTP host (default: localhost) |
 | `--platform`, `-p` | Target platform (maccatalyst, android, ios, windows) |
 | `--no-json` | Force human-readable output |
