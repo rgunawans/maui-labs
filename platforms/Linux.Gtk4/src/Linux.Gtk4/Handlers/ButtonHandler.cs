@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class ButtonHandler : GtkViewHandler<IButton, Gtk.Button>
 {
-	public static new IPropertyMapper<IButton, ButtonHandler> Mapper =
+	public static IPropertyMapper<IButton, ButtonHandler> Mapper =
 		new PropertyMapper<IButton, ButtonHandler>(ViewMapper)
 		{
 			[nameof(ITextButton.Text)] = MapText,

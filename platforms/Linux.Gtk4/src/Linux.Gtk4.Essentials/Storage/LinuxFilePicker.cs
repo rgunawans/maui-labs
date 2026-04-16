@@ -10,9 +10,9 @@ public class LinuxFilePicker : IFilePicker
 		return results?.FirstOrDefault();
 	}
 
-	public async Task<IEnumerable<FileResult>?> PickMultipleAsync(PickOptions? options)
+	public async Task<IEnumerable<FileResult?>> PickMultipleAsync(PickOptions? options)
 	{
-		return await PickInternalAsync(true, options);
+		return await PickInternalAsync(true, options) ?? Enumerable.Empty<FileResult?>();
 	}
 
 	private async Task<List<FileResult>?> PickInternalAsync(bool multiple, PickOptions? options)
@@ -53,6 +53,7 @@ public class LinuxFilePicker : IFilePicker
 			}
 
 			var files = await dialog.OpenMultipleAsync(window);
+			if (files is null) return new List<FileResult>();
 			var results = new List<FileResult>();
 			for (uint i = 0; i < files.GetNItems(); i++)
 			{

@@ -8,7 +8,7 @@ public class ImageHandler : GtkViewHandler<IImage, Gtk.Picture>
 {
 	CancellationTokenSource? _imageSourceCts;
 
-	public static new IPropertyMapper<IImage, ImageHandler> Mapper =
+	public static IPropertyMapper<IImage, ImageHandler> Mapper =
 		new PropertyMapper<IImage, ImageHandler>(ViewMapper)
 		{
 			[nameof(IImage.Aspect)] = MapAspect,

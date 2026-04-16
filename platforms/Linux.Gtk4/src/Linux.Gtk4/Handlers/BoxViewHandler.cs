@@ -10,7 +10,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 /// </summary>
 public class BoxViewHandler : GtkViewHandler<IView, Gtk.DrawingArea>
 {
-	public static new IPropertyMapper<IView, BoxViewHandler> Mapper =
+	public static IPropertyMapper<IView, BoxViewHandler> Mapper =
 		new PropertyMapper<IView, BoxViewHandler>(ViewMapper);
 
 	public BoxViewHandler() : base(Mapper) { }

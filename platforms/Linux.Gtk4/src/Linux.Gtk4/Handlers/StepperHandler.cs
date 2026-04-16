@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class StepperHandler : GtkViewHandler<IStepper, Gtk.SpinButton>
 {
-	public static new IPropertyMapper<IStepper, StepperHandler> Mapper =
+	public static IPropertyMapper<IStepper, StepperHandler> Mapper =
 		new PropertyMapper<IStepper, StepperHandler>(ViewMapper)
 		{
 			[nameof(IStepper.Minimum)] = MapMinimum,

@@ -15,7 +15,7 @@ public class NavigationPageHandler : GtkViewHandler<IStackNavigationView, Gtk.Bo
 	Gtk.Stack? _stack;
 	IReadOnlyList<IView>? _currentStack;
 
-	public static new IPropertyMapper<IStackNavigationView, NavigationPageHandler> Mapper =
+	public static IPropertyMapper<IStackNavigationView, NavigationPageHandler> Mapper =
 		new PropertyMapper<IStackNavigationView, NavigationPageHandler>(ViewMapper)
 		{
 		};

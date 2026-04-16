@@ -21,9 +21,11 @@ public class SwipeViewHandler : GtkViewHandler<IView, Gtk.Box>
 	double _dragOffset;
 	double _committedOffset;
 	int _contentWidth;
+#pragma warning disable CS0414 // Field is assigned but never read — reserved for future swipe state tracking
 	bool _isOpen;
+#pragma warning restore CS0414
 
-	public static new IPropertyMapper<IView, SwipeViewHandler> Mapper =
+	public static IPropertyMapper<IView, SwipeViewHandler> Mapper =
 		new PropertyMapper<IView, SwipeViewHandler>(ViewMapper)
 		{
 			["Content"] = MapContent,

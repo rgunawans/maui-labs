@@ -7,7 +7,7 @@ public class ImageButtonHandler : GtkViewHandler<IImageButton, Gtk.Button>
 {
 	CancellationTokenSource? _imageSourceCts;
 
-	public static new IPropertyMapper<IImageButton, ImageButtonHandler> Mapper =
+	public static IPropertyMapper<IImageButton, ImageButtonHandler> Mapper =
 		new PropertyMapper<IImageButton, ImageButtonHandler>(ViewMapper)
 		{
 			[nameof(IImageButton.Padding)] = MapPadding,

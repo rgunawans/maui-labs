@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class ActivityIndicatorHandler : GtkViewHandler<IActivityIndicator, Gtk.Spinner>
 {
-	public static new IPropertyMapper<IActivityIndicator, ActivityIndicatorHandler> Mapper =
+	public static IPropertyMapper<IActivityIndicator, ActivityIndicatorHandler> Mapper =
 		new PropertyMapper<IActivityIndicator, ActivityIndicatorHandler>(ViewMapper)
 		{
 			[nameof(IActivityIndicator.IsRunning)] = MapIsRunning,

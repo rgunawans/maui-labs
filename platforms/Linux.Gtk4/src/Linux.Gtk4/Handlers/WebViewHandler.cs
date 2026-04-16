@@ -9,7 +9,7 @@ public class WebViewHandler : GtkViewHandler<IWebView, WebKit.WebView>, IWebView
 	WebNavigationEvent _currentNavigationEvent = WebNavigationEvent.NewPage;
 	string _lastUrl = "about:blank";
 
-	public static new IPropertyMapper<IWebView, WebViewHandler> Mapper =
+	public static IPropertyMapper<IWebView, WebViewHandler> Mapper =
 		new PropertyMapper<IWebView, WebViewHandler>(ViewMapper)
 		{
 			[nameof(IWebView.Source)] = MapSource,

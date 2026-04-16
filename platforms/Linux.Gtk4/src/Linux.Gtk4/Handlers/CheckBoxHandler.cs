@@ -4,7 +4,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class CheckBoxHandler : GtkViewHandler<ICheckBox, Gtk.CheckButton>
 {
-	public static new IPropertyMapper<ICheckBox, CheckBoxHandler> Mapper =
+	public static IPropertyMapper<ICheckBox, CheckBoxHandler> Mapper =
 		new PropertyMapper<ICheckBox, CheckBoxHandler>(ViewMapper)
 		{
 			[nameof(ICheckBox.IsChecked)] = MapIsChecked,

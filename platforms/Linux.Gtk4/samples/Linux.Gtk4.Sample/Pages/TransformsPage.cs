@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Graphics;
 
 namespace Microsoft.Maui.Platforms.Linux.Gtk4.Sample.Pages;
@@ -210,10 +211,11 @@ class TransformsPage : ContentPage
 						Spacing = 16,
 						Children =
 						{
-							new Frame
+							new Border
 							{
 								WidthRequest = 120, HeightRequest = 80, Padding = 0,
-								CornerRadius = 8, BorderColor = Colors.Transparent, HasShadow = false,
+								StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(8) },
+								Stroke = Colors.Transparent,
 								Background = new LinearGradientBrush
 								{
 									StartPoint = new Point(0, 0), EndPoint = new Point(1, 1),
@@ -221,10 +223,11 @@ class TransformsPage : ContentPage
 								},
 								Content = new Label { Text = "Linear ↘", TextColor = Colors.White, FontAttributes = FontAttributes.Bold, HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center },
 							},
-							new Frame
+							new Border
 							{
 								WidthRequest = 120, HeightRequest = 80, Padding = 0,
-								CornerRadius = 8, BorderColor = Colors.Transparent, HasShadow = false,
+								StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(8) },
+								Stroke = Colors.Transparent,
 								Background = new LinearGradientBrush
 								{
 									StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5),
@@ -232,10 +235,11 @@ class TransformsPage : ContentPage
 								},
 								Content = new Label { Text = "3-Stop →", TextColor = Colors.White, FontAttributes = FontAttributes.Bold, HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center },
 							},
-							new Frame
+							new Border
 							{
 								WidthRequest = 120, HeightRequest = 80, Padding = 0,
-								CornerRadius = 8, BorderColor = Colors.Transparent, HasShadow = false,
+								StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(8) },
+								Stroke = Colors.Transparent,
 								Background = new RadialGradientBrush
 								{
 									Center = new Point(0.5, 0.5), Radius = 0.6,
@@ -243,10 +247,11 @@ class TransformsPage : ContentPage
 								},
 								Content = new Label { Text = "Radial", TextColor = Colors.White, FontAttributes = FontAttributes.Bold, HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center },
 							},
-							new Frame
+							new Border
 							{
 								WidthRequest = 120, HeightRequest = 80, Padding = 0,
-								CornerRadius = 40, BorderColor = Colors.Transparent, HasShadow = false,
+								StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(40) },
+								Stroke = Colors.Transparent,
 								Background = new LinearGradientBrush
 								{
 									StartPoint = new Point(0, 0), EndPoint = new Point(0, 1),
@@ -373,38 +378,38 @@ class TransformsPage : ContentPage
 		var translateBtn = new Button { Text = "TranslateTo", BackgroundColor = Colors.CornflowerBlue, TextColor = Colors.White };
 		translateBtn.Clicked += async (s, e) =>
 		{
-			statusLabel.Text = "TranslateTo(100, 0) ...";
-			await animBox.TranslateTo(100, 0, 500, Easing.CubicInOut);
-			await animBox.TranslateTo(0, 0, 500, Easing.CubicInOut);
-			statusLabel.Text = "TranslateTo done ✅";
+			statusLabel.Text = "TranslateToAsync(100, 0) ...";
+			await animBox.TranslateToAsync(100, 0, 500, Easing.CubicInOut);
+			await animBox.TranslateToAsync(0, 0, 500, Easing.CubicInOut);
+			statusLabel.Text = "TranslateToAsync done ✅";
 		};
 
 		var fadeBtn = new Button { Text = "FadeTo", BackgroundColor = Colors.Coral, TextColor = Colors.White };
 		fadeBtn.Clicked += async (s, e) =>
 		{
-			statusLabel.Text = "FadeTo(0.2) ...";
-			await animBox.FadeTo(0.2, 500);
-			await animBox.FadeTo(1.0, 500);
-			statusLabel.Text = "FadeTo done ✅";
+			statusLabel.Text = "FadeToAsync(0.2) ...";
+			await animBox.FadeToAsync(0.2, 500);
+			await animBox.FadeToAsync(1.0, 500);
+			statusLabel.Text = "FadeToAsync done ✅";
 		};
 
 		var scaleBtn = new Button { Text = "ScaleTo", BackgroundColor = Colors.MediumSeaGreen, TextColor = Colors.White };
 		scaleBtn.Clicked += async (s, e) =>
 		{
-			statusLabel.Text = "ScaleTo(1.5) ...";
-			await animBox.ScaleTo(1.5, 400, Easing.SpringOut);
-			await animBox.ScaleTo(1.0, 400, Easing.SpringIn);
-			statusLabel.Text = "ScaleTo done ✅";
+			statusLabel.Text = "ScaleToAsync(1.5) ...";
+			await animBox.ScaleToAsync(1.5, 400, Easing.SpringOut);
+			await animBox.ScaleToAsync(1.0, 400, Easing.SpringIn);
+			statusLabel.Text = "ScaleToAsync done ✅";
 		};
 
 		var rotateBtn = new Button { Text = "RotateTo", BackgroundColor = Colors.Orchid, TextColor = Colors.White };
 		rotateBtn.Clicked += async (s, e) =>
 		{
-			statusLabel.Text = "RotateTo(360) ...";
+			statusLabel.Text = "RotateToAsync(360) ...";
 			animBox.Rotation = 0;
-			await animBox.RotateTo(360, 800, Easing.CubicInOut);
+			await animBox.RotateToAsync(360, 800, Easing.CubicInOut);
 			animBox.Rotation = 0;
-			statusLabel.Text = "RotateTo done ✅";
+			statusLabel.Text = "RotateToAsync done ✅";
 		};
 
 		var allBtn = new Button { Text = "All Combined", BackgroundColor = Colors.DeepPink, TextColor = Colors.White };
@@ -412,16 +417,16 @@ class TransformsPage : ContentPage
 		{
 			statusLabel.Text = "All animations ...";
 			await Task.WhenAll(
-				animBox.TranslateTo(60, -20, 600, Easing.CubicInOut),
-				animBox.ScaleTo(1.3, 600, Easing.CubicInOut),
-				animBox.RotateTo(180, 600, Easing.CubicInOut),
-				animBox.FadeTo(0.5, 600)
+				animBox.TranslateToAsync(60, -20, 600, Easing.CubicInOut),
+				animBox.ScaleToAsync(1.3, 600, Easing.CubicInOut),
+				animBox.RotateToAsync(180, 600, Easing.CubicInOut),
+				animBox.FadeToAsync(0.5, 600)
 			);
 			await Task.WhenAll(
-				animBox.TranslateTo(0, 0, 600, Easing.CubicInOut),
-				animBox.ScaleTo(1.0, 600, Easing.CubicInOut),
-				animBox.RotateTo(360, 600, Easing.CubicInOut),
-				animBox.FadeTo(1.0, 600)
+				animBox.TranslateToAsync(0, 0, 600, Easing.CubicInOut),
+				animBox.ScaleToAsync(1.0, 600, Easing.CubicInOut),
+				animBox.RotateToAsync(360, 600, Easing.CubicInOut),
+				animBox.FadeToAsync(1.0, 600)
 			);
 			animBox.Rotation = 0;
 			statusLabel.Text = "All animations done ✅";

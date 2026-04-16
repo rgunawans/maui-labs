@@ -6,7 +6,7 @@ public class EditorHandler : GtkViewHandler<IEditor, Gtk.TextView>
 {
 	int? _maxLength;
 
-	public static new IPropertyMapper<IEditor, EditorHandler> Mapper =
+	public static IPropertyMapper<IEditor, EditorHandler> Mapper =
 		new PropertyMapper<IEditor, EditorHandler>(ViewMapper)
 		{
 			[nameof(IEditor.Text)] = MapText,

@@ -166,7 +166,10 @@ public abstract class GtkMauiApplication : IPlatformApplication
 	/// </summary>
 	internal void CreateAndShowNewWindow(IApplication app, Microsoft.Maui.Handlers.OpenWindowRequest? request)
 	{
-		var activationState = new ActivationState(_applicationContext, request?.State);
+		var state = request?.State;
+		var activationState = state is not null
+			? new ActivationState(_applicationContext, state)
+			: new ActivationState(_applicationContext);
 		var virtualWindow = app.CreateWindow(activationState);
 		CreateAndShowWindow(virtualWindow);
 	}

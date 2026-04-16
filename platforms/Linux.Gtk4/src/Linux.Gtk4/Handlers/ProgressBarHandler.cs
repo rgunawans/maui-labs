@@ -5,7 +5,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class ProgressBarHandler : GtkViewHandler<IProgress, Gtk.ProgressBar>
 {
-	public static new IPropertyMapper<IProgress, ProgressBarHandler> Mapper =
+	public static IPropertyMapper<IProgress, ProgressBarHandler> Mapper =
 		new PropertyMapper<IProgress, ProgressBarHandler>(ViewMapper)
 		{
 			[nameof(IProgress.Progress)] = MapProgress,

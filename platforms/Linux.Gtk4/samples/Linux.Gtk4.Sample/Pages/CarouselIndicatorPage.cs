@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Graphics;
 using System.Collections.ObjectModel;
 
@@ -28,14 +29,15 @@ public class CarouselIndicatorPage : ContentPage
 			Loop = false,
 			ItemTemplate = new DataTemplate(() =>
 			{
-				var frame = new Frame
+				var border = new Border
 				{
-					CornerRadius = 12,
+					StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(12) },
+					Stroke = Colors.Transparent,
+					StrokeThickness = 0,
 					Padding = new Thickness(24),
 					Margin = new Thickness(8),
-					HasShadow = true,
 				};
-				frame.SetBinding(VisualElement.BackgroundColorProperty, "Color");
+				border.SetBinding(VisualElement.BackgroundColorProperty, "Color");
 
 				var stack = new StackLayout
 				{
@@ -62,8 +64,8 @@ public class CarouselIndicatorPage : ContentPage
 
 				stack.Children.Add(title);
 				stack.Children.Add(desc);
-				frame.Content = stack;
-				return frame;
+				border.Content = stack;
+				return border;
 			}),
 		};
 

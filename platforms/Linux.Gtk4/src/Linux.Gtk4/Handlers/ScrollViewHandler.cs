@@ -6,7 +6,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class ScrollViewHandler : GtkViewHandler<IScrollView, Gtk.ScrolledWindow>
 {
-	public static new IPropertyMapper<IScrollView, ScrollViewHandler> Mapper =
+	public static IPropertyMapper<IScrollView, ScrollViewHandler> Mapper =
 		new PropertyMapper<IScrollView, ScrollViewHandler>(ViewMapper)
 		{
 			[nameof(IScrollView.Content)] = MapContent,
@@ -15,7 +15,7 @@ public class ScrollViewHandler : GtkViewHandler<IScrollView, Gtk.ScrolledWindow>
 			[nameof(IScrollView.VerticalScrollBarVisibility)] = MapVerticalScrollBarVisibility,
 		};
 
-	public static new CommandMapper<IScrollView, ScrollViewHandler> CommandMapper =
+	public static CommandMapper<IScrollView, ScrollViewHandler> CommandMapper =
 		new(ViewCommandMapper)
 		{
 			[nameof(IScrollView.RequestScrollTo)] = MapRequestScrollTo,

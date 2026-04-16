@@ -9,7 +9,9 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class LayoutHandler : GtkViewHandler<ILayout, GtkLayoutPanel>, ILayoutHandler
 {
-	public static new IPropertyMapper<ILayout, LayoutHandler> Mapper =
+	object ILayoutHandler.PlatformView => base.PlatformView!;
+
+	public static IPropertyMapper<ILayout, LayoutHandler> Mapper =
 		new PropertyMapper<ILayout, LayoutHandler>(ViewMapper)
 		{
 			[nameof(ILayout.Background)] = MapBackground,

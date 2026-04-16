@@ -65,6 +65,7 @@ public class LinuxMediaPicker : IMediaPicker
 			if (window is null) return new List<FileResult>();
 
 			var files = await dialog.OpenMultipleAsync(window);
+			if (files is null) return new List<FileResult>();
 			var results = new List<FileResult>();
 			for (uint i = 0; i < files.GetNItems(); i++)
 			{

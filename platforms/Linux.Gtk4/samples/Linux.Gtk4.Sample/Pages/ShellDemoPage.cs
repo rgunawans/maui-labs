@@ -39,8 +39,8 @@ public class ShellDemoPage : ContentPage
 					Command = new Command(() =>
 					{
 						// Replace the main page with a Shell instance
-						if (Application.Current != null)
-							Application.Current.MainPage = new DemoShell();
+						if (Application.Current?.Windows.Count > 0)
+							Application.Current.Windows[0].Page = new DemoShell();
 					}),
 				},
 			}
@@ -156,8 +156,8 @@ class ShellHomePage : ContentPage
 					Text = "← Back to Main App",
 					Command = new Command(() =>
 					{
-						if (Application.Current is Sample.App)
-							Application.Current.MainPage = new Sample.MainShell();
+						if (Application.Current is Sample.App && Application.Current.Windows.Count > 0)
+							Application.Current.Windows[0].Page = new Sample.MainShell();
 					}),
 				},
 				new Label { Text = "GoToAsync Navigation:", FontAttributes = FontAttributes.Bold, Margin = new Thickness(0, 12, 0, 0) },
@@ -197,7 +197,7 @@ class ShellBrowsePage : ContentPage
 			{
 				new Label { Text = "📂 Browse", FontSize = 22, FontAttributes = FontAttributes.Bold },
 				new Label { Text = "This is the Browse tab under the Explore section.", TextColor = Colors.DimGray },
-				new ListView
+				new CollectionView
 				{
 					ItemsSource = new[] { "Documents", "Pictures", "Music", "Videos", "Downloads" },
 					HeightRequest = 200,

@@ -6,7 +6,7 @@ namespace Microsoft.Maui.Platforms.Linux.Gtk4.Handlers;
 
 public class TabbedPageHandler : GtkViewHandler<ITabbedView, Gtk.Notebook>
 {
-	public static new IPropertyMapper<ITabbedView, TabbedPageHandler> Mapper =
+	public static IPropertyMapper<ITabbedView, TabbedPageHandler> Mapper =
 		new PropertyMapper<ITabbedView, TabbedPageHandler>(ViewMapper)
 		{
 		};

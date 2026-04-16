@@ -143,7 +143,7 @@ public sealed class GtkBlazorWebView : IDisposable
 				blockList: null));
 
 		// Register app:// scheme for Blazor static content
-		webView.WebContext.RegisterUriScheme(Scheme, HandleUriScheme);
+		webView.WebContext?.RegisterUriScheme(Scheme, HandleUriScheme);
 
 		return webView;
 	}
