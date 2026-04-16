@@ -224,7 +224,7 @@ DevFlow exposes 49 MCP tools for AI agent integration (in `src/DevFlow/Microsoft
 
 ## Skills Marketplace
 
-This repository also distributes agent skills as plugins under `plugins/`. Each subdirectory (e.g., `plugins/dotnet-maui-devflow`, `plugins/dotnet-maui-dev`) is an independent plugin.
+This repository also distributes agent skills as a plugin under `plugins/dotnet-maui/`.
 
 ### Plugin Structure
 

@@ -1,13 +1,12 @@
 # Agent Skills
 
-Distributable agent skills for .NET MAUI development. Each plugin is independently installable via the Copilot CLI, Claude Code, or VS Code plugin system.
+Distributable agent skills for .NET MAUI development. Installable via the Copilot CLI, Claude Code, or VS Code plugin system.
 
-## Plugins
+## Plugin
 
 | Plugin | Skills | Description |
 |--------|--------|-------------|
-| [dotnet-maui-devflow](dotnet-maui-devflow/) | [devflow-connect](dotnet-maui-devflow/skills/devflow-connect/) | DevFlow automation — agent connectivity, visual tree inspection, screenshots, app interactions. Requires the `maui` CLI and DevFlow agent packages. |
-| [dotnet-maui-dev](dotnet-maui-dev/) | _(accepting contributions)_ | General MAUI development — profiling, accessibility, native bindings, platform guidance. |
+| [dotnet-maui](dotnet-maui/) | [devflow-connect](dotnet-maui/skills/devflow-connect/) | MAUI development — DevFlow automation, profiling, accessibility, platform bindings, diagnostics. Some skills require the `maui` CLI tool. |
 
 ## Installation
 
@@ -15,9 +14,8 @@ Distributable agent skills for .NET MAUI development. Each plugin is independent
 # Add this repo as a marketplace
 /plugin marketplace add dotnet/maui-labs
 
-# Install a plugin
-/plugin install dotnet-maui-devflow@dotnet-maui-labs-skills
-/plugin install dotnet-maui-dev@dotnet-maui-labs-skills
+# Install the plugin
+/plugin install dotnet-maui@dotnet-maui-labs-skills
 ```
 
 ## Adding Skills

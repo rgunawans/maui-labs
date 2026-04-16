@@ -5,14 +5,9 @@
   },
   "plugins": [
     {
-      "name": "dotnet-maui-devflow",
-      "source": "./plugins/dotnet-maui-devflow",
-      "description": "Skills for .NET MAUI DevFlow automation: agent connectivity, visual tree inspection, screenshots, and multiplatform debugging."
-    },
-    {
-      "name": "dotnet-maui-dev",
-      "source": "./plugins/dotnet-maui-dev",
-      "description": "Skills for .NET MAUI development: profiling, accessibility, UI design patterns, and best practices."
+      "name": "dotnet-maui",
+      "source": "./plugins/dotnet-maui",
+      "description": "Skills for .NET MAUI development: DevFlow automation, profiling, accessibility, platform bindings, and diagnostics."
     }
   ]
 }
