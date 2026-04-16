@@ -52,6 +52,8 @@ A comprehensive MAUI testing, automation, and debugging toolkit. The DevFlow CLI
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development setup.
 
+For the formal DevFlow HTTP and WebSocket contract, see [`docs/DevFlow/spec`](docs/DevFlow/spec/README.md).
+
 ## Support
 
 See [SUPPORT.md](.github/SUPPORT.md) for how to file issues, get help, and the support policy for this repository.

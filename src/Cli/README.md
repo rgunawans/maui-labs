@@ -84,11 +84,11 @@ maui apple simulator delete "iPhone 16 Pro"
 | `maui apple simulator start` | Boot a simulator (macOS only) |
 | `maui apple simulator stop` | Shut down a simulator (macOS only) |
 | `maui apple simulator delete` | Delete a simulator (macOS only) |
-| `maui devflow` | MAUI app automation via Agent API and Blazor WebViews via CDP |
-| `maui devflow MAUI tree` | Dump the visual tree of a running MAUI app |
-| `maui devflow MAUI screenshot` | Take a screenshot of a running MAUI app |
-| `maui devflow cdp` | Blazor WebView automation via Chrome DevTools Protocol |
-| `maui devflow mcp` | Start MCP server for AI agent integration |
+| `maui devflow` | MAUI app automation via the DevFlow agent and WebView tooling |
+| `maui devflow ui tree` | Dump the visual tree of a running app |
+| `maui devflow ui screenshot` | Take a screenshot of a running app |
+| `maui devflow webview` | Blazor WebView automation via Chrome DevTools Protocol |
+| `maui devflow mcp` | Start the MCP server for AI agent integration |
 | `maui devflow broker` | Manage the DevFlow agent broker |
 
 ## Global Options
