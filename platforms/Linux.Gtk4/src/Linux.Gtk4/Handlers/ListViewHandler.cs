@@ -306,7 +306,7 @@ public class ListViewHandler : GtkViewHandler<ListView, Gtk.ScrolledWindow>
 		{
 			var c = cell.TextColor;
 			var css = Gtk.CssProvider.New();
-			css.LoadFromString($"label {{ color: rgba({(int)(c.Red*255)},{(int)(c.Green*255)},{(int)(c.Blue*255)},{c.Alpha}); }}");
+			css.LoadFromString($"label {{ color: {ToGtkColor(c)}; }}");
 			textLabel.GetStyleContext().AddProvider(css, Gtk.Constants.STYLE_PROVIDER_PRIORITY_APPLICATION);
 		}
 		row.Append(textLabel);
@@ -317,7 +317,7 @@ public class ListViewHandler : GtkViewHandler<ListView, Gtk.ScrolledWindow>
 			detailLabel.SetHalign(Gtk.Align.Start);
 			var detailCss = Gtk.CssProvider.New();
 			var dc = cell.DetailColor ?? Colors.Gray;
-			detailCss.LoadFromString($"label {{ font-size: 12px; color: rgba({(int)(dc.Red*255)},{(int)(dc.Green*255)},{(int)(dc.Blue*255)},{dc.Alpha}); }}");
+			detailCss.LoadFromString($"label {{ font-size: 12px; color: {ToGtkColor(dc)}; }}");
 			detailLabel.GetStyleContext().AddProvider(detailCss, Gtk.Constants.STYLE_PROVIDER_PRIORITY_APPLICATION);
 			row.Append(detailLabel);
 		}
@@ -385,7 +385,7 @@ public class ListViewHandler : GtkViewHandler<ListView, Gtk.ScrolledWindow>
 			{
 				var c = label.TextColor;
 				var css = Gtk.CssProvider.New();
-				css.LoadFromString($"label {{ color: rgba({(int)(c.Red*255)},{(int)(c.Green*255)},{(int)(c.Blue*255)},{c.Alpha}); }}");
+				css.LoadFromString($"label {{ color: {ToGtkColor(c)}; }}");
 				gtkLabel.GetStyleContext().AddProvider(css, Gtk.Constants.STYLE_PROVIDER_PRIORITY_APPLICATION);
 			}
 			if (label.FontAttributes.HasFlag(FontAttributes.Bold))

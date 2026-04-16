@@ -216,7 +216,7 @@ public class SwipeViewHandler : GtkViewHandler<IView, Gtk.Box>
 			var bg = item.BackgroundColor ?? Colors.LightGray;
 			var cssProvider = Gtk.CssProvider.New();
 			cssProvider.LoadFromString(
-				$"button {{ background-image: none; background-color: rgba({(int)(bg.Red*255)},{(int)(bg.Green*255)},{(int)(bg.Blue*255)},{bg.Alpha}); color: white; border-radius: 0; border: none; }}");
+				$"button {{ background-image: none; background-color: {ToGtkColor(bg)}; color: white; border-radius: 0; border: none; }}");
 			btn.GetStyleContext().AddProvider(cssProvider, Gtk.Constants.STYLE_PROVIDER_PRIORITY_APPLICATION);
 
 			var capturedItem = item;
