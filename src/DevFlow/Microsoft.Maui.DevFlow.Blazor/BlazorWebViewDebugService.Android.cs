@@ -137,6 +137,11 @@ internal class DevFlowWebViewClient : WebViewClient
         }
     }
 
+    public override WebResourceResponse? ShouldInterceptRequest(AWebView? view, IWebResourceRequest? request)
+    {
+        return _innerClient?.ShouldInterceptRequest(view, request) ?? base.ShouldInterceptRequest(view, request);
+    }
+
     public override bool ShouldOverrideUrlLoading(AWebView? view, IWebResourceRequest? request)
     {
         return _innerClient?.ShouldOverrideUrlLoading(view, request) ?? base.ShouldOverrideUrlLoading(view, request);
