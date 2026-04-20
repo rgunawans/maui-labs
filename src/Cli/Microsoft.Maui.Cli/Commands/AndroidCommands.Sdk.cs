@@ -454,35 +454,15 @@ public static partial class AndroidCommands
 					formatter.WriteInfo("Starting interactive license acceptance...");
 					formatter.WriteInfo("Review each license and type 'y' to accept.\n");
 
-					// Run sdkmanager --licenses interactively (inherits stdin/stdout)
-					var processInfo = new System.Diagnostics.ProcessStartInfo
+					var exitCode = await RunInteractiveLicenseAcceptanceAsync(androidProvider, cancellationToken);
+					if (exitCode == 0)
 					{
-						FileName = licenseCommand.Value.Command,
-						Arguments = licenseCommand.Value.Arguments,
-						UseShellExecute = false,
-						RedirectStandardInput = false,
-						RedirectStandardOutput = false,
-						RedirectStandardError = false
-					};
-
-					// Set environment variables for JDK/SDK
-					foreach (var kvp in AndroidEnvironment.BuildEnvironmentVariables(androidProvider.SdkPath, androidProvider.JdkPath))
-						processInfo.Environment[kvp.Key] = kvp.Value;
-
-					using var process = System.Diagnostics.Process.Start(processInfo);
-					if (process != null)
-					{
-						await process.WaitForExitAsync(cancellationToken);
-
-						if (process.ExitCode == 0)
-						{
-							formatter.WriteSuccess("License acceptance completed");
-						}
-						else
-						{
-							formatter.WriteWarning($"License acceptance exited with code {process.ExitCode}");
-						}
+						formatter.WriteSuccess("License acceptance completed");
+						return 0;
 					}
+
+					formatter.WriteWarning($"License acceptance exited with code {exitCode}");
+					return exitCode;
 				}
 				return 0;
 			}
