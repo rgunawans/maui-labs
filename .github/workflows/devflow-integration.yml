@@ -171,7 +171,7 @@ jobs:
   ios:
     needs: plan
     if: needs.plan.outputs.run-ios == 'true'
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 90
     env:
       DEVFLOW_TEST_PLATFORM: ios
@@ -221,7 +221,7 @@ jobs:
   maccatalyst:
     needs: plan
     if: needs.plan.outputs.run-maccatalyst == 'true'
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       DEVFLOW_TEST_PLATFORM: maccatalyst
