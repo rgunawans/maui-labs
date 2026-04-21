@@ -95,6 +95,8 @@ public sealed class AgentTools
     {
         var agent = await session.GetAgentClientAsync(agentPort);
         var capabilities = await agent.GetCapabilitiesAsync();
+        if (capabilities.ValueKind == System.Text.Json.JsonValueKind.Undefined)
+            return "Agent not responding. Is the app running?";
         return CliJson.SerializeUntyped(capabilities, indented: false);
     }
 
