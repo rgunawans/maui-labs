@@ -62,6 +62,8 @@ public sealed class iOSSimulatorFixture : AppFixtureBase
     async Task<(string Udid, bool AlreadyBooted)> FindOrBootSimulatorAsync()
     {
         var versionPattern = Environment.GetEnvironmentVariable("DEVFLOW_TEST_IOS_VERSION");
+        if (string.IsNullOrWhiteSpace(versionPattern))
+            versionPattern = null;
 
         var json = await RunProcessCheckedAsync("xcrun", "simctl list devices --json");
         var doc = JsonDocument.Parse(json);

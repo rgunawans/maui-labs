@@ -96,6 +96,7 @@ jobs:
     env:
       DEVFLOW_TEST_PLATFORM: android
       DEVFLOW_TEST_ANDROID_API: ${{ inputs.android-api || '35' }}
+      DEVFLOW_TEST_ANDROID_AVD: devflow-tests-api${{ inputs.android-api || '35' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -133,6 +134,7 @@ jobs:
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
+          avd-name: ${{ env.DEVFLOW_TEST_ANDROID_AVD }}
           api-level: ${{ env.DEVFLOW_TEST_ANDROID_API }}
           arch: x86_64
           target: google_apis
@@ -144,6 +146,7 @@ jobs:
       - name: Run DevFlow integration tests (android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
+          avd-name: ${{ env.DEVFLOW_TEST_ANDROID_AVD }}
           api-level: ${{ env.DEVFLOW_TEST_ANDROID_API }}
           arch: x86_64
           target: google_apis
@@ -191,8 +194,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install MAUI workloads
-        run: dotnet workload install maui ios
+      - name: Install Apple MAUI workloads
+        run: dotnet workload install maui ios macos
 
       - name: List available iOS simulators
         run: xcrun simctl list devices available
@@ -228,8 +231,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Install MAUI workloads
-        run: dotnet workload install maui maccatalyst
+      - name: Install Apple MAUI workloads
+        run: dotnet workload install maui maccatalyst macos
 
       - name: Run DevFlow integration tests (maccatalyst)
         run: >

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Maui.DevFlow.Agent.IntegrationTests.Fixtures;
 
@@ -148,7 +149,7 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
         if (existingAvds.Any(a => a.Equals(avdName, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        var systemImage = $"system-images;android-{apiLevel};google_apis;arm64-v8a";
+        var systemImage = $"system-images;android-{apiLevel};google_apis;{GetSystemImageAbi()}";
         await RunProcessCheckedAsync(SdkManagerPath(), $"--install \"{systemImage}\"", timeoutSeconds: 600);
 
         var psi = new ProcessStartInfo(AvdManagerPath(), $"create avd -n {avdName} -k \"{systemImage}\" -d pixel_6 --force")
@@ -210,6 +211,17 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
             }
         }
 
+        foreach (var serial in runningEmulators)
+        {
+            var (apiOutput, _, exitCode) = await RunProcessAsync(adb,
+                $"-s {serial} shell getprop ro.build.version.sdk", timeoutSeconds: 5);
+            if (exitCode == 0 && int.TryParse(apiOutput.Trim(), out var runningApi) && runningApi == _apiLevel)
+            {
+                _weStartedEmulator = false;
+                return serial;
+            }
+        }
+
         var emulatorPort = GetEmulatorConsolePort();
         var expectedSerial = $"emulator-{emulatorPort}";
 
@@ -243,6 +255,9 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
 
         throw new InvalidOperationException("Could not find a free Android emulator port in the 5580-5680 range.");
     }
+
+    static string GetSystemImageAbi() =>
+        RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "arm64-v8a" : "x86_64";
 
     static bool IsPortAvailable(int port)
     {
