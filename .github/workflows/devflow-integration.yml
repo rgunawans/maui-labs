@@ -183,12 +183,19 @@ jobs:
       - name: Select Xcode
         run: |
           # .NET 10's Apple workloads currently require Xcode 26.3 on hosted runners.
-          COMPATIBLE=$(ls -1d /Applications/Xcode_26.3*.app 2>/dev/null | sort -V | tail -1)
+          COMPATIBLE="${COMPATIBLE:-}"
+          for candidate in /Applications/Xcode_26.3.app /Applications/Xcode_26.3.0.app; do
+            if [[ -d "$candidate" ]]; then
+              COMPATIBLE="$candidate"
+              break
+            fi
+          done
           SELECTED="${COMPATIBLE:-$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)}"
           if [[ -n "$SELECTED" ]]; then
             echo "Using $SELECTED"
             sudo xcode-select -s "$SELECTED/Contents/Developer"
-            DEVELOPER_ROOT="$(xcode-select -p)"
+            ACTOOL_PATH="$(xcrun --find actool)"
+            DEVELOPER_ROOT="$(cd "$(dirname "$ACTOOL_PATH")/../.." && pwd)"
             echo "Resolved developer dir: $DEVELOPER_ROOT"
             export DEVELOPER_DIR="$DEVELOPER_ROOT"
             export MD_APPLE_SDK_ROOT="$DEVELOPER_ROOT"
@@ -240,12 +247,19 @@ jobs:
       - name: Select Xcode
         run: |
           # .NET 10's Apple workloads currently require Xcode 26.3 on hosted runners.
-          COMPATIBLE=$(ls -1d /Applications/Xcode_26.3*.app 2>/dev/null | sort -V | tail -1)
+          COMPATIBLE="${COMPATIBLE:-}"
+          for candidate in /Applications/Xcode_26.3.app /Applications/Xcode_26.3.0.app; do
+            if [[ -d "$candidate" ]]; then
+              COMPATIBLE="$candidate"
+              break
+            fi
+          done
           SELECTED="${COMPATIBLE:-$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)}"
           if [[ -n "$SELECTED" ]]; then
             echo "Using $SELECTED"
             sudo xcode-select -s "$SELECTED/Contents/Developer"
-            DEVELOPER_ROOT="$(xcode-select -p)"
+            ACTOOL_PATH="$(xcrun --find actool)"
+            DEVELOPER_ROOT="$(cd "$(dirname "$ACTOOL_PATH")/../.." && pwd)"
             echo "Resolved developer dir: $DEVELOPER_ROOT"
             export DEVELOPER_DIR="$DEVELOPER_ROOT"
             export MD_APPLE_SDK_ROOT="$DEVELOPER_ROOT"
