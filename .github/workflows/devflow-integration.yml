@@ -187,17 +187,13 @@ jobs:
           SELECTED="${COMPATIBLE:-$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)}"
           if [[ -n "$SELECTED" ]]; then
             echo "Using $SELECTED"
-            DEVELOPER_ROOT="$SELECTED/Contents/Developer"
+            sudo xcode-select -s "$SELECTED/Contents/Developer"
+            DEVELOPER_ROOT="$(xcode-select -p)"
+            echo "Resolved developer dir: $DEVELOPER_ROOT"
             export DEVELOPER_DIR="$DEVELOPER_ROOT"
             export MD_APPLE_SDK_ROOT="$DEVELOPER_ROOT"
             echo "DEVELOPER_DIR=$DEVELOPER_ROOT" >> "$GITHUB_ENV"
             echo "MD_APPLE_SDK_ROOT=$DEVELOPER_ROOT" >> "$GITHUB_ENV"
-            sudo xcode-select -s "$DEVELOPER_ROOT"
-            # Some hosted images expose Xcode 26.3 as Xcode_26.3.app while the Apple SDK
-            # tooling probes for Xcode_26.3.0.app. Create the expected alias when needed.
-            if [[ "$SELECTED" != "/Applications/Xcode_26.3.0.app" ]]; then
-              sudo ln -sfn "$SELECTED" /Applications/Xcode_26.3.0.app
-            fi
           fi
           sudo xcodebuild -runFirstLaunch
           xcodebuild -version
@@ -248,17 +244,13 @@ jobs:
           SELECTED="${COMPATIBLE:-$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)}"
           if [[ -n "$SELECTED" ]]; then
             echo "Using $SELECTED"
-            DEVELOPER_ROOT="$SELECTED/Contents/Developer"
+            sudo xcode-select -s "$SELECTED/Contents/Developer"
+            DEVELOPER_ROOT="$(xcode-select -p)"
+            echo "Resolved developer dir: $DEVELOPER_ROOT"
             export DEVELOPER_DIR="$DEVELOPER_ROOT"
             export MD_APPLE_SDK_ROOT="$DEVELOPER_ROOT"
             echo "DEVELOPER_DIR=$DEVELOPER_ROOT" >> "$GITHUB_ENV"
             echo "MD_APPLE_SDK_ROOT=$DEVELOPER_ROOT" >> "$GITHUB_ENV"
-            sudo xcode-select -s "$DEVELOPER_ROOT"
-            # Some hosted images expose Xcode 26.3 as Xcode_26.3.app while the Apple SDK
-            # tooling probes for Xcode_26.3.0.app. Create the expected alias when needed.
-            if [[ "$SELECTED" != "/Applications/Xcode_26.3.0.app" ]]; then
-              sudo ln -sfn "$SELECTED" /Applications/Xcode_26.3.0.app
-            fi
           fi
           sudo xcodebuild -runFirstLaunch
           xcodebuild -version
