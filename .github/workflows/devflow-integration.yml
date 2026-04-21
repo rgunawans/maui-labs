@@ -181,12 +181,13 @@ jobs:
 
       - name: Select Xcode
         run: |
-          # Pick the highest-numbered stable Xcode on the runner.
-          LATEST=$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          if [[ -n "$LATEST" ]]; then
-            echo "Using $LATEST"
-            echo "DEVELOPER_DIR=$LATEST/Contents/Developer" >> "$GITHUB_ENV"
-            sudo xcode-select -s "$LATEST/Contents/Developer"
+          # .NET 10's Apple workloads currently require Xcode 26.3 on hosted runners.
+          COMPATIBLE=$(ls -1d /Applications/Xcode_26.3*.app 2>/dev/null | sort -V | tail -1)
+          SELECTED="${COMPATIBLE:-$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)}"
+          if [[ -n "$SELECTED" ]]; then
+            echo "Using $SELECTED"
+            echo "DEVELOPER_DIR=$SELECTED/Contents/Developer" >> "$GITHUB_ENV"
+            sudo xcode-select -s "$SELECTED/Contents/Developer"
           fi
           xcodebuild -version
           xcrun --find actool
@@ -230,12 +231,13 @@ jobs:
 
       - name: Select Xcode
         run: |
-          # Pick the highest-numbered stable Xcode on the runner.
-          LATEST=$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
-          if [[ -n "$LATEST" ]]; then
-            echo "Using $LATEST"
-            echo "DEVELOPER_DIR=$LATEST/Contents/Developer" >> "$GITHUB_ENV"
-            sudo xcode-select -s "$LATEST/Contents/Developer"
+          # .NET 10's Apple workloads currently require Xcode 26.3 on hosted runners.
+          COMPATIBLE=$(ls -1d /Applications/Xcode_26.3*.app 2>/dev/null | sort -V | tail -1)
+          SELECTED="${COMPATIBLE:-$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)}"
+          if [[ -n "$SELECTED" ]]; then
+            echo "Using $SELECTED"
+            echo "DEVELOPER_DIR=$SELECTED/Contents/Developer" >> "$GITHUB_ENV"
+            sudo xcode-select -s "$SELECTED/Contents/Developer"
           fi
           xcodebuild -version
           xcrun --find actool
