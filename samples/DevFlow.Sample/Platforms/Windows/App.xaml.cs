@@ -1,6 +1,4 @@
 ﻿using Microsoft.UI.Xaml;
-using Microsoft.Maui.Handlers;
-using Microsoft.Web.WebView2.Core;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -19,25 +17,6 @@ public partial class App : MauiWinUIApplication
 	public App()
 	{
 		this.InitializeComponent();
-
-#if DEBUG
-		EnableWebView2Debugging();
-#endif
-	}
-
-	void EnableWebView2Debugging()
-	{
-		BlazorWebViewHandler.BlazorWebViewMapper.AppendToMapping("WebViewDebugging", async (handler, view) =>
-		{
-			if (handler.PlatformView is Microsoft.UI.Xaml.Controls.WebView2 webView2)
-			{
-				// Configure environment with remote debugging port for DevFlow CDP bridge
-				var options = new CoreWebView2EnvironmentOptions("--remote-debugging-port=9222");
-				var env = await CoreWebView2Environment.CreateAsync(null, null, options);
-
-				await webView2.EnsureCoreWebView2Async(env);
-			}
-		});
 	}
 
 	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
