@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Maui.DevFlow.Agent.IntegrationTests.Fixtures;
 
@@ -24,7 +25,7 @@ public sealed class iOSSimulatorFixture : AppFixtureBase
         {
             var projectPath = GetSampleProjectPath();
             await BuildSampleAsync(projectPath, "net10.0-ios",
-                "-p:_DeviceTarget=simulator -p:RuntimeIdentifier=iossimulator-arm64");
+                $"-p:_DeviceTarget=simulator -p:RuntimeIdentifier={GetSimulatorRuntimeIdentifier()}");
 
             var appBundle = FindSimulatorAppBundle();
             _appBundleId = ReadBundleId(appBundle);
@@ -143,9 +144,12 @@ public sealed class iOSSimulatorFixture : AppFixtureBase
         return Regex.IsMatch(version, regexPattern, RegexOptions.IgnoreCase);
     }
 
+    static string GetSimulatorRuntimeIdentifier() =>
+        RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "iossimulator-arm64" : "iossimulator-x64";
+
     static string FindSimulatorAppBundle()
     {
-        var binDir = Path.Combine(GetSampleBuildOutputRoot(), "net10.0-ios", "iossimulator-arm64");
+        var binDir = Path.Combine(GetSampleBuildOutputRoot(), "net10.0-ios", GetSimulatorRuntimeIdentifier());
 
         if (!Directory.Exists(binDir))
             throw new InvalidOperationException($"iOS simulator build output not found at: {binDir}");

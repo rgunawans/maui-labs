@@ -185,9 +185,11 @@ jobs:
           LATEST=$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
           if [[ -n "$LATEST" ]]; then
             echo "Using $LATEST"
+            echo "DEVELOPER_DIR=$LATEST/Contents/Developer" >> "$GITHUB_ENV"
             sudo xcode-select -s "$LATEST/Contents/Developer"
           fi
           xcodebuild -version
+          xcrun --find actool
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -225,6 +227,18 @@ jobs:
       DEVFLOW_TEST_PLATFORM: maccatalyst
     steps:
       - uses: actions/checkout@v6
+
+      - name: Select Xcode
+        run: |
+          # Pick the highest-numbered stable Xcode on the runner.
+          LATEST=$(ls -1d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$LATEST" ]]; then
+            echo "Using $LATEST"
+            echo "DEVELOPER_DIR=$LATEST/Contents/Developer" >> "$GITHUB_ENV"
+            sudo xcode-select -s "$LATEST/Contents/Developer"
+          fi
+          xcodebuild -version
+          xcrun --find actool
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
