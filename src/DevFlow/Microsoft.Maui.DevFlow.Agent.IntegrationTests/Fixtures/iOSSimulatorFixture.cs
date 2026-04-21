@@ -107,13 +107,18 @@ public sealed class iOSSimulatorFixture : AppFixtureBase
         if (booted.Count > 0)
         {
             var best = SelectBestDevice(booted);
+            await WaitForBootCompletionAsync(best.Udid);
             return (best.Udid, true);
         }
 
         var selected = SelectBestDevice(candidates);
         await RunProcessCheckedAsync("xcrun", $"simctl boot {selected.Udid}", timeoutSeconds: 60);
+        await WaitForBootCompletionAsync(selected.Udid);
         return (selected.Udid, false);
     }
+
+    static Task WaitForBootCompletionAsync(string udid) =>
+        RunProcessCheckedAsync("xcrun", $"simctl bootstatus {udid} -b", timeoutSeconds: 180);
 
     static (string Udid, string Name, string Runtime, string State) SelectBestDevice(
         List<(string Udid, string Name, string Runtime, string State)> devices) =>
@@ -177,7 +182,7 @@ public sealed class iOSSimulatorFixture : AppFixtureBase
     }
 
     Task InstallAppAsync(string appBundlePath) =>
-        RunProcessCheckedAsync("xcrun", $"simctl install {_simulatorUdid} \"{appBundlePath}\"", timeoutSeconds: 60);
+        RunProcessCheckedAsync("xcrun", $"simctl install {_simulatorUdid} \"{appBundlePath}\"", timeoutSeconds: 180);
 
     Task LaunchAppAsync()
     {
@@ -189,6 +194,6 @@ public sealed class iOSSimulatorFixture : AppFixtureBase
         return RunProcessCheckedAsync("xcrun",
             $"simctl launch {_simulatorUdid} {_appBundleId}",
             envVars: envVars,
-            timeoutSeconds: 30);
+            timeoutSeconds: 90);
     }
 }
