@@ -12,6 +12,21 @@ public class WebViewTests : IntegrationTestBase
     public WebViewTests(AppFixture app, ITestOutputHelper output)
         : base(app, output) { }
 
+    static bool HasWebViewContexts(JsonElement json)
+    {
+        if (json.ValueKind == JsonValueKind.Array)
+            return json.GetArrayLength() > 0;
+
+        if (json.ValueKind == JsonValueKind.Object &&
+            json.TryGetProperty("webviews", out var webviews) &&
+            webviews.ValueKind == JsonValueKind.Array)
+        {
+            return webviews.GetArrayLength() > 0;
+        }
+
+        return false;
+    }
+
     int GetCdpReadyTimeoutMs(bool initialNavigation = false) =>
         Platform switch
         {
@@ -19,13 +34,38 @@ public class WebViewTests : IntegrationTestBase
             _ => initialNavigation ? 45000 : 30000,
         };
 
+    async Task<bool> WaitForWebViewContextsAsync(int? timeoutMs = null, int pollIntervalMs = 500)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs ?? GetCdpReadyTimeoutMs(initialNavigation: true));
+
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var json = await Client.GetCdpWebViewsAsync();
+                if (HasWebViewContexts(json))
+                    return true;
+            }
+            catch
+            {
+                // CDP contexts are not ready yet.
+            }
+
+            await Task.Delay(pollIntervalMs);
+        }
+
+        return false;
+    }
+
     async Task EnsureOnBlazorPageAsync()
     {
         await NavigateToPageAsync("//blazor", "BlazorWebView");
         var timeoutMs = GetCdpReadyTimeoutMs(initialNavigation: true);
         var cdpReady = await WaitForCdpReadyAsync(timeoutMs: timeoutMs);
-        if (!cdpReady)
-            Output.WriteLine($"WARNING: CDP not ready after {timeoutMs / 1000}s - WebView tests may fail.");
+        var contextsReady = cdpReady && await WaitForWebViewContextsAsync(timeoutMs: timeoutMs);
+
+        if (!cdpReady || !contextsReady)
+            Output.WriteLine($"WARNING: CDP contexts not ready after {timeoutMs / 1000}s - WebView tests may fail.");
     }
 
     Task<bool> IsCdpReady(int? timeoutMs = null)
@@ -63,7 +103,7 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         var json = await Client.GetCdpWebViewsAsync();
 
-        Assert.True(json.ValueKind == JsonValueKind.Object || json.ValueKind == JsonValueKind.Array);
+        Assert.True(HasWebViewContexts(json), "Expected at least one WebView context.");
     }
 
     [Fact]
@@ -71,24 +111,11 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         var cdpReady = await WaitForCdpReadyAsync(timeoutMs: GetCdpReadyTimeoutMs());
-        Assert.True(cdpReady, "Expected CDP to become ready before querying WebView contexts.");
+        var contextsReady = cdpReady && await WaitForWebViewContextsAsync(timeoutMs: GetCdpReadyTimeoutMs());
+        Assert.True(cdpReady && contextsReady, "Expected CDP to become ready before querying WebView contexts.");
 
         var json = await Client.GetCdpWebViewsAsync();
-
-        Assert.True(json.ValueKind == JsonValueKind.Object || json.ValueKind == JsonValueKind.Array);
-
-        if (json.ValueKind == JsonValueKind.Array)
-        {
-            Assert.True(json.GetArrayLength() > 0, "Expected at least one WebView context");
-        }
-        else if (json.TryGetProperty("webviews", out var webviewsProp) && webviewsProp.ValueKind == JsonValueKind.Array)
-        {
-            Assert.True(webviewsProp.GetArrayLength() > 0, "Expected at least one WebView context");
-        }
-        else
-        {
-            Assert.Fail("Expected CDP web views response to be a non-empty array or an object containing a non-empty 'webviews' array.");
-        }
+        Assert.True(HasWebViewContexts(json), "Expected at least one WebView context.");
     }
 
     [Fact]
@@ -294,10 +321,12 @@ public class WebViewTests : IntegrationTestBase
     public async Task MultiBlazorPage_HasMultipleContexts()
     {
         await NavigateToPageAsync("//multiblazor", "BlazorLeft");
-        await SettleAsync(2000);
+        var timeoutMs = GetCdpReadyTimeoutMs(initialNavigation: true);
+        await WaitForCdpReadyAsync(timeoutMs);
+        await WaitForWebViewContextsAsync(timeoutMs);
 
         var json = await Client.GetCdpWebViewsAsync();
-        Assert.True(json.ValueKind != JsonValueKind.Undefined);
+        Assert.True(HasWebViewContexts(json), "Expected at least one WebView context on the multi-Blazor page.");
 
         await NavigateToMainPageAsync();
     }
