@@ -59,6 +59,31 @@ public class WebViewTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Contexts_WebViewIsReady()
+    {
+        await EnsureOnBlazorPageAsync();
+        var cdpReady = await WaitForCdpReadyAsync();
+        Assert.True(cdpReady, "Expected CDP to become ready before querying WebView contexts.");
+
+        var json = await Client.GetCdpWebViewsAsync();
+
+        Assert.True(json.ValueKind == JsonValueKind.Object || json.ValueKind == JsonValueKind.Array);
+
+        if (json.ValueKind == JsonValueKind.Array)
+        {
+            Assert.True(json.GetArrayLength() > 0, "Expected at least one WebView context");
+        }
+        else if (json.TryGetProperty("webviews", out var webviewsProp) && webviewsProp.ValueKind == JsonValueKind.Array)
+        {
+            Assert.True(webviewsProp.GetArrayLength() > 0, "Expected at least one WebView context");
+        }
+        else
+        {
+            Assert.Fail("Expected CDP web views response to be a non-empty array or an object containing a non-empty 'webviews' array.");
+        }
+    }
+
+    [Fact]
     public async Task Evaluate_DocumentTitle_ReturnsResult()
     {
         await EnsureOnBlazorPageAsync();
