@@ -153,12 +153,14 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: >
-            dotnet test $TEST_PROJECT
-            -c Debug
-            --logger "trx;LogFileName=devflow-integration-android.trx"
-            --logger "console;verbosity=normal"
-            --results-directory ./artifacts/TestResults/devflow-integration/android
+          script: |
+            export DEVFLOW_TEST_ANDROID_SERIAL="$(adb devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ { print $1; exit }')"
+            echo "Using Android emulator serial: ${DEVFLOW_TEST_ANDROID_SERIAL:-<none found>}"
+            dotnet test $TEST_PROJECT \
+              -c Debug \
+              --logger "trx;LogFileName=devflow-integration-android.trx" \
+              --logger "console;verbosity=normal" \
+              --results-directory ./artifacts/TestResults/devflow-integration/android
 
       - name: Upload test results
         if: always()
@@ -171,7 +173,7 @@ jobs:
   ios:
     needs: plan
     if: needs.plan.outputs.run-ios == 'true'
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 90
     env:
       DEVFLOW_TEST_PLATFORM: ios
@@ -222,7 +224,7 @@ jobs:
   maccatalyst:
     needs: plan
     if: needs.plan.outputs.run-maccatalyst == 'true'
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 60
     env:
       DEVFLOW_TEST_PLATFORM: maccatalyst
@@ -282,7 +284,9 @@ jobs:
           global-json-file: global.json
 
       - name: Install MAUI workloads
-        run: dotnet workload install maui
+        # The sample app references DevFlow projects that also target net10.0-macos,
+        # so the macOS workload must be present even for a Windows-only test run.
+        run: dotnet workload install maui macos
 
       - name: Run DevFlow integration tests (windows)
         shell: pwsh

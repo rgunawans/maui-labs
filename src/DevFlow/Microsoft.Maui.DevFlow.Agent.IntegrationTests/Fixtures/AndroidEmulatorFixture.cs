@@ -79,6 +79,7 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
             var candidates = new[]
             {
                 Path.Combine(home, "Library", "Android", "sdk"),
+                "/usr/local/lib/android/sdk",
                 Path.Combine(home, "Android", "Sdk"),
                 @"C:\Users\" + Environment.UserName + @"\AppData\Local\Android\Sdk",
             };
@@ -281,8 +282,13 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
         while (DateTime.UtcNow < deadline)
         {
             if (_emulatorProcess is { HasExited: true })
+            {
+                var stdout = await _emulatorProcess.StandardOutput.ReadToEndAsync();
+                var stderr = await _emulatorProcess.StandardError.ReadToEndAsync();
                 throw new InvalidOperationException(
-                    $"Emulator process exited with code {_emulatorProcess.ExitCode} before becoming ready.");
+                    $"Emulator process exited with code {_emulatorProcess.ExitCode} before becoming ready." +
+                    $"\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+            }
 
             var (output, _, _) = await RunProcessAsync(adb, "devices");
             var emulatorSerials = output
