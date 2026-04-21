@@ -153,14 +153,13 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            export DEVFLOW_TEST_ANDROID_SERIAL="$(adb devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ { print $1; exit }')"
-            echo "Using Android emulator serial: ${DEVFLOW_TEST_ANDROID_SERIAL:-<none found>}"
-            dotnet test $TEST_PROJECT \
-              -c Debug \
-              --logger "trx;LogFileName=devflow-integration-android.trx" \
-              --logger "console;verbosity=normal" \
-              --results-directory ./artifacts/TestResults/devflow-integration/android
+          script: >
+            export DEVFLOW_TEST_ANDROID_SERIAL="$(adb devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ { print $1; exit }')";
+            echo "Using Android emulator serial: ${DEVFLOW_TEST_ANDROID_SERIAL:-<none found>}";
+            dotnet test $TEST_PROJECT -c Debug
+            --logger "trx;LogFileName=devflow-integration-android.trx"
+            --logger "console;verbosity=normal"
+            --results-directory ./artifacts/TestResults/devflow-integration/android
 
       - name: Upload test results
         if: always()
@@ -191,8 +190,9 @@ jobs:
             echo "DEVELOPER_DIR=$SELECTED/Contents/Developer" >> "$GITHUB_ENV"
             sudo xcode-select -s "$SELECTED/Contents/Developer"
           fi
+          sudo xcodebuild -runFirstLaunch
           xcodebuild -version
-          xcrun --find actool
+          xcrun --sdk macosx --find actool
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -241,8 +241,9 @@ jobs:
             echo "DEVELOPER_DIR=$SELECTED/Contents/Developer" >> "$GITHUB_ENV"
             sudo xcode-select -s "$SELECTED/Contents/Developer"
           fi
+          sudo xcodebuild -runFirstLaunch
           xcodebuild -version
-          xcrun --find actool
+          xcrun --sdk macosx --find actool
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
