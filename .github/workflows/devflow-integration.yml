@@ -5,7 +5,7 @@ name: DevFlow Integration Tests
 # installs and launches it, then runs real HTTP round-trips against the agent.
 # A full platform run takes ~20-30 min. To save CI minutes we keep this off the
 # default PR pipeline — it runs on demand via workflow_dispatch or when a PR is
-# labeled `integration-tests`.
+# labeled `integration-tests`. Additional PR updates can be re-run manually.
 #
 # Entry points per platform fixture:
 #   Android   -> src/DevFlow/Microsoft.Maui.DevFlow.Agent.IntegrationTests/Fixtures/AndroidEmulatorFixture.cs
@@ -35,7 +35,7 @@ on:
         default: ""
         type: string
   pull_request:
-    types: [labeled, synchronize]
+    types: [labeled]
     branches: [main]
     paths:
       - 'src/DevFlow/**'
@@ -55,6 +55,7 @@ jobs:
   # Decide which platforms to run based on the trigger.
   # For pull_request runs we require the `integration-tests` label.
   plan:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.label.name == 'integration-tests')
     runs-on: ubuntu-latest
     outputs:
       run-android: ${{ steps.decide.outputs.android }}
@@ -67,7 +68,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           PLATFORMS: ${{ inputs.platforms }}
-          LABELED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'integration-tests') || 'false' }}
+          LABELED: ${{ github.event_name == 'pull_request' && github.event.label.name == 'integration-tests' || 'false' }}
         run: |
           set -e
           should_run() {
@@ -195,24 +196,6 @@ jobs:
 
       - name: List available iOS simulators
         run: xcrun simctl list devices available
-
-      - name: Boot iPhone simulator
-        id: sim
-        run: |
-          set -e
-          # Pick the newest iPhone simulator, preferring Pro if available.
-          UDID=$(xcrun simctl list devices available --json \
-            | python3 -c "import json,sys; data=json.load(sys.stdin); \
-                devs=[d for runtime,ds in data['devices'].items() if 'iOS' in runtime for d in ds if 'iPhone' in d.get('name','') and d.get('isAvailable')]; \
-                devs.sort(key=lambda d: ('Pro' in d['name'], d['name']), reverse=True); \
-                print(devs[0]['udid'] if devs else '')")
-          if [[ -z "$UDID" ]]; then
-            echo "No iPhone simulator available"; exit 1
-          fi
-          echo "Booting $UDID"
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Run DevFlow integration tests (ios)
         run: >
