@@ -62,6 +62,9 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
 
             if (await WaitForCdpResponsiveAsync(timeoutMs))
             {
+                // CDP bridge is live, but Blazor may not have finished rendering yet.
+                // Wait for the Blazor component tree to replace "Loading..." content.
+                await WaitForBlazorRenderedAsync(15000);
                 _blazorReady = true;
                 return;
             }
@@ -84,6 +87,7 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
 
             if (await WaitForCdpResponsiveAsync(recoveryTimeoutMs))
             {
+                await WaitForBlazorRenderedAsync(15000);
                 _blazorReady = true;
                 return;
             }
@@ -125,6 +129,40 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
             }
 
             await Task.Delay(250);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Waits for Blazor to finish rendering by checking that the #app div no longer
+    /// contains "Loading...". CDP may be responsive (chobitsu loaded) before Blazor's
+    /// component tree has rendered, so tests that depend on DOM content need this check.
+    /// </summary>
+    public async Task<bool> WaitForBlazorRenderedAsync(int timeoutMs = 30000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var probe = await Client.SendCdpCommandAsync(
+                    "Runtime.evaluate",
+                    JsonNode.Parse("""{"expression":"document.querySelector('#app')?.innerHTML?.substring(0, 20) || ''"}"""));
+                var text = probe.ToString();
+                // Once Blazor renders, #app innerHTML changes from "Loading..." to component output
+                if (!text.Contains("Loading...", StringComparison.Ordinal) &&
+                    text.Contains("\"value\"", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Not ready yet.
+            }
+
+            await Task.Delay(500);
         }
 
         return false;

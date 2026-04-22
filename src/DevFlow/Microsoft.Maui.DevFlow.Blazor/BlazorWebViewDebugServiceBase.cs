@@ -266,11 +266,10 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         {
             // Wait for chobitsu to become available. The chobitsu <script> tag is served
             // by the BlazorWebView middleware; on slow runners the DOM may still be parsing
-            // when we start polling, so we keep polling for the full 15s window instead of
-            // bailing early. SendCdpCommandAsync will also retry us if a test arrives while
-            // the first injection attempt was still racing with DOM parse.
+            // when we start polling. We poll for up to 5s before falling back to direct
+            // eval injection from the embedded resource.
             var loaded = false;
-            for (int i = 0; i < 30; i++)
+            for (int i = 0; i < 10; i++)
             {
                 var check = await _evalJs(
                     "typeof chobitsu !== 'undefined' ? 'loaded' : 'waiting'");
@@ -287,19 +286,50 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
 
             if (!loaded)
             {
-                // Diagnostic: is the <script> tag present at all? Don't bail — the next
-                // CDP command will trigger a retry via SendCdpCommandAsync.
+                // The script tag may have 404'd (e.g. static web asset path mismatch).
+                // Fall back to injecting chobitsu.js directly via JS eval from the embedded resource.
+                // IMPORTANT: We must wait for Blazor to finish rendering before injecting chobitsu
+                // because the large eval() can interfere with Blazor's startup on WebView2.
+                _owner.Log("[BlazorDevFlow] Chobitsu not loaded via script tag — waiting for Blazor to render before embedded injection...");
                 try
                 {
-                    var hasTag = await _evalJs(
-                        "document.querySelector('script[src*=\"chobitsu\"]') ? 'found' : 'missing'");
-                    _owner.Log($"[BlazorDevFlow] Chobitsu not loaded after 15s (script tag: {hasTag}).");
+                    // Wait for Blazor to replace "Loading..." with actual content (up to 30s).
+                    for (int w = 0; w < 60; w++)
+                    {
+                        var appContent = await _evalJs(
+                            "document.querySelector('#app')?.innerHTML?.substring(0, 20) || ''");
+                        var content = appContent?.ToString() ?? "";
+                        if (!content.Contains("Loading") && content.Length > 0)
+                        {
+                            _owner.Log($"[BlazorDevFlow] Blazor rendered (content: {content})");
+                            break;
+                        }
+                        await Task.Delay(500);
+                    }
+
+                    _owner.Log("[BlazorDevFlow] Injecting embedded chobitsu.js via eval...");
+                    var embeddedJs = ChobitsuDebugScript.GetEmbeddedChobitsuJs();
+                    await _evalJs(embeddedJs);
+
+                    // Verify it loaded
+                    var verify = await _evalJs("typeof chobitsu !== 'undefined' ? 'loaded' : 'waiting'");
+                    if (verify?.ToString() == "loaded")
+                    {
+                        _owner.Log("[BlazorDevFlow] Chobitsu loaded via embedded fallback.");
+                        loaded = true;
+                    }
+                    else
+                    {
+                        _owner.Log($"[BlazorDevFlow] Embedded chobitsu injection did not define chobitsu global (got: {verify}).");
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    _owner.Log("[BlazorDevFlow] Chobitsu not loaded after 15s (tag probe failed).");
+                    _owner.LogError("[BlazorDevFlow] Failed to inject embedded chobitsu.js", ex);
                 }
-                return;
+
+                if (!loaded)
+                    return;
             }
 
             var script = ChobitsuDebugScript.GetInjectionScript();

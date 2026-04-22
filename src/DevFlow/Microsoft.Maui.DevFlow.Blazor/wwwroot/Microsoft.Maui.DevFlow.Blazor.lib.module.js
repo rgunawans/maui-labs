@@ -12,9 +12,10 @@ export function beforeStart(options, extensions) {
         return;
     }
 
-    // Inject chobitsu.js script tag (fire-and-forget — C# side polls for availability)
+    // Inject chobitsu.js script tag (fire-and-forget — C# side polls for availability).
+    // Use the _content/ path for Razor class library static web assets.
     const script = document.createElement('script');
-    script.src = 'chobitsu.js';
-    script.async = false;
+    script.src = '_content/Microsoft.Maui.DevFlow.Blazor/chobitsu.js';
+    script.async = true;
     document.head.appendChild(script);
 }

@@ -40,6 +40,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\Scripts\*.js" />
     <EmbeddedResource Include="Resources\Scripts\*.html" />
+    <!-- Embed chobitsu.js for C#-side fallback injection when the script tag fails to load -->
+    <EmbeddedResource Include="wwwroot\chobitsu.js" LogicalName="Microsoft.Maui.DevFlow.Blazor.chobitsu.js" />
   </ItemGroup>
 
 
