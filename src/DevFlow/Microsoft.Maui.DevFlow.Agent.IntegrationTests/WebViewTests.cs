@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Maui.DevFlow.Agent.IntegrationTests.Fixtures;
@@ -9,8 +10,12 @@ namespace Microsoft.Maui.DevFlow.Agent.IntegrationTests;
 [Trait("Category", "WebView")]
 public class WebViewTests : IntegrationTestBase
 {
+    static readonly ConcurrentDictionary<string, bool> ReadyCache = new();
+
     public WebViewTests(AppFixture app, ITestOutputHelper output)
         : base(app, output) { }
+
+    string ReadyCacheKey => $"{Platform}:{App.AgentPort}";
 
     static bool HasWebViewContexts(JsonElement json)
     {
@@ -35,6 +40,10 @@ public class WebViewTests : IntegrationTestBase
             _ => initialNavigation ? 45000 : 30000,
         };
 
+    bool IsReadyCached() => ReadyCache.TryGetValue(ReadyCacheKey, out var ready) && ready;
+
+    void MarkReady() => ReadyCache[ReadyCacheKey] = true;
+
     async Task<bool> WaitForWebViewContextsAsync(int? timeoutMs = null, int pollIntervalMs = 500)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs ?? GetCdpReadyTimeoutMs(initialNavigation: true));
@@ -45,7 +54,10 @@ public class WebViewTests : IntegrationTestBase
             {
                 var json = await Client.GetCdpWebViewsAsync();
                 if (HasWebViewContexts(json))
+                {
+                    MarkReady();
                     return true;
+                }
             }
             catch
             {
@@ -61,6 +73,13 @@ public class WebViewTests : IntegrationTestBase
     async Task EnsureOnBlazorPageAsync()
     {
         await NavigateToPageAsync("//blazor", "BlazorWebView");
+
+        if (IsReadyCached())
+        {
+            await SettleAsync(250);
+            return;
+        }
+
         var timeoutMs = GetCdpReadyTimeoutMs(initialNavigation: true);
         var cdpReadyTask = WaitForCdpReadyAsync(timeoutMs: timeoutMs);
         var contextsReadyTask = WaitForWebViewContextsAsync(timeoutMs: timeoutMs);
@@ -70,12 +89,24 @@ public class WebViewTests : IntegrationTestBase
         var cdpReady = await cdpReadyTask;
         var contextsReady = await contextsReadyTask;
 
-        if (!cdpReady || !contextsReady)
+        if (cdpReady || contextsReady)
+            MarkReady();
+
+        if (!cdpReady && !contextsReady)
             Output.WriteLine($"WARNING: CDP contexts not ready after {timeoutMs / 1000}s - WebView tests may fail.");
     }
 
-    Task<bool> IsCdpReady(int? timeoutMs = null)
-        => WaitForCdpReadyAsync(timeoutMs: timeoutMs ?? GetCdpReadyTimeoutMs(), pollIntervalMs: 500);
+    async Task<bool> IsCdpReady(int? timeoutMs = null)
+    {
+        if (IsReadyCached())
+            return true;
+
+        var ready = await WaitForCdpReadyAsync(timeoutMs: timeoutMs ?? GetCdpReadyTimeoutMs(), pollIntervalMs: 500);
+        if (ready)
+            MarkReady();
+
+        return ready;
+    }
 
     async Task<string> GetCdpSourceWithRetryAsync()
     {
