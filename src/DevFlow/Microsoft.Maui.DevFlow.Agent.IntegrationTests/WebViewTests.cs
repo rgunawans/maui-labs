@@ -67,19 +67,70 @@ public class WebViewTests : IntegrationTestBase
     Task EnsureOnBlazorPageAsync() => App.EnsureBlazorReadyAsync();
 
     /// <summary>
-    /// Asserts the CDP bridge is actually live by sending a trivial Runtime.evaluate probe.
-    /// Protects against false-positive test passes when chobitsu failed to load and the
-    /// bridge is returning error payloads.
+    /// Returns true if the response body indicates the CDP bridge is transiently
+    /// not-ready (i.e. chobitsu is re-injecting after a page navigation). Android's
+    /// OnPageFinished can reset the bridge mid-test on internal Blazor router navigations.
     /// </summary>
-    async Task AssertCdpResponsiveAsync()
+    static bool IsBridgeNotReady(string body)
+        => body.Contains("CDP not ready", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("WebView not ready", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("WebView not initialized", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Executes an HTTP call and retries up to <paramref name="timeoutMs"/> when the
+    /// response body signals the CDP bridge is transiently re-injecting. Any other
+    /// error path (non-bridge 4xx/5xx, exception) returns immediately.
+    /// </summary>
+    async Task<HttpResponseMessage> WithBridgeRetryAsync(
+        Func<Task<HttpResponseMessage>> call,
+        int timeoutMs = 15000)
     {
-        var probe = await Client.SendCdpCommandAsync(
-            "Runtime.evaluate",
-            JsonNode.Parse("""{"expression":"1 + 1"}"""));
-        var text = probe.ToString();
-        Assert.False(text.Contains("\"error\"", StringComparison.OrdinalIgnoreCase),
-            $"CDP bridge returned an error payload (expected a live bridge): {text}");
-        Assert.Contains("\"value\":2", text);
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        HttpResponseMessage? last = null;
+        while (DateTime.UtcNow < deadline)
+        {
+            last?.Dispose();
+            last = await call();
+            if (last.IsSuccessStatusCode) return last;
+
+            var body = await last.Content.ReadAsStringAsync();
+            if (!IsBridgeNotReady(body))
+                return last;
+
+            await Task.Delay(250);
+            // Re-create the response wrapper with the body we already read so callers
+            // can still inspect it if we hit the deadline.
+            if (DateTime.UtcNow >= deadline)
+            {
+                var replay = new HttpResponseMessage(last.StatusCode)
+                {
+                    Content = new StringContent(body),
+                    RequestMessage = last.RequestMessage,
+                };
+                last.Dispose();
+                return replay;
+            }
+        }
+        return last!;
+    }
+
+    Task<HttpResponseMessage> GetWithBridgeRetryAsync(string path, int timeoutMs = 15000)
+        => WithBridgeRetryAsync(() => GetRawAsync(path), timeoutMs);
+
+    Task<HttpResponseMessage> PostWithBridgeRetryAsync(string path, object? body, int timeoutMs = 15000)
+        => WithBridgeRetryAsync(() => PostRawAsync(path, body), timeoutMs);
+
+    /// <summary>
+    /// Asserts the CDP bridge is actually live by sending a trivial Runtime.evaluate probe.
+    /// Retries briefly when the bridge is mid-reinject (Android OnPageFinished racing with
+    /// a test call). Protects against false-positive test passes when chobitsu failed to
+    /// load and the bridge is returning error payloads.
+    /// </summary>
+    async Task AssertCdpResponsiveAsync(int timeoutMs = 15000)
+    {
+        var ok = await App.WaitForCdpResponsiveAsync(timeoutMs);
+        Assert.True(ok,
+            $"CDP bridge did not become responsive within {timeoutMs}ms (expected a live bridge answering Runtime.evaluate).");
     }
 
     [Fact]
@@ -148,7 +199,7 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
 
-        var response = await GetRawAsync("/api/v1/webview/dom");
+        var response = await GetWithBridgeRetryAsync("/api/v1/webview/dom");
         Assert.True(response.IsSuccessStatusCode,
             $"/api/v1/webview/dom returned {(int)response.StatusCode}");
 
@@ -163,7 +214,7 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
 
-        var response = await PostRawAsync("/api/v1/webview/dom/query", new
+        var response = await PostWithBridgeRetryAsync("/api/v1/webview/dom/query", new
         {
             selector = "button",
             contextId = "0",
@@ -182,7 +233,7 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
 
-        var response = await PostRawAsync("/api/v1/webview/navigate", new
+        var response = await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new
         {
             url = "/counter",
             contextId = "0",
@@ -190,16 +241,17 @@ public class WebViewTests : IntegrationTestBase
 
         Assert.True(response.IsSuccessStatusCode,
             $"WebView navigate failed with status {(int)response.StatusCode}");
-        await SettleAsync(1000);
+        // Wait for chobitsu to re-inject after the nav before we navigate back.
+        await App.WaitForCdpResponsiveAsync(15000);
 
-        var backResponse = await PostRawAsync("/api/v1/webview/navigate", new
+        var backResponse = await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new
         {
             url = "/",
             contextId = "0",
         });
         Assert.True(backResponse.IsSuccessStatusCode,
             $"WebView navigate back failed with status {(int)backResponse.StatusCode}");
-        await SettleAsync(1000);
+        await App.WaitForCdpResponsiveAsync(15000);
     }
 
     [Fact]
@@ -208,12 +260,12 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
 
-        var navResponse = await PostRawAsync("/api/v1/webview/navigate", new { url = "/counter", contextId = "0" });
+        var navResponse = await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/counter", contextId = "0" });
         Assert.True(navResponse.IsSuccessStatusCode,
             $"Navigate to /counter failed: {(int)navResponse.StatusCode}");
-        await SettleAsync(1000);
+        await App.WaitForCdpResponsiveAsync(15000);
 
-        var response = await PostRawAsync("/api/v1/webview/input/click", new
+        var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/click", new
         {
             selector = "button",
             contextId = "0",
@@ -222,8 +274,8 @@ public class WebViewTests : IntegrationTestBase
         Assert.True(response.IsSuccessStatusCode,
             $"/api/v1/webview/input/click returned {(int)response.StatusCode}");
 
-        await PostRawAsync("/api/v1/webview/navigate", new { url = "/", contextId = "0" });
-        await SettleAsync(500);
+        await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/", contextId = "0" });
+        await App.WaitForCdpResponsiveAsync(15000);
     }
 
     [Fact]
@@ -233,10 +285,10 @@ public class WebViewTests : IntegrationTestBase
         await AssertCdpResponsiveAsync();
 
         // Navigate to a page that actually has a text input.
-        await PostRawAsync("/api/v1/webview/navigate", new { url = "/counter", contextId = "0" });
-        await SettleAsync(1000);
+        await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/counter", contextId = "0" });
+        await App.WaitForCdpResponsiveAsync(15000);
 
-        var response = await PostRawAsync("/api/v1/webview/input/fill", new
+        var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/fill", new
         {
             selector = "input",
             text = "Blazor fill test",
@@ -249,8 +301,8 @@ public class WebViewTests : IntegrationTestBase
             response.IsSuccessStatusCode || (int)response.StatusCode == 404,
             $"/api/v1/webview/input/fill returned unexpected status {(int)response.StatusCode}");
 
-        await PostRawAsync("/api/v1/webview/navigate", new { url = "/", contextId = "0" });
-        await SettleAsync(500);
+        await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/", contextId = "0" });
+        await App.WaitForCdpResponsiveAsync(15000);
     }
 
     [Fact]
@@ -259,7 +311,7 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
 
-        var response = await PostRawAsync("/api/v1/webview/input/text", new
+        var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/text", new
         {
             text = "Hello from test",
             contextId = "0",
@@ -275,7 +327,7 @@ public class WebViewTests : IntegrationTestBase
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
 
-        var response = await GetRawAsync("/api/v1/webview/screenshot?contextId=0");
+        var response = await GetWithBridgeRetryAsync("/api/v1/webview/screenshot?contextId=0");
         Assert.True(response.IsSuccessStatusCode,
             $"/api/v1/webview/screenshot returned {(int)response.StatusCode}");
 

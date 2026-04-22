@@ -28,66 +28,84 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
     public Task DisposeAsync() => _inner.DisposeAsync();
 
     /// <summary>
-    /// Navigates to the //blazor Shell route once per fixture lifetime, waits for the
-    /// BlazorWebView element to appear, and confirms the CDP bridge can answer a
-    /// Runtime.evaluate probe. Subsequent calls return immediately after ensuring we are
-    /// still on the Blazor page.
+    /// Navigates to the //blazor Shell route (if not already there), waits for the
+    /// BlazorWebView element to appear, and probes the CDP bridge with Runtime.evaluate
+    /// until it answers cleanly. Always probes: Android's OnPageFinished can reset the
+    /// bridge mid-test when the Blazor router performs internal navigation, so we never
+    /// trust a cached "ready" flag. The first call pays the full warm-up cost; subsequent
+    /// calls short-circuit in ~50ms when the bridge is already live.
     /// </summary>
     public async Task EnsureBlazorReadyAsync()
     {
-        if (_blazorReady && await IsOnBlazorPageAsync())
-            return;
-
         await _blazorReadyGate.WaitAsync();
         try
         {
             if (!await IsOnBlazorPageAsync())
             {
+                _blazorReady = false;
                 await Client.NavigateAsync("//blazor");
                 await WaitForAutomationIdAsync("BlazorWebView", timeoutMs: 15000);
             }
 
-            if (_blazorReady)
+            // Cold-start timeout (first time the bridge is coming up) is generous because
+            // chobitsu + WebView2 / Android WebView can take a while on hosted runners.
+            // Warm-path timeout (bridge previously responded) only needs to absorb a brief
+            // re-injection window triggered by e.g. Blazor internal navigation.
+            var timeoutMs = _blazorReady
+                ? 15000
+                : Platform switch
+                {
+                    "ios" => 60000,
+                    "android" or "windows" => 90000,
+                    _ => 45000,
+                };
+
+            if (await WaitForCdpResponsiveAsync(timeoutMs))
+            {
+                _blazorReady = true;
                 return;
-
-            var timeoutMs = Platform switch
-            {
-                "ios" => 60000,
-                "android" or "windows" => 90000,
-                _ => 45000,
-            };
-
-            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-
-            // Probe CDP until it answers cleanly. The bridge self-heals via SendCdpCommandAsync
-            // retry, so a 1+1 probe is the simplest confirmation the chobitsu bridge is live.
-            while (DateTime.UtcNow < deadline)
-            {
-                try
-                {
-                    var probe = await Client.SendCdpCommandAsync(
-                        "Runtime.evaluate",
-                        JsonNode.Parse("""{"expression":"1 + 1"}"""));
-                    var text = probe.ToString();
-                    if (!text.Contains("\"error\"", StringComparison.OrdinalIgnoreCase) &&
-                        text.Contains("\"value\":2", StringComparison.Ordinal))
-                    {
-                        _blazorReady = true;
-                        return;
-                    }
-                }
-                catch
-                {
-                    // Not ready yet.
-                }
-
-                await Task.Delay(500);
             }
+
+            throw new TimeoutException(
+                $"CDP bridge did not become responsive within {timeoutMs}ms on {Platform}.");
         }
         finally
         {
             _blazorReadyGate.Release();
         }
+    }
+
+    /// <summary>
+    /// Public retry helper: probes the CDP bridge until Runtime.evaluate "1+1" returns
+    /// cleanly (or timeout). Useful when a test calls a bridge-dependent endpoint and the
+    /// bridge is transiently mid-reinject (e.g. right after a navigate).
+    /// </summary>
+    public async Task<bool> WaitForCdpResponsiveAsync(int timeoutMs)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var probe = await Client.SendCdpCommandAsync(
+                    "Runtime.evaluate",
+                    JsonNode.Parse("""{"expression":"1 + 1"}"""));
+                var text = probe.ToString();
+                if (!text.Contains("\"error\"", StringComparison.OrdinalIgnoreCase) &&
+                    text.Contains("\"value\":2", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Not ready yet.
+            }
+
+            await Task.Delay(250);
+        }
+
+        return false;
     }
 
     async Task<bool> IsOnBlazorPageAsync()
