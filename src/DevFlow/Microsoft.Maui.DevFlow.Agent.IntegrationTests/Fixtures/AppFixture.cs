@@ -66,8 +66,30 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
                 return;
             }
 
+            // A prior test may have left the existing bridge in a stale state after an
+            // in-WebView route change. Force a fresh Shell navigation and retry using the
+            // full cold-start budget instead of failing the next test on the warm-path cap.
+            _blazorReady = false;
+            await Client.NavigateAsync("//native");
+            await Task.Delay(500);
+            await Client.NavigateAsync("//blazor");
+            await WaitForAutomationIdAsync("BlazorWebView", timeoutMs: 15000);
+
+            var recoveryTimeoutMs = Platform switch
+            {
+                "ios" => 60000,
+                "android" or "windows" => 90000,
+                _ => 45000,
+            };
+
+            if (await WaitForCdpResponsiveAsync(recoveryTimeoutMs))
+            {
+                _blazorReady = true;
+                return;
+            }
+
             throw new TimeoutException(
-                $"CDP bridge did not become responsive within {timeoutMs}ms on {Platform}.");
+                $"CDP bridge did not become responsive within {timeoutMs}ms (and did not recover within {recoveryTimeoutMs}ms) on {Platform}.");
         }
         finally
         {

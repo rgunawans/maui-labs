@@ -207,7 +207,8 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         private readonly Action _reload;
         private readonly Action<string> _navigate;
         private bool _chobitsuLoaded;
-        private bool _injecting;
+        private readonly object _injectGate = new();
+        private Task? _injectTask;
         private int _cdpIdCounter = 1000;
         private CancellationTokenSource? _drainCts;
 
@@ -236,17 +237,21 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
 
         internal async Task InjectDebugScriptAsync()
         {
-            if (_injecting) return;
-            _injecting = true;
+            Task injectTask;
+            lock (_injectGate)
+            {
+                if (_injectTask is { IsCompleted: false })
+                {
+                    injectTask = _injectTask;
+                }
+                else
+                {
+                    injectTask = InjectDebugScriptCoreAsync();
+                    _injectTask = injectTask;
+                }
+            }
 
-            try
-            {
-                await InjectDebugScriptCoreAsync();
-            }
-            finally
-            {
-                _injecting = false;
-            }
+            await injectTask;
         }
 
         /// <summary>
@@ -315,21 +320,11 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
             }
         }
 
-        public async Task<string> SendCdpCommandAsync(string cdpJson)
+        public Task<string> SendCdpCommandAsync(string cdpJson)
+            => SendCdpCommandCoreAsync(cdpJson, allowRecovery: true);
+
+        private async Task<string> SendCdpCommandCoreAsync(string cdpJson, bool allowRecovery)
         {
-            if (!IsReady)
-            {
-                // The first injection attempt may have raced with DOM parse on slow runners.
-                // Try one more time before giving up — this is cheap when chobitsu IS loaded
-                // (single eval returns 'loaded' immediately) and self-heals the common
-                // "bridge created too early" case without the caller having to do anything.
-                _owner.Log("[BlazorDevFlow] SendCdpCommand: bridge not ready, retrying injection...");
-                await InjectDebugScriptAsync();
-
-                if (!IsReady)
-                    return "{\"error\":\"WebView not ready\"}";
-            }
-
             try
             {
                 var json = System.Text.Json.JsonDocument.Parse(cdpJson);
@@ -352,6 +347,8 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
                     cdpJson = System.Text.Encoding.UTF8.GetString(ms.ToArray());
                 }
 
+                // These commands already use direct native JS evaluation and should remain
+                // available while the bridge is still warming up or recovering.
                 if (method == "Input.insertText")
                     return await HandleInputInsertTextAsync(cdpJson, id);
                 if (method == "Page.reload")
@@ -360,6 +357,19 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
                     return await HandlePageNavigateAsync(cdpJson, id);
                 if (method.StartsWith("Browser."))
                     return HandleBrowserMethod(method, id);
+
+                if (!IsReady)
+                {
+                    // The first injection attempt may have raced with DOM parse on slow runners.
+                    // Try one more time before giving up — this is cheap when chobitsu IS loaded
+                    // (single eval returns 'loaded' immediately) and self-heals the common
+                    // "bridge created too early" case without the caller having to do anything.
+                    _owner.Log("[BlazorDevFlow] SendCdpCommand: bridge not ready, retrying injection...");
+                    await InjectDebugScriptAsync();
+
+                    if (!IsReady)
+                        return "{\"error\":\"WebView not ready\"}";
+                }
 
                 var escaped = cdpJson.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
                 var sendScript = ScriptResources.Load("cdp-send-receive.js")
@@ -394,6 +404,15 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
                 }
 
                 _owner.Log($"[BlazorDevFlow] SendCdpCommand: no response after polling (10s timeout)");
+                if (allowRecovery)
+                {
+                    _owner.Log("[BlazorDevFlow] CDP timeout; resetting and retrying injection once...");
+                    ResetReadyState();
+                    await InjectDebugScriptAsync();
+                    if (IsReady)
+                        return await SendCdpCommandCoreAsync(cdpJson, allowRecovery: false);
+                }
+
                 return "{\"error\":\"cdp timeout\"}";
             }
             catch (Exception ex)
@@ -444,8 +463,37 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         {
             var json = System.Text.Json.JsonDocument.Parse(cdpJson);
             var url = json.RootElement.GetProperty("params").GetProperty("url").GetString() ?? "";
-            await _owner.RunOnMainThreadAsync(() => { _navigate(url); });
-            await Task.Delay(1500);
+
+            if (Uri.TryCreate(url, UriKind.Absolute, out _))
+            {
+                await _owner.RunOnMainThreadAsync(() => { _navigate(url); });
+            }
+            else
+            {
+                var escapedUrl = EscapeJsString(url);
+                var script = $@"(function() {{
+                    const target = '{escapedUrl}';
+                    try {{
+                        if (window.Blazor && typeof window.Blazor.navigateTo === 'function') {{
+                            window.Blazor.navigateTo(target);
+                            return 'blazor';
+                        }}
+                    }} catch {{}}
+
+                    try {{
+                        history.pushState({{}}, '', target);
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                        return 'history';
+                    }} catch {{}}
+
+                    location.href = target;
+                    return 'location';
+                }})()";
+
+                await _owner.RunOnMainThreadAsync(async () => { await _evalJs(script); });
+            }
+
+            await Task.Delay(500);
             await InjectDebugScriptAsync();
             return $"{{\"id\":{id},\"result\":{{\"frameId\":\"main\"}}}}";
         }

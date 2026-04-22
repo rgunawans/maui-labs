@@ -66,6 +66,59 @@ public class WebViewTests : IntegrationTestBase
 
     Task EnsureOnBlazorPageAsync() => App.EnsureBlazorReadyAsync();
 
+    static IEnumerable<JsonElement> EnumerateContexts(JsonElement json)
+    {
+        if (json.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var ctx in json.EnumerateArray())
+                yield return ctx;
+            yield break;
+        }
+
+        if (json.ValueKind == JsonValueKind.Object &&
+            json.TryGetProperty("webviews", out var webviews) &&
+            webviews.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var ctx in webviews.EnumerateArray())
+                yield return ctx;
+        }
+    }
+
+    static bool IsReadyContext(JsonElement ctx)
+        => (ctx.TryGetProperty("isReady", out var r1) && r1.ValueKind == JsonValueKind.True)
+           || (ctx.TryGetProperty("ready", out var r2) && r2.ValueKind == JsonValueKind.True);
+
+    async Task<string> GetActiveContextIdAsync()
+    {
+        var json = await Client.GetCdpWebViewsAsync();
+        var contexts = EnumerateContexts(json).ToList();
+        Assert.NotEmpty(contexts);
+
+        JsonElement? pick =
+            contexts.LastOrDefault(c =>
+                c.TryGetProperty("automationId", out var automationId) &&
+                automationId.ValueKind == JsonValueKind.String &&
+                automationId.GetString() == "BlazorWebView" &&
+                IsReadyContext(c));
+
+        if (pick == null || pick.Value.ValueKind == JsonValueKind.Undefined)
+            pick = contexts.LastOrDefault(IsReadyContext);
+
+        if (pick == null || pick.Value.ValueKind == JsonValueKind.Undefined)
+            pick = contexts.LastOrDefault(c =>
+                c.TryGetProperty("automationId", out var automationId) &&
+                automationId.ValueKind == JsonValueKind.String &&
+                automationId.GetString() == "BlazorWebView");
+
+        var selected = pick ?? contexts[^1];
+        if (selected.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
+            return id.GetString()!;
+        if (selected.TryGetProperty("index", out var index) && index.ValueKind == JsonValueKind.Number)
+            return index.GetInt32().ToString();
+
+        return "0";
+    }
+
     /// <summary>
     /// Returns true if the response body indicates the CDP bridge is transiently
     /// not-ready (i.e. chobitsu is re-injecting after a page navigation). Android's
@@ -213,15 +266,16 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
+        var contextId = await GetActiveContextIdAsync();
 
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/dom/query", new
         {
             selector = "button",
-            contextId = "0",
+            contextId,
         });
 
         Assert.True(response.IsSuccessStatusCode,
-            $"/api/v1/webview/dom/query returned {(int)response.StatusCode}");
+            $"/api/v1/webview/dom/query returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
 
         var body = await response.Content.ReadAsStringAsync();
         Assert.NotEmpty(body);
@@ -232,26 +286,29 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
+        var contextId = await GetActiveContextIdAsync();
 
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new
         {
             url = "/counter",
-            contextId = "0",
+            contextId,
         });
 
         Assert.True(response.IsSuccessStatusCode,
-            $"WebView navigate failed with status {(int)response.StatusCode}");
+            $"WebView navigate failed with status {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
         // Wait for chobitsu to re-inject after the nav before we navigate back.
         await App.WaitForCdpResponsiveAsync(15000);
+        contextId = await GetActiveContextIdAsync();
 
         var backResponse = await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new
         {
             url = "/",
-            contextId = "0",
+            contextId,
         });
         Assert.True(backResponse.IsSuccessStatusCode,
-            $"WebView navigate back failed with status {(int)backResponse.StatusCode}");
+            $"WebView navigate back failed with status {(int)backResponse.StatusCode}: {await backResponse.Content.ReadAsStringAsync()}");
         await App.WaitForCdpResponsiveAsync(15000);
+        App.InvalidateBlazorReady();
     }
 
     [Fact]
@@ -259,23 +316,17 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
-
-        var navResponse = await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/counter", contextId = "0" });
-        Assert.True(navResponse.IsSuccessStatusCode,
-            $"Navigate to /counter failed: {(int)navResponse.StatusCode}");
-        await App.WaitForCdpResponsiveAsync(15000);
+        var contextId = await GetActiveContextIdAsync();
 
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/click", new
         {
             selector = "button",
-            contextId = "0",
+            contextId,
         });
 
         Assert.True(response.IsSuccessStatusCode,
-            $"/api/v1/webview/input/click returned {(int)response.StatusCode}");
+            $"/api/v1/webview/input/click returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
 
-        await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/", contextId = "0" });
-        await App.WaitForCdpResponsiveAsync(15000);
     }
 
     [Fact]
@@ -283,26 +334,21 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
-
-        // Navigate to a page that actually has a text input.
-        await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/counter", contextId = "0" });
-        await App.WaitForCdpResponsiveAsync(15000);
+        var contextId = await GetActiveContextIdAsync();
 
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/fill", new
         {
             selector = "input",
             text = "Blazor fill test",
-            contextId = "0",
+            contextId,
         });
 
         // Some platforms may not ship an input element on /counter; a 404 from the selector
         // is acceptable, but anything above 500 or a bridge error is not.
         Assert.True(
             response.IsSuccessStatusCode || (int)response.StatusCode == 404,
-            $"/api/v1/webview/input/fill returned unexpected status {(int)response.StatusCode}");
+            $"/api/v1/webview/input/fill returned unexpected status {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
 
-        await PostWithBridgeRetryAsync("/api/v1/webview/navigate", new { url = "/", contextId = "0" });
-        await App.WaitForCdpResponsiveAsync(15000);
     }
 
     [Fact]
@@ -310,15 +356,16 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
+        var contextId = await GetActiveContextIdAsync();
 
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/text", new
         {
             text = "Hello from test",
-            contextId = "0",
+            contextId,
         });
 
         Assert.True(response.IsSuccessStatusCode,
-            $"/api/v1/webview/input/text returned {(int)response.StatusCode}");
+            $"/api/v1/webview/input/text returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
     }
 
     [Fact]
@@ -326,10 +373,11 @@ public class WebViewTests : IntegrationTestBase
     {
         await EnsureOnBlazorPageAsync();
         await AssertCdpResponsiveAsync();
+        var contextId = await GetActiveContextIdAsync();
 
-        var response = await GetWithBridgeRetryAsync("/api/v1/webview/screenshot?contextId=0");
+        var response = await GetWithBridgeRetryAsync($"/api/v1/webview/screenshot?contextId={Uri.EscapeDataString(contextId)}");
         Assert.True(response.IsSuccessStatusCode,
-            $"/api/v1/webview/screenshot returned {(int)response.StatusCode}");
+            $"/api/v1/webview/screenshot returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
 
         var bytes = await response.Content.ReadAsByteArrayAsync();
         Assert.NotEmpty(bytes);
