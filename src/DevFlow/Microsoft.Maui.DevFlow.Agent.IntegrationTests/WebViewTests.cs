@@ -62,8 +62,13 @@ public class WebViewTests : IntegrationTestBase
     {
         await NavigateToPageAsync("//blazor", "BlazorWebView");
         var timeoutMs = GetCdpReadyTimeoutMs(initialNavigation: true);
-        var cdpReady = await WaitForCdpReadyAsync(timeoutMs: timeoutMs);
-        var contextsReady = await WaitForWebViewContextsAsync(timeoutMs: timeoutMs);
+        var cdpReadyTask = WaitForCdpReadyAsync(timeoutMs: timeoutMs);
+        var contextsReadyTask = WaitForWebViewContextsAsync(timeoutMs: timeoutMs);
+
+        await Task.WhenAll(cdpReadyTask, contextsReadyTask);
+
+        var cdpReady = await cdpReadyTask;
+        var contextsReady = await contextsReadyTask;
 
         if (!cdpReady || !contextsReady)
             Output.WriteLine($"WARNING: CDP contexts not ready after {timeoutMs / 1000}s - WebView tests may fail.");
@@ -111,10 +116,6 @@ public class WebViewTests : IntegrationTestBase
     public async Task Contexts_WebViewIsReady()
     {
         await EnsureOnBlazorPageAsync();
-        var cdpReady = await WaitForCdpReadyAsync(timeoutMs: GetCdpReadyTimeoutMs());
-        var contextsReady = await WaitForWebViewContextsAsync(timeoutMs: GetCdpReadyTimeoutMs());
-        Assert.True(cdpReady || contextsReady, "Expected CDP to become ready before querying WebView contexts.");
-
         var json = await Client.GetCdpWebViewsAsync();
         Assert.True(HasWebViewContexts(json), "Expected at least one WebView context.");
     }
