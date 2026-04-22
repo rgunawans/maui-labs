@@ -69,10 +69,44 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
     public abstract void ConfigureHandler();
 
     /// <summary>
-    /// Platform-specific delay in milliseconds to wait for WebView to load before injecting debug scripts.
+    /// Platform-specific maximum delay in milliseconds to wait for WebView to load before injecting debug scripts.
     /// Default is 2000ms. Override in platform subclasses if more time is needed.
+    /// We poll document.readyState === 'complete' inside this budget and return as soon as it completes.
     /// </summary>
     protected virtual int GetWebViewLoadDelayMs() => 2000;
+
+    /// <summary>
+    /// Wait for the WebView's document.readyState to reach 'complete', bounded by GetWebViewLoadDelayMs().
+    /// Falls back to a fixed delay if evaluation isn't available.
+    /// </summary>
+    private async Task WaitForWebViewLoadedAsync(Func<string, Task<string?>> evalJs)
+    {
+        var maxDelayMs = GetWebViewLoadDelayMs();
+        // Minimum settle time before first probe, to let the platform fully attach the WebView.
+        var minSettleMs = Math.Min(200, maxDelayMs);
+        await Task.Delay(minSettleMs);
+
+        var deadline = DateTime.UtcNow.AddMilliseconds(maxDelayMs - minSettleMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var state = await evalJs("document.readyState");
+                if (state != null)
+                {
+                    var s = state.ToString();
+                    if (s == "complete" || s == "\"complete\"")
+                        return;
+                }
+            }
+            catch
+            {
+                // Evaluator may not be ready yet; keep waiting.
+            }
+
+            await Task.Delay(100);
+        }
+    }
 
     /// <summary>
     /// Register a new WebView bridge. Called by platform subclasses when a WebView is captured.
@@ -95,9 +129,8 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         if (bridgeIndex < 0 || bridgeIndex >= _bridges.Count) return;
         var bridge = _bridges[bridgeIndex];
 
-        var delayMs = GetWebViewLoadDelayMs();
-        Log($"[BlazorDevFlow] Waiting {delayMs}ms for WebView {bridgeIndex} to load...");
-        await Task.Delay(delayMs);
+        Log($"[BlazorDevFlow] Waiting for WebView {bridgeIndex} to load (max {GetWebViewLoadDelayMs()}ms)...");
+        await WaitForWebViewLoadedAsync(bridge.EvalJsProbe);
 
         Log($"[BlazorDevFlow] Injecting debug script into WebView {bridgeIndex}...");
         await bridge.InjectDebugScriptAsync();
@@ -112,9 +145,8 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         if (bridgeIndex < 0 || bridgeIndex >= _bridges.Count) return;
         var bridge = _bridges[bridgeIndex];
 
-        var delayMs = GetWebViewLoadDelayMs();
-        Log($"[BlazorDevFlow] Re-initialization: waiting {delayMs}ms for WebView {bridgeIndex} to settle...");
-        await Task.Delay(delayMs);
+        Log($"[BlazorDevFlow] Re-initialization: waiting for WebView {bridgeIndex} to settle (max {GetWebViewLoadDelayMs()}ms)...");
+        await WaitForWebViewLoadedAsync(bridge.EvalJsProbe);
 
         Log($"[BlazorDevFlow] Re-injecting debug script into WebView {bridgeIndex}...");
         bridge.ResetReadyState();
@@ -188,6 +220,9 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         /// <summary>Whether this WebView is ready for CDP commands.</summary>
         public bool IsReady => _chobitsuLoaded;
 
+        /// <summary>Internal: exposes the JS evaluator so the owner can probe the page before injection.</summary>
+        internal Func<string, Task<string?>> EvalJsProbe => _evalJs;
+
         internal WebViewBridge(BlazorWebViewDebugServiceBase owner,
             Func<string, Task<string?>> evalJs, Action reload, Action<string> navigate,
             string? automationId)
@@ -224,32 +259,42 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
 
         private async Task InjectDebugScriptCoreAsync()
         {
-            // Wait for chobitsu to be available
+            // Wait for chobitsu to become available. The chobitsu <script> tag is served
+            // by the BlazorWebView middleware; on slow runners the DOM may still be parsing
+            // when we start polling, so we keep polling for the full 15s window instead of
+            // bailing early. SendCdpCommandAsync will also retry us if a test arrives while
+            // the first injection attempt was still racing with DOM parse.
+            var loaded = false;
             for (int i = 0; i < 30; i++)
             {
                 var check = await _evalJs(
                     "typeof chobitsu !== 'undefined' ? 'loaded' : 'waiting'");
                 if (i == 0 || check?.ToString() == "loaded")
                     _owner.Log($"[BlazorDevFlow] Chobitsu check #{i}: {check}");
-                if (check?.ToString() == "loaded") break;
+                if (check?.ToString() == "loaded")
+                {
+                    loaded = true;
+                    break;
+                }
 
-                if (i == 10)
+                await Task.Delay(500);
+            }
+
+            if (!loaded)
+            {
+                // Diagnostic: is the <script> tag present at all? Don't bail — the next
+                // CDP command will trigger a retry via SendCdpCommandAsync.
+                try
                 {
                     var hasTag = await _evalJs(
                         "document.querySelector('script[src*=\"chobitsu\"]') ? 'found' : 'missing'");
-                    if (hasTag?.ToString() == "missing")
-                    {
-                        _owner.Log("[BlazorDevFlow] ⚠️ No chobitsu script tag found.");
-                        return;
-                    }
+                    _owner.Log($"[BlazorDevFlow] Chobitsu not loaded after 15s (script tag: {hasTag}).");
                 }
-
-                if (i == 29)
+                catch
                 {
-                    _owner.Log("[BlazorDevFlow] Chobitsu not loaded after 15s");
-                    return;
+                    _owner.Log("[BlazorDevFlow] Chobitsu not loaded after 15s (tag probe failed).");
                 }
-                await Task.Delay(500);
+                return;
             }
 
             var script = ChobitsuDebugScript.GetInjectionScript();
@@ -273,7 +318,17 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
         public async Task<string> SendCdpCommandAsync(string cdpJson)
         {
             if (!IsReady)
-                return "{\"error\":\"WebView not ready\"}";
+            {
+                // The first injection attempt may have raced with DOM parse on slow runners.
+                // Try one more time before giving up — this is cheap when chobitsu IS loaded
+                // (single eval returns 'loaded' immediately) and self-heals the common
+                // "bridge created too early" case without the caller having to do anything.
+                _owner.Log("[BlazorDevFlow] SendCdpCommand: bridge not ready, retrying injection...");
+                await InjectDebugScriptAsync();
+
+                if (!IsReady)
+                    return "{\"error\":\"WebView not ready\"}";
+            }
 
             try
             {
