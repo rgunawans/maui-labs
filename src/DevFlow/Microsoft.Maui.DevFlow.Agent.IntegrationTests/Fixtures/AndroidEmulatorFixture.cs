@@ -13,7 +13,12 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
     const string PackageId = "com.companyname.mauitodo";
 
     Process? _emulatorProcess;
+    CancellationTokenSource? _appMonitorCts;
+    Task? _appMonitorTask;
     bool _weStartedEmulator;
+    bool _appSeenRunning;
+    string? _lastKnownPid;
+    string? _diagnosticsDir;
     string? _serialNumber;
     int _apiLevel;
     string _sdkRoot = null!;
@@ -31,6 +36,16 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
 
         await WithBuildLockAsync(async () =>
         {
+            try
+            {
+                // Start with a clean log buffer so crash dumps are focused on this run.
+                await RunProcessAsync(AdbPath(), $"-s {_serialNumber} logcat -c", timeoutSeconds: 10);
+            }
+            catch
+            {
+                // Best-effort only; some emulator states reject logcat clear briefly.
+            }
+
             var projectPath = GetSampleProjectPath();
             await BuildSampleAsync(projectPath, "net10.0-android",
                 $"-p:EmbedAssembliesIntoApk=true -p:MauiDevFlowPort={AgentPort}");
@@ -41,10 +56,43 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
             await AdbCheckedAsync($"forward tcp:{AgentPort} tcp:{AgentPort}", timeoutSeconds: 15);
             await LaunchAppAsync();
         });
+
+        StartAppMonitor();
     }
 
     protected override async Task DisposePlatformAsync()
     {
+        if (_appMonitorCts != null)
+        {
+            try
+            {
+                await _appMonitorCts.CancelAsync();
+            }
+            catch
+            {
+                // No-op
+            }
+        }
+
+        if (_appMonitorTask != null)
+        {
+            try
+            {
+                await _appMonitorTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                // No-op
+            }
+        }
+
+        _appMonitorTask = null;
+        _appMonitorCts?.Dispose();
+        _appMonitorCts = null;
+
         if (_serialNumber != null)
         {
             try { await AdbAsync($"shell am force-stop {PackageId}", timeoutSeconds: 5); } catch { }
@@ -66,6 +114,139 @@ public sealed class AndroidEmulatorFixture : AppFixtureBase
         }
 
         _emulatorProcess?.Dispose();
+    }
+
+    void StartAppMonitor()
+    {
+        _diagnosticsDir = Path.Combine(
+            FindRepoRoot(),
+            "artifacts",
+            "TestResults",
+            "devflow-integration",
+            "android",
+            "diagnostics");
+
+        Directory.CreateDirectory(_diagnosticsDir);
+
+        _appMonitorCts?.Dispose();
+        _appMonitorCts = new CancellationTokenSource();
+        _appMonitorTask = Task.Run(() => MonitorAppProcessAsync(_appMonitorCts.Token));
+
+        Console.WriteLine($"[AndroidFixture] App crash diagnostics enabled. Output: {_diagnosticsDir}");
+    }
+
+    async Task MonitorAppProcessAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var pid = await TryGetAppPidAsync();
+                if (!string.IsNullOrWhiteSpace(pid))
+                {
+                    _appSeenRunning = true;
+                    _lastKnownPid = pid.Trim();
+                }
+                else if (_appSeenRunning)
+                {
+                    _appSeenRunning = false;
+                    var reason = $"App process '{PackageId}' disappeared. Last known pid: {_lastKnownPid ?? "<unknown>"}";
+                    await CaptureCrashDiagnosticsAsync(reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AndroidFixture] App monitor warning: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            try
+            {
+                await Task.Delay(2000, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    async Task<string?> TryGetAppPidAsync(int timeoutSeconds = 5)
+    {
+        if (string.IsNullOrWhiteSpace(_serialNumber))
+            return null;
+
+        var (output, _, exitCode) = await RunProcessAsync(
+            AdbPath(),
+            $"-s {_serialNumber} shell pidof {PackageId}",
+            timeoutSeconds: timeoutSeconds);
+
+        if (exitCode != 0)
+            return null;
+
+        var pid = output.Trim();
+        return string.IsNullOrWhiteSpace(pid) ? null : pid;
+    }
+
+    async Task CaptureCrashDiagnosticsAsync(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(_serialNumber))
+            return;
+
+        _diagnosticsDir ??= Path.Combine(
+            FindRepoRoot(),
+            "artifacts",
+            "TestResults",
+            "devflow-integration",
+            "android",
+            "diagnostics");
+        Directory.CreateDirectory(_diagnosticsDir);
+
+        var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var prefix = Path.Combine(_diagnosticsDir, $"android-app-loss-{stamp}");
+
+        try
+        {
+            var metadata = string.Join(Environment.NewLine, new[]
+            {
+                $"timestamp_utc={DateTime.UtcNow:O}",
+                $"reason={reason}",
+                $"serial={_serialNumber}",
+                $"package={PackageId}",
+            });
+            await File.WriteAllTextAsync($"{prefix}.meta.txt", metadata);
+        }
+        catch
+        {
+            // Continue collecting best-effort diagnostics.
+        }
+
+        try
+        {
+            var (stdout, stderr, _) = await RunProcessAsync(
+                AdbPath(),
+                $"-s {_serialNumber} logcat -d -v threadtime",
+                timeoutSeconds: 30);
+            await File.WriteAllTextAsync($"{prefix}.logcat.txt", $"{stdout}{Environment.NewLine}{Environment.NewLine}STDERR:{Environment.NewLine}{stderr}");
+        }
+        catch (Exception ex)
+        {
+            await File.WriteAllTextAsync($"{prefix}.logcat.error.txt", ex.ToString());
+        }
+
+        try
+        {
+            var (stdout, stderr, _) = await RunProcessAsync(
+                AdbPath(),
+                $"-s {_serialNumber} shell dumpsys activity top",
+                timeoutSeconds: 30);
+            await File.WriteAllTextAsync($"{prefix}.activity-top.txt", $"{stdout}{Environment.NewLine}{Environment.NewLine}STDERR:{Environment.NewLine}{stderr}");
+        }
+        catch (Exception ex)
+        {
+            await File.WriteAllTextAsync($"{prefix}.activity-top.error.txt", ex.ToString());
+        }
+
+        Console.WriteLine($"[AndroidFixture] Captured app-loss diagnostics at '{prefix}.*'");
     }
 
     static string ResolveSdkRoot()
