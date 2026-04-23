@@ -264,10 +264,9 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
 
         private async Task InjectDebugScriptCoreAsync()
         {
-            // Wait for chobitsu to become available. The chobitsu <script> tag is served
-            // by the BlazorWebView middleware; on slow runners the DOM may still be parsing
-            // when we start polling. We poll for up to 5s before falling back to direct
-            // eval injection from the embedded resource.
+            // Wait for chobitsu to become available. Some apps may provide it via a script tag,
+            // while others rely on the embedded fallback injection below.
+            // We poll briefly before falling back to direct eval injection.
             var loaded = false;
             for (int i = 0; i < 10; i++)
             {
@@ -286,7 +285,7 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
 
             if (!loaded)
             {
-                // The script tag may have 404'd (e.g. static web asset path mismatch).
+                // The script tag may be absent or unavailable in the WebView static asset host.
                 // Fall back to injecting chobitsu.js directly via JS eval from the embedded resource.
                 // IMPORTANT: We must wait for Blazor to finish rendering before injecting chobitsu
                 // because the large eval() can interfere with Blazor's startup on WebView2.

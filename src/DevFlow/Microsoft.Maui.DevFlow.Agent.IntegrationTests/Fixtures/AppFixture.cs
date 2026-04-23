@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Maui.DevFlow.Driver;
 
@@ -60,15 +61,21 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
                     _ => 45000,
                 };
 
+            var contextTimeoutMs = Platform == "windows" ? 20000 : 10000;
+
             if (await WaitForCdpResponsiveAsync(timeoutMs))
             {
                 // CDP bridge is live, but Blazor may not have finished rendering yet.
                 // Wait for the Blazor component tree to produce .todo-container.
                 // Windows WebView2 on hosted runners can take 30s+ to render.
                 var renderTimeout = Platform == "windows" ? 60000 : 30000;
-                await WaitForBlazorRenderedAsync(renderTimeout);
-                _blazorReady = true;
-                return;
+                var rendered = await WaitForBlazorRenderedAsync(renderTimeout);
+                var contextsReady = await WaitForCdpContextsAsync(contextTimeoutMs, requireReady: true);
+                if (rendered && contextsReady)
+                {
+                    _blazorReady = true;
+                    return;
+                }
             }
 
             // A prior test may have left the existing bridge in a stale state after an
@@ -90,13 +97,17 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
             if (await WaitForCdpResponsiveAsync(recoveryTimeoutMs))
             {
                 var renderTimeout = Platform == "windows" ? 60000 : 30000;
-                await WaitForBlazorRenderedAsync(renderTimeout);
-                _blazorReady = true;
-                return;
+                var rendered = await WaitForBlazorRenderedAsync(renderTimeout);
+                var contextsReady = await WaitForCdpContextsAsync(contextTimeoutMs, requireReady: true);
+                if (rendered && contextsReady)
+                {
+                    _blazorReady = true;
+                    return;
+                }
             }
 
             throw new TimeoutException(
-                $"CDP bridge did not become responsive within {timeoutMs}ms (and did not recover within {recoveryTimeoutMs}ms) on {Platform}.");
+                $"Blazor readiness failed on {Platform}: bridge/contexts did not stabilize within {timeoutMs}ms (recovery {recoveryTimeoutMs}ms).");
         }
         finally
         {
@@ -168,6 +179,71 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
             }
 
             await Task.Delay(500);
+        }
+
+        return false;
+    }
+
+    static int CountCdpContexts(JsonElement json)
+    {
+        if (json.ValueKind == JsonValueKind.Array)
+            return json.GetArrayLength();
+
+        if (json.ValueKind == JsonValueKind.Object &&
+            json.TryGetProperty("webviews", out var webviews) &&
+            webviews.ValueKind == JsonValueKind.Array)
+        {
+            return webviews.GetArrayLength();
+        }
+
+        return 0;
+    }
+
+    static bool HasReadyCdpContext(JsonElement json)
+    {
+        IEnumerable<JsonElement> contexts = Enumerable.Empty<JsonElement>();
+
+        if (json.ValueKind == JsonValueKind.Array)
+            contexts = json.EnumerateArray();
+        else if (json.ValueKind == JsonValueKind.Object &&
+                 json.TryGetProperty("webviews", out var webviews) &&
+                 webviews.ValueKind == JsonValueKind.Array)
+            contexts = webviews.EnumerateArray();
+
+        foreach (var ctx in contexts)
+        {
+            if (ctx.ValueKind != JsonValueKind.Object)
+                continue;
+
+            if (ctx.TryGetProperty("isReady", out var r1) && r1.ValueKind == JsonValueKind.True)
+                return true;
+            if (ctx.TryGetProperty("ready", out var r2) && r2.ValueKind == JsonValueKind.True)
+                return true;
+        }
+
+        return false;
+    }
+
+    public async Task<bool> WaitForCdpContextsAsync(int timeoutMs = 15000, bool requireReady = false)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                var contexts = await Client.GetCdpWebViewsAsync();
+                if (CountCdpContexts(contexts) > 0 &&
+                    (!requireReady || HasReadyCdpContext(contexts)))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Not ready yet.
+            }
+
+            await Task.Delay(250);
         }
 
         return false;

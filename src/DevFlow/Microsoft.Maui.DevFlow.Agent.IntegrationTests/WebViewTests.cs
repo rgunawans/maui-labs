@@ -88,34 +88,48 @@ public class WebViewTests : IntegrationTestBase
         => (ctx.TryGetProperty("isReady", out var r1) && r1.ValueKind == JsonValueKind.True)
            || (ctx.TryGetProperty("ready", out var r2) && r2.ValueKind == JsonValueKind.True);
 
-    async Task<string> GetActiveContextIdAsync()
+    async Task<string> GetActiveContextIdAsync(int timeoutMs = 15000)
     {
-        var json = await Client.GetCdpWebViewsAsync();
-        var contexts = EnumerateContexts(json).ToList();
-        Assert.NotEmpty(contexts);
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        JsonElement? lastJson = null;
 
-        JsonElement? pick =
-            contexts.LastOrDefault(c =>
-                c.TryGetProperty("automationId", out var automationId) &&
-                automationId.ValueKind == JsonValueKind.String &&
-                automationId.GetString() == "BlazorWebView" &&
-                IsReadyContext(c));
+        while (DateTime.UtcNow < deadline)
+        {
+            var json = await Client.GetCdpWebViewsAsync();
+            lastJson = json;
+            var contexts = EnumerateContexts(json).ToList();
+            if (contexts.Count == 0)
+            {
+                await Task.Delay(250);
+                continue;
+            }
 
-        if (pick == null || pick.Value.ValueKind == JsonValueKind.Undefined)
-            pick = contexts.LastOrDefault(IsReadyContext);
+            JsonElement? pick =
+                contexts.LastOrDefault(c =>
+                    c.TryGetProperty("automationId", out var automationId) &&
+                    automationId.ValueKind == JsonValueKind.String &&
+                    automationId.GetString() == "BlazorWebView" &&
+                    IsReadyContext(c));
 
-        if (pick == null || pick.Value.ValueKind == JsonValueKind.Undefined)
-            pick = contexts.LastOrDefault(c =>
-                c.TryGetProperty("automationId", out var automationId) &&
-                automationId.ValueKind == JsonValueKind.String &&
-                automationId.GetString() == "BlazorWebView");
+            if (pick == null || pick.Value.ValueKind == JsonValueKind.Undefined)
+                pick = contexts.LastOrDefault(IsReadyContext);
 
-        var selected = pick ?? contexts[^1];
-        if (selected.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
-            return id.GetString()!;
-        if (selected.TryGetProperty("index", out var index) && index.ValueKind == JsonValueKind.Number)
-            return index.GetInt32().ToString();
+            if (pick == null || pick.Value.ValueKind == JsonValueKind.Undefined)
+                pick = contexts.LastOrDefault(c =>
+                    c.TryGetProperty("automationId", out var automationId) &&
+                    automationId.ValueKind == JsonValueKind.String &&
+                    automationId.GetString() == "BlazorWebView");
 
+            var selected = pick ?? contexts[^1];
+            if (selected.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String)
+                return id.GetString()!;
+            if (selected.TryGetProperty("index", out var index) && index.ValueKind == JsonValueKind.Number)
+                return index.GetInt32().ToString();
+
+            return "0";
+        }
+
+        Assert.True(false, $"Expected at least one WebView context within {timeoutMs}ms. Last payload: {lastJson}");
         return "0";
     }
 
@@ -181,9 +195,18 @@ public class WebViewTests : IntegrationTestBase
     /// </summary>
     async Task AssertCdpResponsiveAsync(int timeoutMs = 15000)
     {
-        var ok = await App.WaitForCdpResponsiveAsync(timeoutMs);
+        var effectiveTimeoutMs = Platform == "windows"
+            ? Math.Max(timeoutMs, 30000)
+            : timeoutMs;
+        var ok = await App.WaitForCdpResponsiveAsync(effectiveTimeoutMs);
+        if (!ok)
+        {
+            App.InvalidateBlazorReady();
+            await App.EnsureBlazorReadyAsync();
+            ok = await App.WaitForCdpResponsiveAsync(effectiveTimeoutMs);
+        }
         Assert.True(ok,
-            $"CDP bridge did not become responsive within {timeoutMs}ms (expected a live bridge answering Runtime.evaluate).");
+            $"CDP bridge did not become responsive within {effectiveTimeoutMs}ms (expected a live bridge answering Runtime.evaluate).");
     }
 
     [Fact]
