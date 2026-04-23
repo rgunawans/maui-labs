@@ -406,8 +406,6 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
                     .Replace("%CDP_MESSAGE%", escaped);
                 var readScript = ScriptResources.Load("cdp-read-response.js");
 
-                _owner.Log($"[BlazorDevFlow] SendCdpCommand: method={method}");
-
                 var sendResult = await _owner.RunOnMainThreadAsync(async () =>
                 {
                     return await _evalJs(sendScript);
@@ -426,14 +424,15 @@ public abstract class BlazorWebViewDebugServiceBase : IDisposable
                     var unescaped = UnescapeEvalResult(result);
                     if (unescaped != null)
                     {
-                        _owner.Log($"[BlazorDevFlow] SendCdpCommand got response after {i + 1} poll(s)");
+                        if (i >= 10)
+                            _owner.Log($"[BlazorDevFlow] SendCdpCommand: method={method} responded after {i + 1} poll(s)");
                         return unescaped;
                     }
 
                     await Task.Delay(50);
                 }
 
-                _owner.Log($"[BlazorDevFlow] SendCdpCommand: no response after polling (10s timeout)");
+                _owner.Log($"[BlazorDevFlow] SendCdpCommand: method={method} no response after polling (10s timeout)");
                 if (allowRecovery)
                 {
                     _owner.Log("[BlazorDevFlow] CDP timeout; resetting and retrying injection once...");

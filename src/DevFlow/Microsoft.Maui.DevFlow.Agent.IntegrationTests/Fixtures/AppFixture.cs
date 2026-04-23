@@ -136,8 +136,10 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
 
     /// <summary>
     /// Waits for Blazor to finish rendering by checking that the #app div no longer
-    /// contains "Loading...". CDP may be responsive (chobitsu loaded) before Blazor's
-    /// component tree has rendered, so tests that depend on DOM content need this check.
+    /// contains "Loading..." AND that the component tree has produced real interactive
+    /// DOM elements (at least one button or input). CDP may be responsive (chobitsu
+    /// loaded) before Blazor's component tree has rendered, so tests that depend on
+    /// DOM content need this check.
     /// </summary>
     public async Task<bool> WaitForBlazorRenderedAsync(int timeoutMs = 30000)
     {
@@ -148,11 +150,10 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
             {
                 var probe = await Client.SendCdpCommandAsync(
                     "Runtime.evaluate",
-                    JsonNode.Parse("""{"expression":"document.querySelector('#app')?.innerHTML?.substring(0, 20) || ''"}"""));
+                    JsonNode.Parse("""{"expression":"(function(){ var a = document.querySelector('#app'); if (!a) return 'no-app'; var h = a.innerHTML || ''; if (h.indexOf('Loading') >= 0) return 'loading'; var n = a.querySelectorAll('button, input, a').length; return n > 0 ? 'ready:' + n : 'empty'; })()"}"""));
                 var text = probe.ToString();
-                // Once Blazor renders, #app innerHTML changes from "Loading..." to component output
-                if (!text.Contains("Loading...", StringComparison.Ordinal) &&
-                    text.Contains("\"value\"", StringComparison.Ordinal))
+                // Blazor is fully rendered when #app has real interactive elements
+                if (text.Contains("ready:", StringComparison.Ordinal))
                 {
                     return true;
                 }

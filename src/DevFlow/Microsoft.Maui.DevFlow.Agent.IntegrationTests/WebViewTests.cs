@@ -270,7 +270,7 @@ public class WebViewTests : IntegrationTestBase
 
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/dom/query", new
         {
-            selector = "button",
+            selector = ".add-btn",
             contextId,
         });
 
@@ -279,6 +279,8 @@ public class WebViewTests : IntegrationTestBase
 
         var body = await response.Content.ReadAsStringAsync();
         Assert.NotEmpty(body);
+        // Verify we actually found elements (not just an empty array)
+        Assert.DoesNotContain("[]", body);
     }
 
     [Fact]
@@ -318,11 +320,24 @@ public class WebViewTests : IntegrationTestBase
         await AssertCdpResponsiveAsync();
         var contextId = await GetActiveContextIdAsync();
 
+        // Use the always-present Add button; on slow renderers (Windows WebView2)
+        // the generic "button" selector can miss if Blazor is still hydrating.
         var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/click", new
         {
-            selector = "button",
+            selector = ".add-btn",
             contextId,
         });
+
+        // If the element wasn't found, Blazor may still be rendering. Wait and retry once.
+        if ((int)response.StatusCode == 404)
+        {
+            await Task.Delay(2000);
+            response = await PostWithBridgeRetryAsync("/api/v1/webview/input/click", new
+            {
+                selector = ".add-btn",
+                contextId,
+            });
+        }
 
         Assert.True(response.IsSuccessStatusCode,
             $"/api/v1/webview/input/click returned {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
