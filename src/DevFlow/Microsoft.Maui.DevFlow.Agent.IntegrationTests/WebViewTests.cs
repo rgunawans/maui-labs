@@ -318,23 +318,27 @@ public class WebViewTests : IntegrationTestBase
         await AssertCdpResponsiveAsync();
         var contextId = await GetActiveContextIdAsync();
 
-        // Use the always-present Add button; on slow renderers (Windows WebView2)
-        // the generic "button" selector can miss if Blazor is still hydrating.
-        var response = await PostWithBridgeRetryAsync("/api/v1/webview/input/click", new
+        // Use the always-present Add button. On slow renderers (Windows WebView2 on
+        // hosted runners) the component DOM can lag behind the CDP "ready" state, so
+        // poll until the element appears or a generous timeout expires.
+        HttpResponseMessage response = null!;
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (DateTime.UtcNow < deadline)
         {
-            selector = ".add-btn",
-            contextId,
-        });
-
-        // If the element wasn't found, Blazor may still be rendering. Wait and retry once.
-        if ((int)response.StatusCode == 404)
-        {
-            await Task.Delay(2000);
             response = await PostWithBridgeRetryAsync("/api/v1/webview/input/click", new
             {
                 selector = ".add-btn",
                 contextId,
             });
+
+            if (response.IsSuccessStatusCode)
+                break;
+
+            var body = await response.Content.ReadAsStringAsync();
+            if (!body.Contains("No element matches", StringComparison.OrdinalIgnoreCase))
+                break; // Non-selector error, don't retry
+
+            await Task.Delay(1000);
         }
 
         Assert.True(response.IsSuccessStatusCode,

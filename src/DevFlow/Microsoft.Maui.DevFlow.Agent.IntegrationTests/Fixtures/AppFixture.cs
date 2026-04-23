@@ -63,8 +63,10 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
             if (await WaitForCdpResponsiveAsync(timeoutMs))
             {
                 // CDP bridge is live, but Blazor may not have finished rendering yet.
-                // Wait for the Blazor component tree to replace "Loading..." content.
-                await WaitForBlazorRenderedAsync(15000);
+                // Wait for the Blazor component tree to produce .todo-container.
+                // Windows WebView2 on hosted runners can take 30s+ to render.
+                var renderTimeout = Platform == "windows" ? 60000 : 30000;
+                await WaitForBlazorRenderedAsync(renderTimeout);
                 _blazorReady = true;
                 return;
             }
@@ -87,7 +89,8 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
 
             if (await WaitForCdpResponsiveAsync(recoveryTimeoutMs))
             {
-                await WaitForBlazorRenderedAsync(15000);
+                var renderTimeout = Platform == "windows" ? 60000 : 30000;
+                await WaitForBlazorRenderedAsync(renderTimeout);
                 _blazorReady = true;
                 return;
             }
