@@ -135,11 +135,12 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
     }
 
     /// <summary>
-    /// Waits for Blazor to finish rendering by checking that the #app div no longer
-    /// contains "Loading..." AND that the component tree has produced real interactive
-    /// DOM elements (at least one button or input). CDP may be responsive (chobitsu
-    /// loaded) before Blazor's component tree has rendered, so tests that depend on
-    /// DOM content need this check.
+    /// Waits for the Blazor Home page to finish rendering by checking that the
+    /// <c>.todo-container</c> element exists inside the WebView DOM. The Blazor
+    /// layout/nav shell renders first (with its own <c>&lt;a&gt;</c> and
+    /// <c>&lt;input&gt;</c> elements), so generic element checks return too early.
+    /// Checking for a page-specific marker ensures the actual component tree has
+    /// rendered.
     /// </summary>
     public async Task<bool> WaitForBlazorRenderedAsync(int timeoutMs = 30000)
     {
@@ -150,10 +151,10 @@ public sealed class AppFixture : IAppFixture, IAsyncLifetime
             {
                 var probe = await Client.SendCdpCommandAsync(
                     "Runtime.evaluate",
-                    JsonNode.Parse("""{"expression":"(function(){ var a = document.querySelector('#app'); if (!a) return 'no-app'; var h = a.innerHTML || ''; if (h.indexOf('Loading') >= 0) return 'loading'; var n = a.querySelectorAll('button, input, a').length; return n > 0 ? 'ready:' + n : 'empty'; })()"}"""));
+                    JsonNode.Parse("""{"expression":"!!document.querySelector('.todo-container') ? 'ready' : 'waiting'"}"""));
                 var text = probe.ToString();
-                // Blazor is fully rendered when #app has real interactive elements
-                if (text.Contains("ready:", StringComparison.Ordinal))
+                if (text.Contains("ready", StringComparison.Ordinal) &&
+                    !text.Contains("\"error\"", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }

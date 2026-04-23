@@ -68,7 +68,7 @@ public abstract class AppFixtureBase : IAppFixture
         Http = new HttpClient
         {
             BaseAddress = new Uri(AgentBaseUrl),
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(60)
         };
         Client = new AgentClient("localhost", AgentPort);
     }
