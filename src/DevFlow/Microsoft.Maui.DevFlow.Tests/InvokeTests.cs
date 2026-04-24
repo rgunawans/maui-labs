@@ -190,6 +190,81 @@ public class InvokeTests
 		Assert.Contains("not found", result.Error, StringComparison.OrdinalIgnoreCase);
 	}
 
+	[Fact]
+	public async Task Invoke_WithArrayParameter_ConvertsJsonArray()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpers).FullName!,
+			nameof(TestInvokeHelpers.JoinNumbers),
+			JsonArray(JsonElement(new[] { 1, 2, 3 })));
+
+		Assert.NotNull(result);
+		Assert.True(result.Success);
+		Assert.Equal("1,2,3", result.ReturnValue);
+	}
+
+	[Fact]
+	public async Task Invoke_WithEnumParameter_ConvertsStringToEnum()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpers).FullName!,
+			nameof(TestInvokeHelpers.GetPriority),
+			JsonArray(JsonElement("High")));
+
+		Assert.NotNull(result);
+		Assert.True(result.Success);
+		Assert.Equal("High", result.ReturnValue);
+	}
+
+	[Fact]
+	public async Task Invoke_WithEnumParameter_CaseInsensitive()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpers).FullName!,
+			nameof(TestInvokeHelpers.GetPriority),
+			JsonArray(JsonElement("medium")));
+
+		Assert.NotNull(result);
+		Assert.True(result.Success);
+		Assert.Equal("Medium", result.ReturnValue);
+	}
+
+	[Fact]
+	public async Task Invoke_WithNullableParameter_PassesValue()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpers).FullName!,
+			nameof(TestInvokeHelpers.FormatNullable),
+			JsonArray(JsonElement(42)));
+
+		Assert.NotNull(result);
+		Assert.True(result.Success);
+		Assert.Equal("42", result.ReturnValue);
+	}
+
+	[Fact]
+	public async Task Invoke_WithNullableParameter_PassesNull()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpers).FullName!,
+			nameof(TestInvokeHelpers.FormatNullable),
+			JsonArray(JsonElement<int?>(null)));
+
+		Assert.NotNull(result);
+		Assert.True(result.Success);
+		Assert.Equal("null", result.ReturnValue);
+	}
+
 	#region Helpers
 
 	private static System.Text.Json.Nodes.JsonArray JsonArray(params JsonElement[] elements)
@@ -201,6 +276,12 @@ public class InvokeTests
 	}
 
 	private static JsonElement JsonElement(object value)
+	{
+		var json = JsonSerializer.Serialize(value);
+		return JsonDocument.Parse(json).RootElement.Clone();
+	}
+
+	private static JsonElement JsonElement<T>(T value)
 	{
 		var json = JsonSerializer.Serialize(value);
 		return JsonDocument.Parse(json).RootElement.Clone();
@@ -313,6 +394,22 @@ public static class TestInvokeHelpers
 
 	public static string IsEnabled(bool enabled)
 		=> enabled.ToString();
+
+	public static string JoinNumbers(int[] numbers)
+		=> string.Join(",", numbers);
+
+	public static string GetPriority(Priority p)
+		=> p.ToString();
+
+	public static string FormatNullable(int? value)
+		=> value.HasValue ? value.Value.ToString() : "null";
+}
+
+public enum Priority
+{
+	Low,
+	Medium,
+	High
 }
 
 #endregion
