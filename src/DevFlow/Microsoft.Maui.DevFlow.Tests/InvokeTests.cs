@@ -616,8 +616,11 @@ public class InvokeTests
 		}
 
 		public static async Task<InvokeTestHarness> CreateAsync()
+			=> await CreateAsync(Array.Empty<View>());
+
+		public static async Task<InvokeTestHarness> CreateAsync(params View[] views)
 		{
-			var app = new TestApplication([]);
+			var app = new TestApplication(views);
 			var service = new DevFlowAgentService(new AgentOptions { Port = GetFreePort() });
 			var client = new AgentClient("localhost", service.Port);
 
