@@ -214,19 +214,21 @@ public partial class DevFlowAgentService
 		{
 			if (argElement.ValueKind == JsonValueKind.True || argElement.ValueKind == JsonValueKind.False)
 				return argElement.GetBoolean();
-			return bool.Parse(argElement.GetString()!);
+			var str = argElement.GetString()
+				?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
+			return bool.Parse(str);
 		}
 
 		// Integer types
-		if (underlying == typeof(int)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt32() : int.Parse(argElement.GetString()!);
-		if (underlying == typeof(long)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt64() : long.Parse(argElement.GetString()!);
-		if (underlying == typeof(short)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt16() : short.Parse(argElement.GetString()!);
-		if (underlying == typeof(byte)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetByte() : byte.Parse(argElement.GetString()!);
+		if (underlying == typeof(int)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt32() : int.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(long)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt64() : long.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(short)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt16() : short.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(byte)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetByte() : byte.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
 
 		// Floating point
-		if (underlying == typeof(float)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetSingle() : float.Parse(argElement.GetString()!);
-		if (underlying == typeof(double)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDouble() : double.Parse(argElement.GetString()!);
-		if (underlying == typeof(decimal)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDecimal() : decimal.Parse(argElement.GetString()!);
+		if (underlying == typeof(float)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetSingle() : float.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(double)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDouble() : double.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(decimal)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDecimal() : decimal.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
 
 		// Enums
 		if (underlying.IsEnum)
