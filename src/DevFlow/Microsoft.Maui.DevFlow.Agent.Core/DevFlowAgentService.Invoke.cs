@@ -7,16 +7,15 @@ namespace Microsoft.Maui.DevFlow.Agent.Core;
 // Invoke / reflection endpoints
 public partial class DevFlowAgentService
 {
-	private InvokeActionEntry[]? _cachedActions;
+	private readonly Lazy<InvokeActionEntry[]> _cachedActions = new(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
 	private readonly Dictionary<string, Type> _typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
 
 	#region Action Discovery
 
-	private InvokeActionEntry[] DiscoverActions()
-	{
-		if (_cachedActions != null)
-			return _cachedActions;
+	private InvokeActionEntry[] DiscoverActions() => _cachedActions.Value;
 
+	private static InvokeActionEntry[] ScanActions()
+	{
 		var actions = new List<InvokeActionEntry>();
 
 		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
@@ -62,11 +61,10 @@ public partial class DevFlowAgentService
 			}
 		}
 
-		_cachedActions = actions
+		return actions
 			.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
 			.Select(g => g.First())
 			.ToArray();
-		return _cachedActions;
 	}
 
 	private static bool IsFrameworkAssembly(Assembly asm)
