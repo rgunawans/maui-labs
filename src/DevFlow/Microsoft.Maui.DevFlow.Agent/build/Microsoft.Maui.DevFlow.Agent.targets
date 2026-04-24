@@ -33,6 +33,8 @@
       <MauiDevFlowSessionId Condition="'$(MauiDevFlowSessionId)' == '' and '$(_MauiDevFlowSessionIdTail)' != ''">dw$(_MauiDevFlowSessionIdTail)</MauiDevFlowSessionId>
       <!-- Sanitize session ID for safe XML interpolation (manifest overlay, plist) -->
       <MauiDevFlowSessionId>$([System.Text.RegularExpressions.Regex]::Replace($([System.String]::Copy('$(MauiDevFlowSessionId)').ToLowerInvariant()), '[^a-z0-9]+', ''))</MauiDevFlowSessionId>
+      <!-- Pre-compute platform identifier for use in downstream target conditions -->
+      <_DevFlowTargetPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_DevFlowTargetPlatform>
       <_MauiDevFlowMetadata></_MauiDevFlowMetadata>
       <_MauiDevFlowMetadata Condition="'$(MauiDevFlowPort)' != ''">$(_MauiDevFlowMetadata)[assembly: System.Reflection.AssemblyMetadataAttribute("Microsoft.Maui.DevFlowPort", "$(MauiDevFlowPort)")]
 </_MauiDevFlowMetadata>
@@ -58,7 +60,7 @@
   <Target Name="_InjectMauiDevFlowAndroidManifestMetadata"
           AfterTargets="_SetMauiDevFlowPort"
           BeforeTargets="_MergeManifest"
-          Condition="$(TargetFramework.Contains('android')) and '$(MauiDevFlowSessionId)' != ''">
+          Condition="'$(_DevFlowTargetPlatform)' == 'android' and '$(MauiDevFlowSessionId)' != ''">
     <PropertyGroup>
       <_DevFlowManifestOverlay>$(IntermediateOutputPath)DevFlowManifestOverlay.xml</_DevFlowManifestOverlay>
     </PropertyGroup>
@@ -78,7 +80,7 @@
   <Target Name="_InjectMauiDevFlowiOSPlistMetadata"
           AfterTargets="_SetMauiDevFlowPort"
           BeforeTargets="_DetectAppManifest"
-          Condition="($(TargetFramework.Contains('ios')) or $(TargetFramework.Contains('maccatalyst'))) and '$(MauiDevFlowSessionId)' != ''">
+          Condition="('$(_DevFlowTargetPlatform)' == 'ios' or '$(_DevFlowTargetPlatform)' == 'maccatalyst') and '$(MauiDevFlowSessionId)' != ''">
     <PropertyGroup>
       <_DevFlowPartialPlist>$(IntermediateOutputPath)DevFlowInfo.plist</_DevFlowPartialPlist>
     </PropertyGroup>
