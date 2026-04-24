@@ -19,7 +19,7 @@
     </PropertyGroup>
   </Target>
 
-  <Target Name="_SetMauiDevFlowPort" BeforeTargets="CoreCompile">
+  <Target Name="_SetMauiDevFlowPort" BeforeTargets="PrepareForBuild;CoreCompile">
     <PropertyGroup>
       <_MauiDevFlowPortFile>$(IntermediateOutputPath)Microsoft.Maui.DevFlowPort.g.cs</_MauiDevFlowPortFile>
       <!-- Session identity: allow explicit override via property or environment variable -->
@@ -31,6 +31,8 @@
       <_MauiDevFlowSessionIdTail Condition="'$(_MauiDevFlowSanitizedSessionId)' != '' and $([System.String]::Copy('$(_MauiDevFlowSanitizedSessionId)').Length) &gt; 24">$([System.String]::Copy('$(_MauiDevFlowSanitizedSessionId)').Substring($([MSBuild]::Subtract($([System.String]::Copy('$(_MauiDevFlowSanitizedSessionId)').Length), 24))))</_MauiDevFlowSessionIdTail>
       <_MauiDevFlowSessionIdTail Condition="'$(_MauiDevFlowSessionIdTail)' == ''">$(_MauiDevFlowSanitizedSessionId)</_MauiDevFlowSessionIdTail>
       <MauiDevFlowSessionId Condition="'$(MauiDevFlowSessionId)' == '' and '$(_MauiDevFlowSessionIdTail)' != ''">dw$(_MauiDevFlowSessionIdTail)</MauiDevFlowSessionId>
+      <!-- Sanitize session ID for safe XML interpolation (manifest overlay, plist) -->
+      <MauiDevFlowSessionId>$([System.Text.RegularExpressions.Regex]::Replace($([System.String]::Copy('$(MauiDevFlowSessionId)').ToLowerInvariant()), '[^a-z0-9]+', ''))</MauiDevFlowSessionId>
       <_MauiDevFlowMetadata></_MauiDevFlowMetadata>
       <_MauiDevFlowMetadata Condition="'$(MauiDevFlowPort)' != ''">$(_MauiDevFlowMetadata)[assembly: System.Reflection.AssemblyMetadataAttribute("Microsoft.Maui.DevFlowPort", "$(MauiDevFlowPort)")]
 </_MauiDevFlowMetadata>

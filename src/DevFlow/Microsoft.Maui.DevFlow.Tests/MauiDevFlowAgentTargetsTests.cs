@@ -115,7 +115,8 @@ public sealed class MauiDevFlowAgentTargetsTests : IDisposable
         RunSetMauiDevFlowPortTarget("/p:MauiDevFlowSessionId=my-custom-session");
 
         var contents = File.ReadAllText(GeneratedFilePath);
-        Assert.Contains("\"Microsoft.Maui.DevFlowSessionId\", \"my-custom-session\"", contents);
+        // Explicit values are sanitized (lowercase, alphanumeric only) for XML safety
+        Assert.Contains("\"Microsoft.Maui.DevFlowSessionId\", \"mycustomsession\"", contents);
     }
 
     [Theory]
