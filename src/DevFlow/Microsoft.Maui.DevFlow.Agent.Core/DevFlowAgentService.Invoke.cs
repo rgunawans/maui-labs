@@ -244,7 +244,7 @@ public partial class DevFlowAgentService
 			else if (underlying.IsGenericType)
 			{
 				var def = underlying.GetGenericTypeDefinition();
-				if (def == typeof(List<>) || def == typeof(IList<>) || def == typeof(IEnumerable<>) || def == typeof(IReadOnlyList<>))
+				if (def == typeof(List<>) || def == typeof(IList<>) || def == typeof(IEnumerable<>) || def == typeof(IReadOnlyList<>) || def == typeof(ICollection<>) || def == typeof(IReadOnlyCollection<>))
 					elementType = underlying.GetGenericArguments()[0];
 			}
 
