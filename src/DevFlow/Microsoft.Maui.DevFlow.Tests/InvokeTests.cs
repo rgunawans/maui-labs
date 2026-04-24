@@ -748,4 +748,24 @@ public class TestServiceClass
 	public string GetValue() => "service-value";
 }
 
+/// <summary>
+/// Test View subclass with public instance methods for element invoke tests.
+/// Added as a child of TestApplication so the tree walker can find it by AutomationId.
+/// </summary>
+public class TestInvokeView : View
+{
+	public string TestMethod(string input) => $"result:{input}";
+	public int AddNumbers(int a, int b) => a + b;
+	public Task<string> GetValueAsync(string key) => Task.FromResult($"async:{key}");
+}
+
+/// <summary>
+/// Test service class with public instance methods for DI service resolution tests.
+/// Used to verify the "resolve: service" error path when no DI container is available.
+/// </summary>
+public class TestService
+{
+	public string GetGreeting(string name) => $"Hello from service, {name}!";
+}
+
 #endregion
