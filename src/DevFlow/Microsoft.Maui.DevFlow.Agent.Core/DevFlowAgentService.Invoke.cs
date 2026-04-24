@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Reflection;
 using System.Text.Json;
@@ -8,7 +9,7 @@ namespace Microsoft.Maui.DevFlow.Agent.Core;
 public partial class DevFlowAgentService
 {
 	private readonly Lazy<InvokeActionEntry[]> _cachedActions = new(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
-	private readonly Dictionary<string, Type> _typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
+	private readonly ConcurrentDictionary<string, Type> _typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
 
 	#region Action Discovery
 
@@ -144,7 +145,7 @@ public partial class DevFlowAgentService
 		var type = Type.GetType(typeName);
 		if (type != null)
 		{
-			_typeResolutionCache[typeName] = type;
+			_typeResolutionCache.TryAdd(typeName, type);
 			return type;
 		}
 
@@ -158,7 +159,7 @@ public partial class DevFlowAgentService
 			type = asm.GetType(typeName, throwOnError: false, ignoreCase: true);
 			if (type != null)
 			{
-				_typeResolutionCache[typeName] = type;
+				_typeResolutionCache.TryAdd(typeName, type);
 				return type;
 			}
 
@@ -182,7 +183,7 @@ public partial class DevFlowAgentService
 		}
 
 		if (bestMatch != null)
-			_typeResolutionCache[typeName] = bestMatch;
+			_typeResolutionCache.TryAdd(typeName, bestMatch);
 
 		return bestMatch;
 	}
