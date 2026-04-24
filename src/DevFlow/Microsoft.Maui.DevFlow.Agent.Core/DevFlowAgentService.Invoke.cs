@@ -1,19 +1,58 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Text.Json;
 
+[assembly: MetadataUpdateHandler(typeof(Microsoft.Maui.DevFlow.Agent.Core.DevFlowActionHotReloadHandler))]
+
 namespace Microsoft.Maui.DevFlow.Agent.Core;
+
+/// <summary>
+/// Handles C# Hot Reload / Edit and Continue metadata updates.
+/// When types are modified at runtime, this invalidates the cached
+/// DevFlowAction list so newly added [DevFlowAction] methods are
+/// immediately discoverable by AI agents.
+/// </summary>
+static class DevFlowActionHotReloadHandler
+{
+	/// <summary>Called by the runtime after a metadata update (Hot Reload / EnC).</summary>
+	internal static void UpdateApplication(Type[]? updatedTypes)
+	{
+		// Any metadata update could have added/removed/changed [DevFlowAction] methods.
+		// Invalidate so the next DiscoverActions() call rescans.
+		DevFlowAgentService.InvalidateActionCache();
+	}
+}
 
 // Invoke / reflection endpoints
 public partial class DevFlowAgentService
 {
-	private readonly Lazy<InvokeActionEntry[]> _cachedActions = new(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
+	private static volatile Lazy<InvokeActionEntry[]> s_cachedActions = new(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
 	private readonly ConcurrentDictionary<string, Type> _typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
 
 	#region Action Discovery
 
-	private InvokeActionEntry[] DiscoverActions() => _cachedActions.Value;
+	private InvokeActionEntry[] DiscoverActions() => s_cachedActions.Value;
+
+	/// <summary>
+	/// Invalidates the cached DevFlowAction list. The next call to
+	/// DiscoverActions() will rescan all loaded assemblies.
+	/// Called by AssemblyLoad handler and MetadataUpdateHandler (Hot Reload).
+	/// </summary>
+	internal static void InvalidateActionCache()
+	{
+		s_cachedActions = new Lazy<InvokeActionEntry[]>(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
+	}
+
+	private void OnAssemblyLoaded(object? sender, AssemblyLoadEventArgs args)
+	{
+		if (args.LoadedAssembly.IsDynamic || IsFrameworkAssembly(args.LoadedAssembly))
+			return;
+
+		InvalidateActionCache();
+		_typeResolutionCache.Clear();
+	}
 
 	private static InvokeActionEntry[] ScanActions()
 	{

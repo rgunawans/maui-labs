@@ -264,6 +264,7 @@ public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
         if (_options.EnableNetworkMonitoring)
             DevFlowHttp.SetStore(NetworkStore);
         NetworkStore.OnRequestCaptured += HandleCapturedNetworkRequest;
+        AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoaded;
         RegisterRoutes();
     }
 
@@ -4066,6 +4067,7 @@ public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
         if (_disposed) return;
         _disposed = true;
         NetworkStore.OnRequestCaptured -= HandleCapturedNetworkRequest;
+        AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoaded;
         StopAutoUiHooks();
         Sensors.Dispose();
         Ble.Dispose();
