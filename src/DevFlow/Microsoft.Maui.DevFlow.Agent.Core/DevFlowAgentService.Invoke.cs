@@ -72,7 +72,7 @@ public partial class DevFlowAgentService
 			Type = FormatParameterTypeName(p.ParameterType),
 			Description = p.GetCustomAttribute<DescriptionAttribute>()?.Description,
 			DefaultValue = p.HasDefaultValue ? FormatDefaultValue(p.DefaultValue) : null,
-			IsRequired = !p.HasDefaultValue && !p.ParameterType.IsAssignableTo(typeof(Nullable<>))
+			IsRequired = !p.HasDefaultValue && Nullable.GetUnderlyingType(p.ParameterType) == null
 		}).ToArray();
 	}
 
@@ -473,70 +473,44 @@ public partial class DevFlowAgentService
 		if (body?.MethodName == null)
 			return InvokeError("methodName is required");
 
-		var result = await DispatchAsync(() =>
+		// Resolve element and method on the UI thread
+		var resolution = await DispatchAsync(() =>
 		{
 			var el = _treeWalker.GetElementById(id, _app);
-			if (el == null) return (found: false, success: false, returnValue: (string?)null, returnType: (string?)null, error: (string?)$"Element '{id}' not found");
+			if (el == null)
+				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Element '{id}' not found");
 
 			var type = el.GetType();
 			var method = type.GetMethod(body.MethodName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
 			if (method == null)
-				return (found: false, success: false, returnValue: (string?)null, returnType: (string?)null, error: (string?)$"Method '{body.MethodName}' not found on element type '{type.Name}'");
+				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Method '{body.MethodName}' not found on element type '{type.Name}'");
 
-			try
-			{
-				var convertedArgs = ConvertInvokeArgs(method.GetParameters(), body.Args);
-				var invokeResult = method.Invoke(el, convertedArgs);
-
-				if (invokeResult is Task)
-					return (found: true, success: true, returnValue: (string?)null, returnType: (string?)"Task", error: (string?)"ASYNC_NEEDS_AWAIT");
-
-				if (method.ReturnType == typeof(void))
-					return (found: true, success: true, returnValue: (string?)null, returnType: (string?)"void", error: (string?)null);
-
-				return (found: true, success: true, returnValue: FormatPropertyValue(invokeResult), returnType: (string?)FormatParameterTypeName(method.ReturnType), error: (string?)null);
-			}
-			catch (TargetInvocationException tie)
-			{
-				var inner = tie.InnerException ?? tie;
-				return (found: true, success: false, returnValue: (string?)null, returnType: (string?)null, error: (string?)$"{inner.GetType().Name}: {inner.Message}");
-			}
-			catch (ArgumentException ex)
-			{
-				return (found: true, success: false, returnValue: (string?)null, returnType: (string?)null, error: (string?)$"Argument error: {ex.Message}");
-			}
+			return (element: (object?)el, method: (MethodInfo?)method, error: (string?)null);
 		});
 
-		// Handle async methods that need to be awaited off the UI thread
-		if (result.error == "ASYNC_NEEDS_AWAIT")
+		if (resolution.error != null)
+			return InvokeError(resolution.error);
+
+		try
 		{
-			try
-			{
-				var el = await DispatchAsync(() => _treeWalker.GetElementById(id, _app!));
-				if (el == null) return InvokeError($"Element '{id}' not found");
+			var convertedArgs = ConvertInvokeArgs(resolution.method!.GetParameters(), body.Args);
 
-				var type = el.GetType();
-				var method = type.GetMethod(body.MethodName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)!;
-				var convertedArgs = ConvertInvokeArgs(method.GetParameters(), body.Args);
-				var invokeTask = await DispatchAsync(() => InvokeMethodAsync(method, el, convertedArgs));
-				var (success, returnValue, returnType, error) = await invokeTask;
+			// Invoke on the UI thread and await the result (handles both sync and async methods)
+			var invokeTask = await DispatchAsync(() => InvokeMethodAsync(resolution.method!, resolution.element, convertedArgs));
+			var (success, returnValue, returnType, error) = await invokeTask;
 
-				return success
-					? HttpResponse.Json(new { success = true, elementId = id, methodName = body.MethodName, returnValue, returnType })
-					: InvokeError($"Element invoke failed: {error}");
-			}
-			catch (Exception ex)
-			{
-				return InvokeError($"Element invoke failed: {ex.Message}");
-			}
+			return success
+				? HttpResponse.Json(new { success = true, elementId = id, methodName = body.MethodName, returnValue, returnType })
+				: InvokeError($"Element invoke failed: {error}");
 		}
-
-		if (!result.found)
-			return InvokeError(result.error ?? "Not found");
-
-		return result.success
-			? HttpResponse.Json(new { success = true, elementId = id, methodName = body.MethodName, returnValue = result.returnValue, returnType = result.returnType })
-			: InvokeError(result.error ?? "Invoke failed");
+		catch (ArgumentException ex)
+		{
+			return InvokeError($"Argument error: {ex.Message}");
+		}
+		catch (Exception ex)
+		{
+			return InvokeError($"Element invoke failed: {ex.Message}");
+		}
 	}
 
 	private Task<HttpResponse> HandleListMethods(HttpRequest request)
