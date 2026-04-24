@@ -51,7 +51,15 @@ public class BrokerRegistration : IDisposable
     /// </summary>
     public static void SetLogger(ILogger logger) => _staticLogger = logger;
 
-    public BrokerRegistration(string project, string tfm, string platform, string appName, string? sessionId = null, int brokerPort = DefaultBrokerPort, ILogger? logger = null)
+    /// <summary>
+    /// Backward-compatible constructor preserving the old signature for external consumers.
+    /// </summary>
+    public BrokerRegistration(string project, string tfm, string platform, string appName, int brokerPort = DefaultBrokerPort, ILogger? logger = null)
+        : this(project, tfm, platform, appName, sessionId: null, brokerPort, logger)
+    {
+    }
+
+    public BrokerRegistration(string project, string tfm, string platform, string appName, string? sessionId, int brokerPort = DefaultBrokerPort, ILogger? logger = null)
     {
         _project = project;
         _tfm = tfm;
