@@ -47,7 +47,25 @@ public partial class DevFlowAgentService
 			}
 		}
 
-		_cachedActions = actions.ToArray();
+		// Detect and deduplicate shadowed action names (keep first occurrence)
+		var duplicates = actions
+			.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+			.Where(g => g.Count() > 1);
+
+		foreach (var group in duplicates)
+		{
+			var shadowed = group.Skip(1);
+			foreach (var dup in shadowed)
+			{
+				System.Diagnostics.Debug.WriteLine(
+					$"[Microsoft.Maui.DevFlow] Warning: Duplicate DevFlowAction name '{group.Key}' on {dup.DeclaringType}.{dup.Method.Name} shadows the first registration on {group.First().DeclaringType}.{group.First().Method.Name}. The duplicate will be ignored.");
+			}
+		}
+
+		_cachedActions = actions
+			.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+			.Select(g => g.First())
+			.ToArray();
 		return _cachedActions;
 	}
 
@@ -291,6 +309,26 @@ public partial class DevFlowAgentService
 		try
 		{
 			var result = method.Invoke(target, args);
+
+			// Handle ValueTask (struct — does not inherit from Task)
+			if (result is ValueTask vt)
+			{
+				await vt;
+				return (true, null, "void", null);
+			}
+
+			// Handle ValueTask<T> via reflection (generic struct)
+			var resultType = result?.GetType();
+			if (resultType != null && resultType.IsGenericType && resultType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+			{
+				var asTaskMethod = resultType.GetMethod("AsTask");
+				var task2 = (Task)asTaskMethod!.Invoke(result, null)!;
+				await task2;
+				var resultProp = task2.GetType().GetProperty("Result");
+				var taskResult = resultProp?.GetValue(task2);
+				var innerType = resultType.GetGenericArguments()[0];
+				return (true, taskResult != null ? FormatPropertyValue(taskResult) : null, FormatParameterTypeName(innerType), null);
+			}
 
 			// Handle async methods
 			if (result is Task task)
