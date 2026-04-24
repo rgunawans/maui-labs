@@ -82,8 +82,11 @@ You can override the automatically derived identity:
 
 ```bash
 # Set a specific session identity
-dotnet build -p:MauiDevFlowSessionId=my-session
+dotnet build -p:MauiDevFlowSessionId=mysession
 ```
+
+> **Note:** Session IDs are sanitized to lowercase alphanumeric characters only.
+> For example, `My-Session` would become `mysession`.
 
 The same value can also be supplied via the `MAUI_DEVFLOW_SESSION_ID` environment variable.
 
