@@ -22,7 +22,7 @@ namespace Microsoft.Maui.DevFlow.Agent.Core;
 /// The main agent service that hosts the HTTP API and coordinates
 /// visual tree inspection and element interactions.
 /// </summary>
-public class DevFlowAgentService : IDisposable, IMarkerPublisher
+public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
 {
     private readonly AgentOptions _options;
     private readonly AgentHttpServer _server;
@@ -552,6 +552,13 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         _server.MapGet("/api/v1/storage/files/{path}", HandleFileDownload);
         _server.MapPut("/api/v1/storage/files/{path}", HandleFileUpload);
         _server.MapDelete("/api/v1/storage/files/{path}", HandleFileDelete);
+
+        // Invoke / reflection
+        _server.MapGet("/api/v1/invoke/actions", HandleListActions);
+        _server.MapPost("/api/v1/invoke/actions/{name}", HandleInvokeAction);
+        _server.MapPost("/api/v1/invoke", HandleInvoke);
+        _server.MapGet("/api/v1/invoke/methods", HandleListMethods);
+        _server.MapPost("/api/v1/ui/elements/{id}/invoke", HandleElementInvoke);
     }
 
     private async Task<HttpResponse> HandleStatus(HttpRequest request)
@@ -700,6 +707,11 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                 features = IsJobsSupported
                     ? IsJobRunSupported ? new[] { "list", "run" } : new[] { "list" }
                     : Array.Empty<string>()
+            },
+            invoke = new
+            {
+                supported = true,
+                features = new[] { "actions", "static", "service", "element", "discover" }
             }
         };
 
@@ -2013,6 +2025,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         public string? Direction { get; set; }
         public double Distance { get; set; } = 120;
         public int DurationMs { get; set; } = 200;
+        // Invoke-related properties
+        public string? TypeName { get; set; }
+        public string? MethodName { get; set; }
+        public JsonElement[]? Args { get; set; }
+        public string? Resolve { get; set; }
+        public string? Name { get; set; }
     }
 
     private async Task<HttpResponse> HandleBack(HttpRequest request)
@@ -2290,6 +2308,31 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                             ["name"] = action.Property ?? string.Empty
                         },
                         Body = JsonSerializer.Serialize(new SetPropertyRequest { Value = action.Value ?? string.Empty })
+                    });
+                    break;
+                case "invoke":
+                    response = await HandleInvoke(new HttpRequest
+                    {
+                        Method = "POST",
+                        Body = JsonSerializer.Serialize(new InvokeRequest
+                        {
+                            TypeName = action.TypeName,
+                            MethodName = action.MethodName,
+                            Args = action.Args,
+                            Resolve = action.Resolve
+                        })
+                    });
+                    break;
+                case "invoke-action":
+                case "invoke_action":
+                    response = await HandleInvokeAction(new HttpRequest
+                    {
+                        Method = "POST",
+                        RouteParams = new Dictionary<string, string>
+                        {
+                            ["name"] = action.Name ?? string.Empty
+                        },
+                        Body = JsonSerializer.Serialize(new InvokeActionRequest { Args = action.Args })
                     });
                     break;
                 default:

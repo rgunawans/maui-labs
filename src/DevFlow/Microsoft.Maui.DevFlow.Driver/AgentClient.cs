@@ -558,6 +558,64 @@ public class AgentClient : IDisposable
         }
     }
 
+    // ── Invoke / Reflection ──
+
+    private const string InvokeApi = $"{ApiV1}/invoke";
+
+    /// <summary>
+    /// List all registered DevFlow Actions (methods annotated with [DevFlowAction]).
+    /// </summary>
+    public async Task<JsonElement> ListActionsAsync()
+        => await GetJsonAsync($"{InvokeApi}/actions");
+
+    /// <summary>
+    /// Invoke a registered DevFlow Action by name.
+    /// </summary>
+    public async Task<InvokeResult?> InvokeActionAsync(string actionName, JsonArray? args = null)
+    {
+        var body = new JsonObject();
+        if (args != null)
+            body["args"] = args;
+        return await PostJsonAsync<InvokeResult>($"{InvokeApi}/actions/{Uri.EscapeDataString(actionName)}", body);
+    }
+
+    /// <summary>
+    /// Invoke a method by type name and method name via reflection.
+    /// </summary>
+    public async Task<InvokeResult?> InvokeAsync(string typeName, string methodName, JsonArray? args = null, string? resolve = null)
+    {
+        var body = new JsonObject
+        {
+            ["typeName"] = typeName,
+            ["methodName"] = methodName
+        };
+        if (args != null)
+            body["args"] = args;
+        if (resolve != null)
+            body["resolve"] = resolve;
+        return await PostJsonAsync<InvokeResult>($"{InvokeApi}", body);
+    }
+
+    /// <summary>
+    /// Invoke a method on a visual tree element.
+    /// </summary>
+    public async Task<InvokeResult?> InvokeElementMethodAsync(string elementId, string methodName, JsonArray? args = null)
+    {
+        var body = new JsonObject
+        {
+            ["methodName"] = methodName
+        };
+        if (args != null)
+            body["args"] = args;
+        return await PostJsonAsync<InvokeResult>($"{UiApi}/elements/{elementId}/invoke", body);
+    }
+
+    /// <summary>
+    /// Discover public methods on a type.
+    /// </summary>
+    public async Task<JsonElement> ListMethodsAsync(string typeName)
+        => await GetJsonAsync($"{InvokeApi}/methods?typeName={Uri.EscapeDataString(typeName)}");
+
     // ── Preferences ──
 
     public async Task<JsonElement> GetPreferencesAsync(string? sharedName = null)
@@ -1167,4 +1225,27 @@ public class ProfilerCapabilities
     public bool UiThreadStallSupported { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("threadCountSupported")]
     public bool ThreadCountSupported { get; set; }
+}
+
+/// <summary>
+/// Result of an invoke operation.
+/// </summary>
+public class InvokeResult
+{
+    [System.Text.Json.Serialization.JsonPropertyName("success")]
+    public bool Success { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("returnValue")]
+    public string? ReturnValue { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("returnType")]
+    public string? ReturnType { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("error")]
+    public string? Error { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("action")]
+    public string? Action { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("typeName")]
+    public string? TypeName { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("methodName")]
+    public string? MethodName { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("elementId")]
+    public string? ElementId { get; set; }
 }
