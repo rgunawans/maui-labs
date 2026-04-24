@@ -145,15 +145,20 @@ public partial class DevFlowAgentService
 		var type = Type.GetType(typeName);
 		if (type != null)
 		{
-			_typeResolutionCache.TryAdd(typeName, type);
-			return type;
+			if (IsFrameworkAssembly(type.Assembly))
+				type = null;
+			else
+			{
+				_typeResolutionCache.TryAdd(typeName, type);
+				return type;
+			}
 		}
 
 		// Scan loaded assemblies
 		Type? bestMatch = null;
 		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
 		{
-			if (asm.IsDynamic) continue;
+			if (asm.IsDynamic || IsFrameworkAssembly(asm)) continue;
 
 			// Full name match (preferred)
 			type = asm.GetType(typeName, throwOnError: false, ignoreCase: true);
@@ -171,11 +176,7 @@ public partial class DevFlowAgentService
 					foreach (var t in asm.GetTypes())
 					{
 						if (string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase))
-						{
-							if (IsFrameworkAssembly(asm))
-								continue; // prefer app types over framework types
 							bestMatch = t;
-						}
 					}
 				}
 				catch { }
