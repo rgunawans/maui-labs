@@ -61,6 +61,7 @@
     <PackageVersion Include="coverlet.collector" Version="$(CoverletCollectorVersion)" />
     <PackageVersion Include="Microsoft.OpenApi" Version="$(MicrosoftOpenApiVersion)" />
     <PackageVersion Include="YamlDotNet" Version="$(YamlDotNetVersion)" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.2" />
   </ItemGroup>
 
   <!-- Source Link -->

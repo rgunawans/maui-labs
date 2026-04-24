@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -56,23 +57,72 @@ public sealed class DevFlowActionAnalyzer : DiagnosticAnalyzer
 		isEnabledByDefault: true,
 		description: "AI agents rely on parameter descriptions to understand what values to pass. Adding [Description] makes your action more usable.");
 
+	// MAUI_DFA005: Duplicate action name
+	private static readonly DiagnosticDescriptor DuplicateActionName = new(
+		id: "MAUI_DFA005",
+		title: "Duplicate [DevFlowAction] name",
+		messageFormat: "Action name '{0}' is already used by '{1}' — duplicate names shadow each other at runtime",
+		category: "DevFlow",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "Each [DevFlowAction] name must be unique. At runtime, duplicate names cause the second registration to be silently ignored.",
+		customTags: [WellKnownDiagnosticTags.CompilationEnd]);
+
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-		ImmutableArray.Create(UnsupportedParameterType, MustBePublicStatic, ReturnTypeMayNotSerialize, MissingParameterDescription);
+		ImmutableArray.Create(UnsupportedParameterType, MustBePublicStatic, ReturnTypeMayNotSerialize, MissingParameterDescription, DuplicateActionName);
 
 	public override void Initialize(AnalysisContext context)
 	{
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+
+		context.RegisterCompilationStartAction(compilationContext =>
+		{
+			var actionsByName = new ConcurrentDictionary<string, ConcurrentBag<IMethodSymbol>>(StringComparer.OrdinalIgnoreCase);
+
+			compilationContext.RegisterSymbolAction(symbolContext =>
+			{
+				var method = (IMethodSymbol)symbolContext.Symbol;
+
+				if (!HasDevFlowActionAttribute(method))
+					return;
+
+				// Track action name for DFA005 duplicate check
+				var actionName = GetDevFlowActionName(method);
+				if (actionName != null)
+				{
+					actionsByName.GetOrAdd(actionName, _ => new ConcurrentBag<IMethodSymbol>()).Add(method);
+				}
+
+				AnalyzeMethod(symbolContext, method);
+			}, SymbolKind.Method);
+
+			compilationContext.RegisterCompilationEndAction(endContext =>
+			{
+				foreach (var kvp in actionsByName)
+				{
+					var methods = kvp.Value.ToArray();
+					if (methods.Length < 2)
+						continue;
+
+					// Report on every method that shares the duplicate name
+					foreach (var method in methods)
+					{
+						var otherMethod = methods.First(m => !SymbolEqualityComparer.Default.Equals(m, method));
+						var otherName = $"{otherMethod.ContainingType.Name}.{otherMethod.Name}";
+						endContext.ReportDiagnostic(Diagnostic.Create(
+							DuplicateActionName,
+							method.Locations.FirstOrDefault(),
+							kvp.Key,
+							otherName));
+					}
+				}
+			});
+		});
 	}
 
-	private static void AnalyzeMethod(SymbolAnalysisContext context)
+	private static void AnalyzeMethod(SymbolAnalysisContext context, IMethodSymbol method)
 	{
-		var method = (IMethodSymbol)context.Symbol;
-
-		if (!HasDevFlowActionAttribute(method))
-			return;
-
 		// DFA002: Must be public static
 		if (method.DeclaredAccessibility != Accessibility.Public || !method.IsStatic)
 		{
@@ -112,6 +162,24 @@ public sealed class DevFlowActionAnalyzer : DiagnosticAnalyzer
 				method.Locations.FirstOrDefault(),
 				returnType.ToDisplayString()));
 		}
+	}
+
+	private static string? GetDevFlowActionName(IMethodSymbol method)
+	{
+		foreach (var attr in method.GetAttributes())
+		{
+			var name = attr.AttributeClass?.Name;
+			if (name != DevFlowActionAttributeName && name != DevFlowActionAttributeShortName)
+				continue;
+
+			if (attr.ConstructorArguments.Length > 0 &&
+				attr.ConstructorArguments[0].Value is string actionName)
+			{
+				return actionName;
+			}
+		}
+
+		return null;
 	}
 
 	private static bool HasDevFlowActionAttribute(IMethodSymbol method)
