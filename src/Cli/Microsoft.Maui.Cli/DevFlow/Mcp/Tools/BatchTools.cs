@@ -61,7 +61,7 @@ public sealed class BatchTools
 				return $"Invalid action at index {i}: expected a JSON object, got {parsed[i]?.GetValueKind().ToString() ?? "null"}.";
 
 			if (obj["action"] == null && obj["type"] == null)
-				return $"Invalid action at index {i}: must have an 'action' field (e.g., 'tap', 'fill', 'navigate').";
+				return $"Invalid action at index {i}: must have an 'action' or 'type' field (e.g., 'tap', 'fill', 'navigate').";
 
 			actions.Add(obj);
 		}
