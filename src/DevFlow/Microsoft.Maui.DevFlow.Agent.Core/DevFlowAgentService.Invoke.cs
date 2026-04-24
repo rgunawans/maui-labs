@@ -404,24 +404,37 @@ public partial class DevFlowAgentService
 		var bindingFlags = BindingFlags.Public | BindingFlags.IgnoreCase
 			| (isService ? BindingFlags.Instance : BindingFlags.Static);
 
-		var method = type.GetMethod(body.MethodName, bindingFlags);
-		if (method == null)
+		// Always enumerate methods by name to avoid AmbiguousMatchException on overloads
+		var candidates = type.GetMethods(bindingFlags)
+			.Where(m => string.Equals(m.Name, body.MethodName, StringComparison.OrdinalIgnoreCase))
+			.ToArray();
+
+		if (candidates.Length == 0)
+			return InvokeError($"Method '{body.MethodName}' not found on type '{type.FullName}'.");
+
+		MethodInfo method;
+		if (candidates.Length == 1)
 		{
-			// Try finding by parameter count for overload resolution
-			var candidates = type.GetMethods(bindingFlags)
-				.Where(m => string.Equals(m.Name, body.MethodName, StringComparison.OrdinalIgnoreCase))
-				.ToArray();
-
-			if (candidates.Length == 0)
-				return InvokeError($"Method '{body.MethodName}' not found on type '{type.FullName}'.");
-
+			method = candidates[0];
+		}
+		else
+		{
 			var argCount = body.Args?.Length ?? 0;
-			method = candidates.FirstOrDefault(m =>
+			var matched = candidates.FirstOrDefault(m =>
 			{
 				var ps = m.GetParameters();
 				var required = ps.Count(p => !p.HasDefaultValue);
 				return argCount >= required && argCount <= ps.Length;
-			}) ?? candidates[0];
+			});
+
+			if (matched == null)
+			{
+				var signatures = string.Join(", ", candidates.Select(m =>
+					$"{m.Name}({string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})"));
+				return InvokeError($"Ambiguous method '{body.MethodName}' on type '{type.FullName}'. Candidates: {signatures}");
+			}
+
+			method = matched;
 		}
 
 		object? target = null;
