@@ -685,6 +685,41 @@ public class AgentClient : IDisposable
         return await PostActionAsync($"{DeviceApi}/sensors/{Uri.EscapeDataString(sensor)}/stop", new JsonObject());
     }
 
+    // ── Files ──
+
+    public async Task<JsonElement> ListFilesAsync(string? path = null)
+    {
+        var url = $"{StorageApi}/files";
+        if (!string.IsNullOrEmpty(path))
+            url += $"?path={Uri.EscapeDataString(path)}";
+        return await GetJsonAsync(url);
+    }
+
+    public async Task<JsonElement> DownloadFileAsync(string path)
+    {
+        return await GetJsonAsync($"{StorageApi}/files/{Uri.EscapeDataString(path)}");
+    }
+
+    public async Task<JsonElement> UploadFileAsync(string path, string contentBase64)
+    {
+        try
+        {
+            var body = new JsonObject { ["contentBase64"] = contentBase64 };
+            using var content = DriverJson.CreateJsonContent(body);
+            var response = await _http.PutAsync($"{_baseUrl}{StorageApi}/files/{Uri.EscapeDataString(path)}", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(responseBody))
+                return default;
+            return DriverJson.ParseElement(responseBody);
+        }
+        catch { return default; }
+    }
+
+    public async Task<bool> DeleteFileAsync(string path)
+    {
+        return await DeleteActionAsync($"{StorageApi}/files/{Uri.EscapeDataString(path)}");
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

@@ -498,6 +498,11 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         _server.MapPut("/api/v1/storage/secure/{key}", HandleSecureStorageSet);
         _server.MapDelete("/api/v1/storage/secure/{key}", HandleSecureStorageDelete);
         _server.MapDelete("/api/v1/storage/secure", HandleSecureStorageClear);
+
+        _server.MapGet("/api/v1/storage/files", HandleFilesList);
+        _server.MapGet("/api/v1/storage/files/{path}", HandleFileDownload);
+        _server.MapPut("/api/v1/storage/files/{path}", HandleFileUpload);
+        _server.MapDelete("/api/v1/storage/files/{path}", HandleFileDelete);
     }
 
     private async Task<HttpResponse> HandleStatus(HttpRequest request)
@@ -623,7 +628,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             storage = new
             {
                 supported = true,
-                features = new[] { "preferences", "secure-storage" }
+                features = new[] { "preferences", "secure-storage", "files" }
             },
             profiler = new
             {
@@ -5354,6 +5359,187 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         }
     }
 
+    // ── File storage endpoints ──
+
+    private static string GetAppDataBasePath()
+        => FileSystem.AppDataDirectory;
+
+    private static string ResolveFilePath(string relativePath)
+    {
+        // Normalize separators and prevent directory traversal
+        var normalized = relativePath.Replace('\\', '/');
+        if (normalized.Contains(".."))
+            throw new InvalidOperationException("Directory traversal is not allowed");
+
+        return Path.Combine(GetAppDataBasePath(), normalized);
+    }
+
+    private Task<HttpResponse> HandleFilesList(HttpRequest request)
+    {
+        try
+        {
+            var basePath = GetAppDataBasePath();
+            var subdir = request.QueryParams.GetValueOrDefault("path", "");
+
+            var targetDir = string.IsNullOrEmpty(subdir)
+                ? basePath
+                : ResolveFilePath(subdir);
+
+            if (!Directory.Exists(targetDir))
+                return Task.FromResult(HttpResponse.Json(new
+                {
+                    basePath,
+                    path = subdir,
+                    entries = Array.Empty<object>()
+                }));
+
+            var entries = new List<object>();
+            foreach (var dir in Directory.GetDirectories(targetDir))
+            {
+                var info = new DirectoryInfo(dir);
+                entries.Add(new
+                {
+                    name = info.Name,
+                    type = "directory",
+                    lastModified = info.LastWriteTimeUtc.ToString("O")
+                });
+            }
+            foreach (var file in Directory.GetFiles(targetDir))
+            {
+                var info = new FileInfo(file);
+                entries.Add(new
+                {
+                    name = info.Name,
+                    type = "file",
+                    size = info.Length,
+                    lastModified = info.LastWriteTimeUtc.ToString("O")
+                });
+            }
+
+            return Task.FromResult(HttpResponse.Json(new
+            {
+                basePath,
+                path = subdir,
+                entries
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(HttpResponse.Error($"Failed to list files: {ex.Message}"));
+        }
+    }
+
+    private async Task<HttpResponse> HandleFileDownload(HttpRequest request)
+    {
+        try
+        {
+            if (!request.RouteParams.TryGetValue("path", out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
+                return HttpResponse.Error("file path is required");
+
+            relativePath = Uri.UnescapeDataString(relativePath);
+            var fullPath = ResolveFilePath(relativePath);
+
+            if (!File.Exists(fullPath))
+                return HttpResponse.NotFound($"File not found: {relativePath}");
+
+            var bytes = await File.ReadAllBytesAsync(fullPath);
+            var contentBase64 = Convert.ToBase64String(bytes);
+            var info = new FileInfo(fullPath);
+
+            return HttpResponse.Json(new
+            {
+                path = relativePath,
+                size = info.Length,
+                lastModified = info.LastWriteTimeUtc.ToString("O"),
+                contentBase64
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return HttpResponse.Error(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HttpResponse.Error($"Failed to download file: {ex.Message}");
+        }
+    }
+
+    private async Task<HttpResponse> HandleFileUpload(HttpRequest request)
+    {
+        try
+        {
+            if (!request.RouteParams.TryGetValue("path", out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
+                return HttpResponse.Error("file path is required");
+
+            relativePath = Uri.UnescapeDataString(relativePath);
+            var fullPath = ResolveFilePath(relativePath);
+
+            var body = request.BodyAs<FileUploadRequest>();
+            if (body == null || string.IsNullOrEmpty(body.ContentBase64))
+                return HttpResponse.Error("Request body must include 'contentBase64'");
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(body.ContentBase64);
+            }
+            catch (FormatException)
+            {
+                return HttpResponse.Error("Invalid base64 content");
+            }
+
+            // Ensure parent directory exists
+            var dir = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            await File.WriteAllBytesAsync(fullPath, bytes);
+            var info = new FileInfo(fullPath);
+
+            return HttpResponse.Json(new
+            {
+                success = true,
+                path = relativePath,
+                size = info.Length,
+                lastModified = info.LastWriteTimeUtc.ToString("O")
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return HttpResponse.Error(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return HttpResponse.Error($"Failed to upload file: {ex.Message}");
+        }
+    }
+
+    private Task<HttpResponse> HandleFileDelete(HttpRequest request)
+    {
+        try
+        {
+            if (!request.RouteParams.TryGetValue("path", out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
+                return Task.FromResult(HttpResponse.Error("file path is required"));
+
+            relativePath = Uri.UnescapeDataString(relativePath);
+            var fullPath = ResolveFilePath(relativePath);
+
+            if (!File.Exists(fullPath))
+                return Task.FromResult(HttpResponse.NotFound($"File not found: {relativePath}"));
+
+            File.Delete(fullPath);
+            return Task.FromResult(HttpResponse.Ok($"File deleted: {relativePath}"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Task.FromResult(HttpResponse.Error(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(HttpResponse.Error($"Failed to delete file: {ex.Message}"));
+        }
+    }
+
     // ── Platform info endpoints ──
 
     private const string PlatformErrorReasonMissingPermission = "missing_permission";
@@ -5937,4 +6123,9 @@ public class PreferenceSetRequest
 public class SecureStorageSetRequest
 {
     public string? Value { get; set; }
+}
+
+public class FileUploadRequest
+{
+    public string? ContentBase64 { get; set; }
 }
