@@ -763,6 +763,28 @@ public class AgentClient : IDisposable
     private static string BuildRootQuery(string? root)
         => string.IsNullOrEmpty(root) ? string.Empty : $"?root={Uri.EscapeDataString(root)}";
 
+    // ── BLE ──
+
+    public Task<JsonElement> GetBleStatusAsync()
+        => GetJsonAsync($"{DeviceApi}/ble");
+
+    public Task<JsonElement> GetBleEventsAsync(int limit = 100, string? type = null)
+    {
+        var path = $"{DeviceApi}/ble/events?limit={limit}";
+        if (!string.IsNullOrEmpty(type))
+            path += $"&type={Uri.EscapeDataString(type)}";
+        return GetJsonAsync(path);
+    }
+
+    public Task<bool> StartBleScanAsync()
+        => PostActionAsync($"{DeviceApi}/ble/scan/start", new JsonObject());
+
+    public Task<bool> StopBleScanAsync()
+        => PostActionAsync($"{DeviceApi}/ble/scan/stop", new JsonObject());
+
+    public Task<bool> ClearBleEventsAsync()
+        => DeleteActionAsync($"{DeviceApi}/ble/events");
+
     public void Dispose()
     {
         if (_disposed) return;
