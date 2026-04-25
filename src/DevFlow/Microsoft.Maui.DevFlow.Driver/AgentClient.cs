@@ -685,6 +685,27 @@ public class AgentClient : IDisposable
         return await PostActionAsync($"{DeviceApi}/sensors/{Uri.EscapeDataString(sensor)}/stop", new JsonObject());
     }
 
+    // ── Jobs ──
+
+    public async Task<JsonElement> GetJobsAsync()
+    {
+        return await GetJsonAsync($"{DeviceApi}/jobs");
+    }
+
+    public async Task<JsonElement> RunJobAsync(string identifier)
+    {
+        try
+        {
+            using var content = DriverJson.CreateJsonContent(new JsonObject());
+            var response = await _http.PostAsync($"{_baseUrl}{DeviceApi}/jobs/{Uri.EscapeDataString(identifier)}/run", content);
+            var body = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(body))
+                return default;
+            return DriverJson.ParseElement(body);
+        }
+        catch { return default; }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
