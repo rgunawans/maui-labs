@@ -687,38 +687,56 @@ public class AgentClient : IDisposable
 
     // ── Files ──
 
-    public async Task<JsonElement> ListFilesAsync(string? path = null)
+    public async Task<JsonElement> ListStorageRootsAsync()
+    {
+        return await GetJsonAsync($"{StorageApi}/roots");
+    }
+
+    public async Task<JsonElement> ListFilesAsync(string? path = null, string? root = null)
     {
         var url = $"{StorageApi}/files";
-        if (!string.IsNullOrEmpty(path))
-            url += $"?path={Uri.EscapeDataString(path)}";
+        var query = BuildStorageFilesQuery(path, root);
+        if (!string.IsNullOrEmpty(query))
+            url += query;
+
         return await GetJsonAsync(url);
     }
 
-    public async Task<JsonElement> DownloadFileAsync(string path)
+    public async Task<JsonElement> DownloadFileAsync(string path, string? root = null)
     {
-        return await GetJsonAsync($"{StorageApi}/files/{Uri.EscapeDataString(path)}");
+        return await GetJsonAsync($"{StorageApi}/files/{Uri.EscapeDataString(path)}{BuildRootQuery(root)}");
     }
 
-    public async Task<JsonElement> UploadFileAsync(string path, string contentBase64)
+    public async Task<JsonElement> UploadFileAsync(string path, string contentBase64, string? root = null)
     {
-        try
-        {
-            var body = new JsonObject { ["contentBase64"] = contentBase64 };
-            using var content = DriverJson.CreateJsonContent(body);
-            var response = await _http.PutAsync($"{_baseUrl}{StorageApi}/files/{Uri.EscapeDataString(path)}", content);
-            var responseBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(responseBody))
-                return default;
-            return DriverJson.ParseElement(responseBody);
-        }
-        catch { return default; }
+        var body = new JsonObject { ["contentBase64"] = contentBase64 };
+        using var content = DriverJson.CreateJsonContent(body);
+        using var response = await _http.PutAsync($"{_baseUrl}{StorageApi}/files/{Uri.EscapeDataString(path)}{BuildRootQuery(root)}", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(responseBody))
+            return default;
+
+        return DriverJson.ParseElement(responseBody);
     }
 
-    public async Task<bool> DeleteFileAsync(string path)
+    public async Task<bool> DeleteFileAsync(string path, string? root = null)
     {
-        return await DeleteActionAsync($"{StorageApi}/files/{Uri.EscapeDataString(path)}");
+        return await DeleteActionAsync($"{StorageApi}/files/{Uri.EscapeDataString(path)}{BuildRootQuery(root)}");
     }
+
+    private static string BuildStorageFilesQuery(string? path, string? root)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(path))
+            query.Add($"path={Uri.EscapeDataString(path)}");
+        if (!string.IsNullOrEmpty(root))
+            query.Add($"root={Uri.EscapeDataString(root)}");
+
+        return query.Count == 0 ? string.Empty : "?" + string.Join("&", query);
+    }
+
+    private static string BuildRootQuery(string? root)
+        => string.IsNullOrEmpty(root) ? string.Empty : $"?root={Uri.EscapeDataString(root)}";
 
     public void Dispose()
     {

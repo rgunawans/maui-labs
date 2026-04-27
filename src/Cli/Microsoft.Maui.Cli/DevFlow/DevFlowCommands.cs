@@ -834,7 +834,18 @@ public class DevFlowCommands
         devflowCommand.Add(networkCommand);
 
         // ===== storage subcommands =====
-        var storageCommand = new Command("storage", "Manage app preferences and secure storage");
+        var storageCommand = new Command("storage", "Manage app preferences, secure storage, and sandboxed app files");
+
+        var storageRootsCmd = new Command("roots", "List file storage roots advertised by the app");
+        storageRootsCmd.SetAction(async (ctx, ct) =>
+        {
+            var host = ctx.GetValue(agentHostOption)!;
+            var port = ctx.GetValue(agentPortOption);
+            var json = ctx.GetValue(jsonOption);
+            var noJson = ctx.GetValue(noJsonOption);
+            await SimpleGetAsync(host, port, "/api/v1/storage/roots", output.ResolveJsonMode(json, noJson));
+        });
+        storageCommand.Add(storageRootsCmd);
 
         // ===== preferences subcommands =====
         var prefsCommand = new Command("preferences", "Manage app preferences (key-value store)");
@@ -997,6 +1008,78 @@ public class DevFlowCommands
         secureCommand.Add(secureClearCmd);
 
         storageCommand.Add(secureCommand);
+
+        // ===== app file subcommands =====
+        var filesCommand = new Command("files", "Manage files under an advertised app storage root");
+        var filesRootOption = new Option<string?>("--root") { Description = "Storage root id (default: appData; use 'storage roots' to discover supported roots)" };
+        filesRootOption.Recursive = true;
+        filesCommand.Add(filesRootOption);
+
+        var filesListPathArg = new Argument<string?>("path") { Description = "Relative subdirectory path to list", DefaultValueFactory = _ => null };
+        var filesListCmd = new Command("list", "List files and directories") { filesListPathArg };
+        filesListCmd.SetAction(async (ctx, ct) =>
+        {
+            var host = ctx.GetValue(agentHostOption)!;
+            var port = ctx.GetValue(agentPortOption);
+            var json = ctx.GetValue(jsonOption);
+            var noJson = ctx.GetValue(noJsonOption);
+            var path = ctx.GetValue(filesListPathArg);
+            var root = ctx.GetValue(filesRootOption);
+            var isJson = output.ResolveJsonMode(json, noJson);
+            var qs = BuildStorageFilesQuery(path, root);
+            await SimpleGetAsync(host, port, $"/api/v1/storage/files{qs}", isJson);
+        });
+        filesCommand.Add(filesListCmd);
+
+        var filesDownloadPathArg = new Argument<string>("path") { Description = "Relative file path under the selected storage root" };
+        var filesDownloadCmd = new Command("download", "Download a file as base64 content") { filesDownloadPathArg };
+        filesDownloadCmd.SetAction(async (ctx, ct) =>
+        {
+            var host = ctx.GetValue(agentHostOption)!;
+            var port = ctx.GetValue(agentPortOption);
+            var json = ctx.GetValue(jsonOption);
+            var noJson = ctx.GetValue(noJsonOption);
+            var path = ctx.GetValue(filesDownloadPathArg)!;
+            var root = ctx.GetValue(filesRootOption);
+            await SimpleGetAsync(host, port, $"/api/v1/storage/files/{Uri.EscapeDataString(path)}{BuildStorageFilesQuery(root: root)}", output.ResolveJsonMode(json, noJson));
+        });
+        filesCommand.Add(filesDownloadCmd);
+
+        var filesUploadPathArg = new Argument<string>("path") { Description = "Relative file path under the selected storage root" };
+        var filesUploadContentArg = new Argument<string>("contentBase64") { Description = "Base64-encoded file content" };
+        var filesUploadCmd = new Command("upload", "Upload base64 content to a file") { filesUploadPathArg, filesUploadContentArg };
+        filesUploadCmd.SetAction(async (ctx, ct) =>
+        {
+            var host = ctx.GetValue(agentHostOption)!;
+            var port = ctx.GetValue(agentPortOption);
+            var json = ctx.GetValue(jsonOption);
+            var noJson = ctx.GetValue(noJsonOption);
+            var path = ctx.GetValue(filesUploadPathArg)!;
+            var contentBase64 = ctx.GetValue(filesUploadContentArg)!;
+            var root = ctx.GetValue(filesRootOption);
+            var isJson = output.ResolveJsonMode(json, noJson);
+            await SimplePutAsync(host, port, $"/api/v1/storage/files/{Uri.EscapeDataString(path)}{BuildStorageFilesQuery(root: root)}", new JsonObject
+            {
+                ["contentBase64"] = contentBase64
+            }, isJson);
+        });
+        filesCommand.Add(filesUploadCmd);
+
+        var filesDeletePathArg = new Argument<string>("path") { Description = "Relative file path under the selected storage root" };
+        var filesDeleteCmd = new Command("delete", "Delete a file") { filesDeletePathArg };
+        filesDeleteCmd.SetAction(async (ctx, ct) =>
+        {
+            var host = ctx.GetValue(agentHostOption)!;
+            var port = ctx.GetValue(agentPortOption);
+            var json = ctx.GetValue(jsonOption);
+            var noJson = ctx.GetValue(noJsonOption);
+            var path = ctx.GetValue(filesDeletePathArg)!;
+            var root = ctx.GetValue(filesRootOption);
+            await SimpleDeleteAsync(host, port, $"/api/v1/storage/files/{Uri.EscapeDataString(path)}{BuildStorageFilesQuery(root: root)}", output.ResolveJsonMode(json, noJson));
+        });
+        filesCommand.Add(filesDeleteCmd);
+
+        storageCommand.Add(filesCommand);
         devflowCommand.Add(storageCommand);
 
         // ===== device subcommands (read-only) =====
@@ -1764,6 +1847,17 @@ public class DevFlowCommands
     private static string FormatJson(JsonElement element)
     {
         return CliJson.PrettyPrint(element);
+    }
+
+    private static string BuildStorageFilesQuery(string? path = null, string? root = null)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(path))
+            query.Add($"path={Uri.EscapeDataString(path)}");
+        if (!string.IsNullOrEmpty(root))
+            query.Add($"root={Uri.EscapeDataString(root)}");
+
+        return query.Count == 0 ? string.Empty : "?" + string.Join("&", query);
     }
 
     // ===== Generic agent HTTP helpers (for preferences, platform, sensors, etc.) =====

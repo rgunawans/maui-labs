@@ -96,6 +96,154 @@ public class DevFlowCliIntegrationTests
     }
 
     [Fact]
+    public async Task StorageRoots_UsesV1StorageRootsRoute()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "roots", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.Equal("appData", json.GetProperty("roots")[0].GetProperty("id").GetString());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/roots");
+        Assert.Equal("GET", request.Method);
+    }
+
+    [Fact]
+    public async Task StorageFilesList_UsesV1FilesRoute()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "list", "logs", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.Equal("logs", json.GetProperty("path").GetString());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files");
+        Assert.Equal("GET", request.Method);
+        Assert.Contains("path=logs", request.QueryString);
+    }
+
+    [Fact]
+    public async Task StorageFilesList_WithRoot_UsesRootQuery()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "list", "logs", "--root", "appData", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.Equal("appData", json.GetProperty("root").GetString());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files");
+        Assert.Equal("GET", request.Method);
+        Assert.Contains("path=logs", request.QueryString);
+        Assert.Contains("root=appData", request.QueryString);
+    }
+
+    [Fact]
+    public async Task StorageFilesDownload_UsesV1FilesRoute()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "download", "app.log", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.Equal("aGVsbG8=", json.GetProperty("contentBase64").GetString());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+        Assert.Equal("GET", request.Method);
+    }
+
+    [Fact]
+    public async Task StorageFilesDownload_WithRoot_UsesRootQuery()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "download", "app.log", "--root", "appData", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.Equal("appData", json.GetProperty("root").GetString());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+        Assert.Equal("GET", request.Method);
+        Assert.Contains("root=appData", request.QueryString);
+    }
+
+    [Fact]
+    public async Task StorageFilesUpload_UsesPutV1FilesRoute()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "upload", "app.log", "aGVsbG8=", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.True(json.GetProperty("success").GetBoolean());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+        Assert.Equal("PUT", request.Method);
+        Assert.Contains("\"contentBase64\":\"aGVsbG8=\"", request.Body);
+    }
+
+    [Fact]
+    public async Task StorageFilesUpload_WithRoot_UsesRootQuery()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "upload", "app.log", "aGVsbG8=", "--root", "appData", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+        var json = result.ParseJsonOutput();
+        Assert.Equal("appData", json.GetProperty("root").GetString());
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+        Assert.Equal("PUT", request.Method);
+        Assert.Contains("root=appData", request.QueryString);
+        Assert.Contains("\"contentBase64\":\"aGVsbG8=\"", request.Body);
+    }
+
+    [Fact]
+    public async Task StorageFilesDelete_UsesDeleteV1FilesRoute()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "delete", "app.log", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+        Assert.Equal("DELETE", request.Method);
+    }
+
+    [Fact]
+    public async Task StorageFilesDelete_WithRoot_UsesRootQuery()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+
+        var result = await cli.InvokeAsync("devflow", "storage", "files", "delete", "app.log", "--root", "appData", "--json");
+
+        Assert.Equal(0, result.ExitCode);
+
+        var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+        Assert.Equal("DELETE", request.Method);
+        Assert.Contains("root=appData", request.QueryString);
+    }
+
+    [Fact]
     public async Task DeviceInfo_UsesV1DeviceEndpoint()
     {
         var (server, cli) = await CreateFixturesAsync();
