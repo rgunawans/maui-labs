@@ -11,6 +11,7 @@ internal static class DevFlowSkillManager
     const string ResourceRoot = "devflow.skills";
     const string PackageId = "Microsoft.Maui.Cli";
     const string LockFileRelativePath = ".maui/devflow-skills.lock.json";
+    static readonly TimeSpan LockFileRetryTimeout = TimeSpan.FromSeconds(10);
 
     static readonly DevFlowSkillDefinition[] s_skills =
     [
@@ -128,9 +129,11 @@ internal static class DevFlowSkillManager
             if (Directory.Exists(skillDirectory))
                 Directory.Delete(skillDirectory, recursive: true);
 
-            var lockFile = ReadLockFile(installTarget.LockFilePath);
-            RemoveLockEntry(lockFile, installTarget, skill.Id);
-            WriteLockFile(installTarget.LockFilePath, lockFile);
+            UpdateLockFile(installTarget.LockFilePath, CancellationToken.None, lockFile =>
+            {
+                RemoveLockEntry(lockFile, installTarget, skill.Id);
+                return true;
+            });
 
             status["action"] = "removed";
             status["status"] = "removed";
@@ -145,49 +148,64 @@ internal static class DevFlowSkillManager
     {
         var result = CreateBaseResult(action, scope, target);
         var results = new JsonArray();
-
-        foreach (var installTarget in ResolveInstallTargets(scope, target, allowAll: false))
+        var installTargets = ResolveInstallTargets(scope, target, allowAll: false);
+        var skillBundles = new List<(DevFlowSkillDefinition Skill, SkillBundle Bundle)>();
+        foreach (var skillId in skillIds)
         {
-            foreach (var skillId in skillIds)
+            var skill = GetSkill(skillId);
+            var bundle = await LoadSkillBundleAsync(skill, cancellationToken);
+            skillBundles.Add((skill, bundle));
+        }
+
+        foreach (var installTarget in installTargets)
+        {
+            var targetResults = new List<JsonObject>();
+            UpdateLockFile(installTarget.LockFilePath, cancellationToken, lockFile =>
             {
-                var skill = GetSkill(skillId);
-                var bundle = await LoadSkillBundleAsync(skill, cancellationToken);
-                var status = CreateStatusObject(installTarget, skill.Id, bundle);
-                var statusValue = status["status"]?.GetValue<string>();
-
-                if (statusValue == "dirty" && !force)
+                var lockFileChanged = false;
+                foreach (var (skill, bundle) in skillBundles)
                 {
-                    status["action"] = "skipped";
-                    status["message"] = "Skill files differ from the lockfile. Re-run with --force to overwrite.";
-                    AddJsonObject(results, status);
-                    continue;
+                    var status = CreateStatusObject(installTarget, skill.Id, bundle, lockFile);
+                    var statusValue = status["status"]?.GetValue<string>();
+
+                    if (statusValue == "dirty" && !force)
+                    {
+                        status["action"] = "skipped";
+                        status["message"] = "Skill files differ from the lockfile. Re-run with --force to overwrite.";
+                        targetResults.Add(status);
+                        continue;
+                    }
+
+                    if (statusValue == "unknown-or-unmanaged" && !force)
+                    {
+                        status["action"] = "skipped";
+                        status["message"] = "Skill files already exist but are not managed by this CLI. Re-run with --force to overwrite.";
+                        targetResults.Add(status);
+                        continue;
+                    }
+
+                    if (statusValue == "installed-from-newer-cli" && !allowDowngrade && !force)
+                    {
+                        status["action"] = "skipped";
+                        status["message"] = "Installed skill was written by a newer CLI. Re-run with --allow-downgrade or --force to replace it.";
+                        targetResults.Add(status);
+                        continue;
+                    }
+
+                    WriteSkillBundle(installTarget, skill, bundle, lockFile);
+                    UpsertLockEntry(lockFile, installTarget, skill, bundle);
+                    lockFileChanged = true;
+
+                    status = CreateStatusObject(installTarget, skill.Id, bundle, lockFile);
+                    status["action"] = statusValue == "up-to-date" ? "unchanged" : "written";
+                    targetResults.Add(status);
                 }
 
-                if (statusValue == "unknown-or-unmanaged" && !force)
-                {
-                    status["action"] = "skipped";
-                    status["message"] = "Skill files already exist but are not managed by this CLI. Re-run with --force to overwrite.";
-                    AddJsonObject(results, status);
-                    continue;
-                }
+                return lockFileChanged;
+            });
 
-                if (statusValue == "installed-from-newer-cli" && !allowDowngrade && !force)
-                {
-                    status["action"] = "skipped";
-                    status["message"] = "Installed skill was written by a newer CLI. Re-run with --allow-downgrade or --force to replace it.";
-                    AddJsonObject(results, status);
-                    continue;
-                }
-
-                var lockFile = ReadLockFile(installTarget.LockFilePath);
-                WriteSkillBundle(installTarget, skill, bundle, lockFile);
-                UpsertLockEntry(lockFile, installTarget, skill, bundle);
-                WriteLockFile(installTarget.LockFilePath, lockFile);
-
-                status = CreateStatusObject(installTarget, skill.Id, bundle);
-                status["action"] = statusValue == "up-to-date" ? "unchanged" : "written";
-                AddJsonObject(results, status);
-            }
+            foreach (var targetResult in targetResults)
+                AddJsonObject(results, targetResult);
         }
 
         result["results"] = results;
@@ -203,10 +221,10 @@ internal static class DevFlowSkillManager
             ["cliVersion"] = GetCurrentCliVersion()
         };
 
-    static JsonObject CreateStatusObject(InstallTarget installTarget, string skillId, SkillBundle? knownBundle = null)
+    static JsonObject CreateStatusObject(InstallTarget installTarget, string skillId, SkillBundle? knownBundle = null, JsonObject? knownLockFile = null)
     {
         var bundle = knownBundle ?? TryLoadSkillBundle(skillId);
-        var lockFile = ReadLockFile(installTarget.LockFilePath);
+        var lockFile = knownLockFile ?? ReadLockFile(installTarget.LockFilePath);
         var entry = FindLockEntry(lockFile, installTarget, skillId);
         var skillDirectory = GetSkillDirectory(installTarget, skillId);
         var exists = Directory.Exists(skillDirectory);
@@ -390,12 +408,44 @@ internal static class DevFlowSkillManager
             }
         }
 
-        return new JsonObject
+        return CreateEmptyLockFile();
+    }
+
+    static JsonObject ReadLockFile(string lockFilePath, FileStream stream, bool allowEmpty)
+    {
+        try
+        {
+            stream.Position = 0;
+            if (stream.Length == 0 && allowEmpty)
+                return CreateEmptyLockFile();
+
+            using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+            var parsed = CliJson.ParseNode(reader.ReadToEnd()) as JsonObject
+                ?? throw new InvalidOperationException($"DevFlow skills lockfile '{lockFilePath}' must contain a JSON object.");
+            if (parsed["entries"] is not JsonArray)
+                parsed["entries"] = new JsonArray();
+            return parsed;
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"DevFlow skills lockfile '{lockFilePath}' is not valid JSON.", ex);
+        }
+        catch (IOException ex)
+        {
+            throw new InvalidOperationException($"Could not read DevFlow skills lockfile '{lockFilePath}'.", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException($"Could not access DevFlow skills lockfile '{lockFilePath}'.", ex);
+        }
+    }
+
+    static JsonObject CreateEmptyLockFile()
+        => new()
         {
             ["version"] = 1,
             ["entries"] = new JsonArray()
         };
-    }
 
     static void WriteLockFile(string lockFilePath, JsonObject lockFile)
     {
@@ -403,6 +453,58 @@ internal static class DevFlowSkillManager
         lockFile["version"] = 1;
         lockFile["updatedAtUtc"] = DateTime.UtcNow.ToString("o");
         File.WriteAllText(lockFilePath, CliJson.SerializeUntyped(lockFile));
+    }
+
+    static void WriteLockFile(string lockFilePath, JsonObject lockFile, FileStream stream)
+    {
+        lockFile["version"] = 1;
+        lockFile["updatedAtUtc"] = DateTime.UtcNow.ToString("o");
+        var bytes = Encoding.UTF8.GetBytes(CliJson.SerializeUntyped(lockFile));
+        stream.Position = 0;
+        stream.SetLength(0);
+        stream.Write(bytes);
+        stream.Flush(flushToDisk: true);
+    }
+
+    static void UpdateLockFile(string lockFilePath, CancellationToken cancellationToken, Func<JsonObject, bool> update)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(lockFilePath)!);
+        var createdLockFile = false;
+        using var stream = OpenLockFileStream(lockFilePath, cancellationToken, out createdLockFile);
+        var lockFile = ReadLockFile(lockFilePath, stream, allowEmpty: createdLockFile);
+
+        if (update(lockFile) || createdLockFile)
+            WriteLockFile(lockFilePath, lockFile, stream);
+    }
+
+    static FileStream OpenLockFileStream(string lockFilePath, CancellationToken cancellationToken, out bool createdLockFile)
+    {
+        var startedAt = DateTime.UtcNow;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                createdLockFile = !File.Exists(lockFilePath);
+                return new FileStream(
+                    lockFilePath,
+                    createdLockFile ? FileMode.CreateNew : FileMode.Open,
+                    FileAccess.ReadWrite,
+                    FileShare.None);
+            }
+            catch (IOException) when (DateTime.UtcNow - startedAt < LockFileRetryTimeout)
+            {
+                Thread.Sleep(50);
+            }
+            catch (IOException ex)
+            {
+                throw new InvalidOperationException($"Could not acquire exclusive access to DevFlow skills lockfile '{lockFilePath}'.", ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new InvalidOperationException($"Could not access DevFlow skills lockfile '{lockFilePath}'.", ex);
+            }
+        }
     }
 
     static JsonObject? FindLockEntry(JsonObject lockFile, InstallTarget installTarget, string skillId)
