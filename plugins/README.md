@@ -2,13 +2,16 @@
 
 Distributable agent skills for .NET MAUI development. Installable via the Copilot CLI, Claude Code, or VS Code plugin system.
 
-DevFlow runtime skills (`devflow-onboard`, `devflow-connect`, `devflow-debug`) are bundled with the `maui` CLI from `.claude/skills/` and installed with `maui devflow init`.
+DevFlow runtime skills (`devflow-onboard`, `devflow-connect`, `devflow-debug`) are bundled with the `maui` CLI from `.claude/skills/`, installed with `maui devflow init`, and also exposed through the plugin manifest.
 
 ## Plugin
 
 | Plugin | Skill | Description |
 |--------|-------|-------------|
-| [dotnet-maui](dotnet-maui/) | [android-slim-bindings](dotnet-maui/skills/android-slim-bindings/) | Create Android slim bindings using the Native Library Interop approach. |
+| [dotnet-maui](dotnet-maui/) | [devflow-onboard](../.claude/skills/devflow-onboard/) | Add MAUI DevFlow packages and app registration to a project. |
+| | [devflow-connect](../.claude/skills/devflow-connect/) | Diagnose MAUI DevFlow broker, agent, and device connectivity. |
+| | [devflow-debug](../.claude/skills/devflow-debug/) | Run MAUI DevFlow build, deploy, inspect, and fix loops. |
+| | [android-slim-bindings](dotnet-maui/skills/android-slim-bindings/) | Create Android slim bindings using the Native Library Interop approach. |
 | | [ios-slim-bindings](dotnet-maui/skills/ios-slim-bindings/) | Create iOS slim bindings using the Native Library Interop approach. |
 | | [dotnet-workload-info](dotnet-maui/skills/dotnet-workload-info/) | Discover installed .NET workloads, SDK versions, and dependency requirements. |
 

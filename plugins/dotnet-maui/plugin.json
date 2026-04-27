@@ -1,6 +1,11 @@
 {
   "name": "dotnet-maui",
   "version": "0.1.0",
-  "description": "Skills for .NET MAUI development: platform bindings, workload diagnostics, profiling, and accessibility. DevFlow runtime skills are bundled with the maui CLI.",
-  "skills": ["./skills/"]
+  "description": "Skills for .NET MAUI development: DevFlow automation, platform bindings, workload diagnostics, profiling, and accessibility.",
+  "skills": [
+    "./skills/",
+    "../../.claude/skills/devflow-onboard/",
+    "../../.claude/skills/devflow-connect/",
+    "../../.claude/skills/devflow-debug/"
+  ]
 }
