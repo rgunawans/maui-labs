@@ -252,7 +252,7 @@ public class DevFlowCliIntegrationTests
             var json = result.ParseJsonOutput();
             Assert.Equal(outputFile, json.GetProperty("localPath").GetString());
 
-            var request = Assert.Single(server.RecordedRequests, r => r.Path.StartsWith("/api/v1/storage/files/", StringComparison.Ordinal));
+            var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/logs%2Fapp.log");
             Assert.Equal("GET", request.Method);
         }
         finally
@@ -280,7 +280,7 @@ public class DevFlowCliIntegrationTests
             var json = result.ParseJsonOutput();
             Assert.Equal(outputFile, json.GetProperty("localPath").GetString());
 
-            var request = Assert.Single(server.RecordedRequests, r => r.Path.StartsWith("/api/v1/storage/files/", StringComparison.Ordinal));
+            var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/logs%2Fapp.log");
             Assert.Equal("GET", request.Method);
         }
         finally

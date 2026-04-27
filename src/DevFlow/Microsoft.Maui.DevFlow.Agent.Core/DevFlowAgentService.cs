@@ -5621,6 +5621,8 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
+            FileStoragePathResolver.EnsureNoReparsePointTraversal(resolved.BasePath, resolved.FullPath, includeTarget: true);
+
             await File.WriteAllBytesAsync(resolved.FullPath, bytes);
             var info = new FileInfo(resolved.FullPath);
 

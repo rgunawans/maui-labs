@@ -112,6 +112,36 @@ public class FileStorageRootTests
         Assert.False(File.Exists(Path.Combine(appDataPath, path)));
     }
 
+    [Fact]
+    public async Task FileUpload_RejectsSymlinkedTargetFile()
+    {
+        var appDataPath = CreateTempDirectory();
+        var outsidePath = CreateTempDirectory();
+        var outsideFile = Path.Combine(outsidePath, "outside.txt");
+        await File.WriteAllTextAsync(outsideFile, "outside");
+        var linkPath = Path.Combine(appDataPath, "linked.txt");
+
+        try
+        {
+            File.CreateSymbolicLink(linkPath, outsideFile);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return;
+        }
+
+        using var service = CreateService(("appData", appDataPath));
+        using var client = new AgentClient("localhost", service.ServicePort);
+
+        service.StartServerOnly(new ImmediateDispatcher());
+
+        var result = await WaitForJsonAsync(() => client.UploadFileAsync("linked.txt", "aGVsbG8="));
+
+        Assert.False(result.GetProperty("success").GetBoolean());
+        Assert.Contains("Symbolic links are not allowed", result.GetProperty("error").GetString(), StringComparison.Ordinal);
+        Assert.Equal("outside", await File.ReadAllTextAsync(outsideFile));
+    }
+
     private static RootedDevFlowAgentService CreateService(params (string Id, string BasePath)[] roots)
         => CreateService(roots.Select(root => new TestStorageRoot(root.Id, root.BasePath)).ToArray());
 
