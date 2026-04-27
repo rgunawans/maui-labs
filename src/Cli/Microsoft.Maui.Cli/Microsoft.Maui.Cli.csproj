@@ -70,4 +70,16 @@
     <Content Include="Build\MauiStartupProfiling.AutoInitialize.cs" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\.claude\skills\devflow-onboard\**\*" LogicalName="devflow.skills/devflow-onboard/%(RecursiveDir)%(Filename)%(Extension)">
+      <WithCulture>false</WithCulture>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\.claude\skills\devflow-connect\**\*" LogicalName="devflow.skills/devflow-connect/%(RecursiveDir)%(Filename)%(Extension)">
+      <WithCulture>false</WithCulture>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\..\.claude\skills\devflow-debug\**\*" LogicalName="devflow.skills/devflow-debug/%(RecursiveDir)%(Filename)%(Extension)">
+      <WithCulture>false</WithCulture>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

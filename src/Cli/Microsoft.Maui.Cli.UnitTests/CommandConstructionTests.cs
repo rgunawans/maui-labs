@@ -39,6 +39,24 @@ public class CommandConstructionTests
 		Assert.Contains("mcp-serve", mcpCommand.Aliases);
 	}
 
+	[Fact]
+	public void DevFlowCommand_IncludesInitAndSkillsCommands()
+	{
+		var jsonOption = new Option<bool>("--json");
+		var devflowCommand = DevFlowCommands.CreateDevFlowCommand(jsonOption);
+
+		var initCommand = Assert.Single(devflowCommand.Subcommands, c => c.Name == "init");
+		Assert.Contains("onboard", initCommand.Aliases);
+
+		var skillsCommand = Assert.Single(devflowCommand.Subcommands, c => c.Name == "skills");
+		Assert.Contains(skillsCommand.Subcommands, c => c.Name == "install");
+		Assert.Contains(skillsCommand.Subcommands, c => c.Name == "list");
+		Assert.Contains(skillsCommand.Subcommands, c => c.Name == "check");
+		Assert.Contains(skillsCommand.Subcommands, c => c.Name == "update");
+		Assert.Contains(skillsCommand.Subcommands, c => c.Name == "remove");
+		Assert.Contains(skillsCommand.Subcommands, c => c.Name == "doctor");
+	}
+
 	private static void AssertNoWhitespaceAliases(Command command)
 	{
 		foreach (var option in command.Options)

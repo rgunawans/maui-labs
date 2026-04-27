@@ -1,23 +1,21 @@
 ---
-name: maui-ai-debugging
+name: devflow-debug
 description: >
   End-to-end workflow for building, deploying, inspecting, and debugging .NET MAUI and MAUI Blazor Hybrid apps
-  as an AI agent. Use when: (1) Building or running a MAUI app on iOS simulator, Android emulator, Mac Catalyst,
+  as an AI agent. USE FOR: (1) Building or running a MAUI app on iOS simulator, Android emulator, Mac Catalyst,
   macOS (AppKit), or Linux/GTK, (2) Inspecting or interacting with a running app's UI (visual tree, tapping,
   filling text, screenshots, property queries), (3) Debugging Blazor WebView content via CDP, (4) Managing
-  simulators or emulators, (5) Setting up MauiDevFlow in a MAUI project, (6) Completing a build-deploy-inspect-fix
-  feedback loop, (7) Handling permission dialogs and in-app/simulator alerts, (8) Managing multiple simultaneous
+  simulators or emulators, (5) Completing a build-deploy-inspect-fix
+  feedback loop, (6) Handling permission dialogs and in-app/simulator alerts, (7) Managing multiple simultaneous
   apps via the broker daemon. Covers: the unified `maui devflow` CLI, androidsdk.tool, appledev.tools, adb,
   xcrun simctl, Linux `xdotool`-backed driver caveats, and dotnet build/run for all MAUI target platforms
-  including macOS (AppKit) and Linux/GTK. Do not use for generic desktop automation, AppleScript macros, or
-  arbitrary host-level `xdotool` control unrelated to MAUI app debugging.
+  including macOS (AppKit) and Linux/GTK. DO NOT USE FOR: first-time DevFlow package installation or
+  MauiProgram.cs registration (use devflow-onboard), connection failures before the app is reachable
+  (use devflow-connect), generic desktop automation, AppleScript macros, or arbitrary host-level
+  `xdotool` control unrelated to MAUI app debugging.
 ---
 
-# MAUI AI Debugging
-
-Compatibility note: this legacy skill name is retained for older clients and the hidden
-`maui devflow update-skill` path. The canonical replacement is `devflow-debug`, installed
-through `maui devflow init` / `maui devflow skills update`.
+# DevFlow Debug
 
 Build, deploy, inspect, and debug .NET MAUI apps from the terminal. This skill enables a complete
 feedback loop: **build → deploy → inspect → fix → rebuild**.
@@ -30,9 +28,9 @@ dotnet tool install --global androidsdk.tool    # Android only
 dotnet tool install --global appledev.tools     # iOS/Mac only
 ```
 
-Keep the skill up to date: `maui devflow update-skill`. Check installed version vs remote
-with `maui devflow skill-version`. For full update procedures, see
-[references/setup.md](references/setup.md#checking-for-updates).
+Install or update this skill with `maui devflow init` or `maui devflow skills update`.
+For first-time DevFlow package setup, use `devflow-onboard`; for connectivity failures,
+use `devflow-connect`.
 
 ## Integrating MauiDevFlow into a MAUI App
 

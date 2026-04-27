@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Cli.DevFlow.Skills;
 using Microsoft.Maui.Cli.Utils;
 
 namespace Microsoft.Maui.Cli.DevFlow;
@@ -1172,11 +1173,17 @@ public class DevFlowCommands
 
         devflowCommand.Add(mauiCommand);
 
+        // ===== init / skills commands =====
+        var initCommand = DevFlowSkillCommands.CreateInitCommand(jsonOption, noJsonOption, output);
+        initCommand.Aliases.Add("onboard");
+        devflowCommand.Add(initCommand);
+        devflowCommand.Add(DevFlowSkillCommands.CreateSkillsCommand(jsonOption, noJsonOption, output));
+
         // ===== update-skill command =====
         var forceOption = new Option<bool>("--force", "-y") { Description = "Skip confirmation prompt" };
         var outputDirOption = new Option<string?>("--output", "-o") { Description = "Output directory (defaults to current directory)" };
         var branchOption = new Option<string>("--branch", "-b") { Description = "GitHub branch to download from", DefaultValueFactory = _ => "main" };
-        var updateSkillCmd = new Command("update-skill", "Download the latest maui-ai-debugging skill from GitHub")
+        var updateSkillCmd = new Command("update-skill", "Download the legacy maui-ai-debugging skill from GitHub")
         {
             forceOption, outputDirOption, branchOption
         };
@@ -1187,6 +1194,7 @@ public class DevFlowCommands
             var branch = ctx.GetValue(branchOption)!;
             await UpdateSkillAsync(force, output, branch);
         });
+        updateSkillCmd.Hidden = true;
         devflowCommand.Add(updateSkillCmd);
 
         // ===== skill-version command =====
@@ -1202,6 +1210,7 @@ public class DevFlowCommands
             var branch = ctx.GetValue(skillVersionBranchOption)!;
             await SkillVersionAsync(output, branch);
         });
+        skillVersionCmd.Hidden = true;
         devflowCommand.Add(skillVersionCmd);
 
         // ===== broker commands =====
@@ -2123,6 +2132,13 @@ public class DevFlowCommands
         new("broker stop", "Stop the broker daemon", true),
         new("broker status", "Show broker status", false),
         new("broker log", "Show broker log", false),
+        new("init", "Install DevFlow onboarding skills for this workspace", true),
+        new("skills install", "Install bundled DevFlow skills", true),
+        new("skills list", "List DevFlow skill install status", false),
+        new("skills check", "Check installed DevFlow skills", false),
+        new("skills update", "Update DevFlow skills from the current CLI bundle", true),
+        new("skills remove", "Remove an installed DevFlow skill", true),
+        new("skills doctor", "Validate DevFlow skills and CLI drift", false),
         new("mcp", "Start the MCP server", false),
         new("commands", "List all available commands", false),
         new("version", "Show CLI version", false),
@@ -3957,6 +3973,7 @@ public class DevFlowCommands
                 else
                 {
                     Console.WriteLine("No DevFlow-enabled projects found in current directory.");
+                    Console.WriteLine("Hint: Run 'maui devflow init' to install DevFlow onboarding skills for this workspace.");
                 }
             }
             return;
@@ -4069,6 +4086,7 @@ public class DevFlowCommands
         else
         {
             Console.WriteLine("📦 DevFlow-enabled projects: (none found in current directory)");
+            Console.WriteLine("💡 Suggestion: Run 'maui devflow init' to install DevFlow onboarding skills, then ask your AI agent to use devflow-onboard.");
         }
     }
 

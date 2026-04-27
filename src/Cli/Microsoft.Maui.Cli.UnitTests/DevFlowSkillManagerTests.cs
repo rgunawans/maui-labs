@@ -1,0 +1,142 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
+using Microsoft.Maui.Cli.DevFlow;
+using Microsoft.Maui.Cli.DevFlow.Skills;
+using Xunit;
+
+namespace Microsoft.Maui.Cli.UnitTests;
+
+[Collection("CLI")]
+public sealed class DevFlowSkillManagerTests
+{
+    [Fact]
+    public async Task InstallRecommended_ProjectScope_WritesBundledSkillsAndLock()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+
+        var result = await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+
+        Assert.Equal("install", result["action"]?.GetValue<string>());
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "devflow-onboard", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "devflow-connect", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "devflow-debug", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json")));
+
+        var statuses = await DevFlowSkillManager.CheckAsync("project", "claude", online: false);
+        var skills = Assert.IsType<JsonArray>(statuses["skills"]);
+        Assert.All(skills.OfType<JsonObject>(), skill => Assert.Equal("up-to-date", skill["status"]?.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task Check_ProjectScope_DetectsDirtySkillFile()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+
+        var skillPath = Path.Combine(workspace.Path, ".claude", "skills", "devflow-onboard", "SKILL.md");
+        await File.AppendAllTextAsync(skillPath, "\nmanual edit\n");
+
+        var result = await DevFlowSkillManager.CheckAsync("project", "claude", online: false);
+        var skills = Assert.IsType<JsonArray>(result["skills"]);
+        var onboard = skills.OfType<JsonObject>().Single(skill => skill["skillId"]?.GetValue<string>() == "devflow-onboard");
+        Assert.Equal("dirty", onboard["status"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Update_ProjectScope_RemovesObsoleteManagedSkillFiles()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+
+        var obsoletePath = Path.Combine(workspace.Path, ".claude", "skills", "devflow-onboard", "references", "old-file.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(obsoletePath)!);
+        await File.WriteAllTextAsync(obsoletePath, "old content");
+
+        var lockPath = Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json");
+        var lockFile = Assert.IsType<JsonObject>(CliJson.ParseNode(await File.ReadAllTextAsync(lockPath)));
+        var entries = Assert.IsType<JsonArray>(lockFile["entries"]);
+        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "devflow-onboard");
+        var files = Assert.IsType<JsonArray>(onboardEntry["files"]);
+        files.Add((JsonNode)new JsonObject
+        {
+            ["path"] = "references/old-file.md",
+            ["hash"] = HashContent("old content")
+        });
+        await File.WriteAllTextAsync(lockPath, CliJson.SerializeUntyped(lockFile));
+
+        await DevFlowSkillManager.UpdateAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+
+        Assert.False(File.Exists(obsoletePath));
+    }
+
+    [Fact]
+    public async Task Doctor_WithDifferentLocalToolManifestVersion_ReportsWarning()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        Directory.CreateDirectory(Path.Combine(workspace.Path, ".config"));
+        await File.WriteAllTextAsync(
+            Path.Combine(workspace.Path, ".config", "dotnet-tools.json"),
+            """
+            {
+              "version": 1,
+              "isRoot": true,
+              "tools": {
+                "Microsoft.Maui.Cli": {
+                  "version": "0.0.1",
+                  "commands": [ "maui" ]
+                }
+              }
+            }
+            """);
+
+        var result = await DevFlowSkillManager.DoctorAsync("project", "claude", online: false);
+
+        var warnings = Assert.IsType<JsonArray>(result["warnings"]);
+        Assert.Contains(warnings.Select(w => w?.GetValue<string>()), warning => warning?.Contains("local Microsoft.Maui.Cli version 0.0.1", StringComparison.Ordinal) == true);
+    }
+
+    sealed class TemporaryWorkspace : IDisposable
+    {
+        readonly string _originalDirectory;
+
+        TemporaryWorkspace(string path)
+        {
+            Path = path;
+            _originalDirectory = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(path);
+        }
+
+        public string Path { get; }
+
+        public static TemporaryWorkspace Create()
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"maui-devflow-skills-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(path);
+            return new TemporaryWorkspace(path);
+        }
+
+        public void Dispose()
+        {
+            Directory.SetCurrentDirectory(_originalDirectory);
+            try
+            {
+                Directory.Delete(Path, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for test temp folders.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Best-effort cleanup for test temp folders.
+            }
+        }
+    }
+
+    static string HashContent(string content)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content.ReplaceLineEndings("\n")));
+        return "sha256-" + Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+}
