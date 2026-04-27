@@ -4086,7 +4086,7 @@ public class DevFlowCommands
         else
         {
             Console.WriteLine("📦 DevFlow-enabled projects: (none found in current directory)");
-            Console.WriteLine("💡 Suggestion: Run 'maui devflow init' to install DevFlow onboarding skills, then ask your AI agent to use devflow-onboard.");
+            Console.WriteLine("💡 Suggestion: Run 'maui devflow init' to install DevFlow onboarding skills, then ask your AI agent to use maui-devflow-onboard.");
         }
     }
 

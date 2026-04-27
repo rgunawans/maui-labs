@@ -4,8 +4,8 @@
   "description": "Skills for .NET MAUI development: DevFlow automation, platform bindings, workload diagnostics, profiling, and accessibility.",
   "skills": [
     "./skills/",
-    "../../.claude/skills/devflow-onboard/",
-    "../../.claude/skills/devflow-connect/",
-    "../../.claude/skills/devflow-debug/"
+    "../../.claude/skills/maui-devflow-onboard/",
+    "../../.claude/skills/maui-devflow-connect/",
+    "../../.claude/skills/maui-devflow-debug/"
   ]
 }

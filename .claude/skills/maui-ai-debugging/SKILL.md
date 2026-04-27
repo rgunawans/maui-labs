@@ -16,7 +16,7 @@ description: >
 # MAUI AI Debugging
 
 Compatibility note: this legacy skill name is retained for older clients and the hidden
-`maui devflow update-skill` path. The canonical replacement is `devflow-debug`, installed
+`maui devflow update-skill` path. The canonical replacement is `maui-devflow-debug`, installed
 through `maui devflow init` / `maui devflow skills update`.
 
 Build, deploy, inspect, and debug .NET MAUI apps from the terminal. This skill enables a complete

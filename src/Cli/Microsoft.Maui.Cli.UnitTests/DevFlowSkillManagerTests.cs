@@ -19,9 +19,9 @@ public sealed class DevFlowSkillManagerTests
         var result = await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
 
         Assert.Equal("install", result["action"]?.GetValue<string>());
-        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "devflow-onboard", "SKILL.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "devflow-connect", "SKILL.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "devflow-debug", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-connect", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-debug", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json")));
 
         var statuses = await DevFlowSkillManager.CheckAsync("project", "claude", online: false);
@@ -35,12 +35,12 @@ public sealed class DevFlowSkillManagerTests
         using var workspace = TemporaryWorkspace.Create();
         await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
 
-        var skillPath = Path.Combine(workspace.Path, ".claude", "skills", "devflow-onboard", "SKILL.md");
+        var skillPath = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "SKILL.md");
         await File.AppendAllTextAsync(skillPath, "\nmanual edit\n");
 
         var result = await DevFlowSkillManager.CheckAsync("project", "claude", online: false);
         var skills = Assert.IsType<JsonArray>(result["skills"]);
-        var onboard = skills.OfType<JsonObject>().Single(skill => skill["skillId"]?.GetValue<string>() == "devflow-onboard");
+        var onboard = skills.OfType<JsonObject>().Single(skill => skill["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
         Assert.Equal("dirty", onboard["status"]?.GetValue<string>());
     }
 
@@ -50,14 +50,14 @@ public sealed class DevFlowSkillManagerTests
         using var workspace = TemporaryWorkspace.Create();
         await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
 
-        var obsoletePath = Path.Combine(workspace.Path, ".claude", "skills", "devflow-onboard", "references", "old-file.md");
+        var obsoletePath = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "references", "old-file.md");
         Directory.CreateDirectory(Path.GetDirectoryName(obsoletePath)!);
         await File.WriteAllTextAsync(obsoletePath, "old content");
 
         var lockPath = Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json");
         var lockFile = Assert.IsType<JsonObject>(CliJson.ParseNode(await File.ReadAllTextAsync(lockPath)));
         var entries = Assert.IsType<JsonArray>(lockFile["entries"]);
-        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "devflow-onboard");
+        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
         var files = Assert.IsType<JsonArray>(onboardEntry["files"]);
         files.Add((JsonNode)new JsonObject
         {
@@ -85,7 +85,7 @@ public sealed class DevFlowSkillManagerTests
         var lockPath = Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json");
         var lockFile = Assert.IsType<JsonObject>(CliJson.ParseNode(await File.ReadAllTextAsync(lockPath)));
         var entries = Assert.IsType<JsonArray>(lockFile["entries"]);
-        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "devflow-onboard");
+        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
         var files = Assert.IsType<JsonArray>(onboardEntry["files"]);
         files.Add((JsonNode)new JsonObject
         {

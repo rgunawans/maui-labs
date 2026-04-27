@@ -193,8 +193,8 @@ internal static class DevFlowSkillCommands
         PrintOperationResults(result);
         Console.WriteLine();
         Console.WriteLine("Next prompt for your AI agent:");
-        Console.WriteLine("  Use the devflow-onboard skill to add MAUI DevFlow to this project.");
-        Console.WriteLine("  Use devflow-debug after the app is running for build/deploy/inspect/fix loops.");
+        Console.WriteLine("  Use the maui-devflow-onboard skill to add MAUI DevFlow to this project.");
+        Console.WriteLine("  Use maui-devflow-debug after the app is running for build/deploy/inspect/fix loops.");
         Console.WriteLine();
         Console.WriteLine("Manual fallback:");
         Console.WriteLine("  Add the DevFlow agent package, call builder.AddMauiDevFlowAgent() under #if DEBUG, build and run the app.");

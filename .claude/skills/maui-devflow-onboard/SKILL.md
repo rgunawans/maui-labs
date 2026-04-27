@@ -1,5 +1,5 @@
 ---
-name: devflow-onboard
+name: maui-devflow-onboard
 description: >-
   Add MAUI DevFlow to a .NET MAUI project with agent package references,
   MauiProgram.cs registration, Blazor WebView support, GTK variants, Central
@@ -7,9 +7,9 @@ description: >-
   DevFlow setup, reviewing what files to edit, choosing DevFlow packages, or
   continuing after `maui devflow init` installs skills. DO NOT USE FOR:
   troubleshooting an already-integrated app that cannot connect (use
-  devflow-connect), iterative app debugging after connection works (use
-  devflow-debug), or generic MAUI build failures. INVOKES: maui devflow CLI
-  and dotnet CLI.
+  maui-devflow-connect), iterative app debugging after connection works (use
+  maui-devflow-debug), or generic MAUI build failures. INVOKES: maui devflow
+  CLI and dotnet CLI.
 ---
 
 # DevFlow Onboard
@@ -26,8 +26,8 @@ Use this skill to add MAUI DevFlow to a project after `maui devflow init` has in
 
 ## Route Elsewhere
 
-- If package references and `AddMauiDevFlowAgent()` are already present but the CLI cannot connect, use `devflow-connect`.
-- If an agent is reachable and the user wants to inspect, tap, screenshot, or debug UI, use `devflow-debug`.
+- If package references and `AddMauiDevFlowAgent()` are already present but the CLI cannot connect, use `maui-devflow-connect`.
+- If an agent is reachable and the user wants to inspect, tap, screenshot, or debug UI, use `maui-devflow-debug`.
 
 ## Workflow
 
@@ -45,7 +45,7 @@ Use this skill to add MAUI DevFlow to a project after `maui devflow init` has in
    maui devflow ui tree --depth 1
    ```
 
-If verification fails after integration, switch to `devflow-connect`.
+If verification fails after integration, switch to `maui-devflow-connect`.
 
 ## Stop Signals
 

@@ -14,9 +14,9 @@ internal static class DevFlowSkillManager
 
     static readonly DevFlowSkillDefinition[] s_skills =
     [
-        new("devflow-onboard", "DevFlow Onboard", "Guides first-time MAUI DevFlow project integration.", Recommended: true),
-        new("devflow-connect", "DevFlow Connect", "Diagnoses DevFlow broker, agent, and device connectivity.", Recommended: true),
-        new("devflow-debug", "DevFlow Debug", "Guides build, deploy, inspect, and debug loops with MAUI DevFlow.", Recommended: true)
+        new("maui-devflow-onboard", "MAUI DevFlow Onboard", "Guides first-time MAUI DevFlow project integration.", Recommended: true),
+        new("maui-devflow-connect", "MAUI DevFlow Connect", "Diagnoses DevFlow broker, agent, and device connectivity.", Recommended: true),
+        new("maui-devflow-debug", "MAUI DevFlow Debug", "Guides build, deploy, inspect, and debug loops with MAUI DevFlow.", Recommended: true)
     ];
 
     static readonly Dictionary<string, string> s_targetDirectories = new(StringComparer.OrdinalIgnoreCase)

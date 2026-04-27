@@ -1,14 +1,14 @@
 ---
-name: devflow-connect
+name: maui-devflow-connect
 description: >-
   Diagnose and fix DevFlow agent connectivity issues between the maui CLI and
   running .NET MAUI apps. USE FOR: "maui devflow" connection failures, agent not
   found, port conflicts, adb forwarding issues on Android, broker discovery
   problems, and validating an already-onboarded app. DO NOT USE FOR: first-time
   DevFlow package installation or MauiProgram.cs registration (use
-  devflow-onboard), visual tree/CDP debugging after connection works (use
-  devflow-debug), or generic app build failures. INVOKES: maui devflow CLI,
-  dotnet CLI, adb, and Apple simctl tools.
+  maui-devflow-onboard), visual tree/CDP debugging after connection works (use
+  maui-devflow-debug), or generic app build failures. INVOKES: maui devflow
+  CLI, dotnet CLI, adb, and Apple simctl tools.
 ---
 
 # DevFlow Connect
@@ -26,10 +26,10 @@ Diagnose connectivity between the `maui` CLI and running .NET MAUI apps that alr
 
 ## When Not to Use
 
-- First-time DevFlow integration (use `devflow-onboard`)
+- First-time DevFlow integration (use `maui-devflow-onboard`)
 - Build or deployment failures (use standard build diagnostics)
-- Visual tree queries after connection works (use `devflow-debug`)
-- CDP/Blazor WebView debugging after connection works (use `devflow-debug`)
+- Visual tree queries after connection works (use `maui-devflow-debug`)
+- CDP/Blazor WebView debugging after connection works (use `maui-devflow-debug`)
 
 ## Prerequisites
 
@@ -66,7 +66,7 @@ builder.AddMauiDevFlowAgent();
 #endif
 ```
 
-If either the package reference or registration is missing, switch to `devflow-onboard`.
+If either the package reference or registration is missing, switch to `maui-devflow-onboard`.
 
 ### 3. Check Broker Status
 
@@ -163,8 +163,8 @@ A successful response returns the top-level visual tree. If this fails with a ti
 
 ## Stop Signals
 
-- Stop and switch to `devflow-onboard` if package references or `AddMauiDevFlowAgent()` are missing.
-- Stop and switch to `devflow-debug` once `maui devflow wait` succeeds and `ui tree` returns a tree.
+- Stop and switch to `maui-devflow-onboard` if package references or `AddMauiDevFlowAgent()` are missing.
+- Stop and switch to `maui-devflow-debug` once `maui devflow wait` succeeds and `ui tree` returns a tree.
 - Stop and ask which agent/device to target if multiple connected agents or devices match the app.
 - Stop after confirming a generic build/deploy failure; do not keep debugging broker connectivity until the app launches.
 
