@@ -109,6 +109,19 @@ maui apple simulator delete "iPhone 16 Pro"
 
 Run `maui <command> --help` for detailed options on any command.
 
+DevFlow file commands can use local files directly:
+
+```bash
+# Upload local bytes into the selected app storage root
+maui devflow storage files upload logs/app.log --file ./app.log
+
+# Download to a directory, preserving the device file name
+maui devflow storage files download logs/app.log --output ./downloads/
+
+# Download to an explicit local file name
+maui devflow storage files download logs/app.log --output ./downloads/app-copy.log
+```
+
 ## Global Options
 
 | Option | Description |

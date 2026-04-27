@@ -1032,7 +1032,11 @@ public class DevFlowCommands
         filesCommand.Add(filesListCmd);
 
         var filesDownloadPathArg = new Argument<string>("path") { Description = "Relative file path under the selected storage root" };
-        var filesDownloadCmd = new Command("download", "Download a file as base64 content") { filesDownloadPathArg };
+        var filesDownloadOutputOption = new Option<string?>("--output", "-o")
+        {
+            Description = "Local file or directory path to write the downloaded file to. Relative paths are resolved from the current directory."
+        };
+        var filesDownloadCmd = new Command("download", "Download a file as base64 content or write it locally") { filesDownloadPathArg, filesDownloadOutputOption };
         filesDownloadCmd.SetAction(async (ctx, ct) =>
         {
             var host = ctx.GetValue(agentHostOption)!;
@@ -1041,13 +1045,27 @@ public class DevFlowCommands
             var noJson = ctx.GetValue(noJsonOption);
             var path = ctx.GetValue(filesDownloadPathArg)!;
             var root = ctx.GetValue(filesRootOption);
-            await SimpleGetAsync(host, port, $"/api/v1/storage/files/{Uri.EscapeDataString(path)}{BuildStorageFilesQuery(root: root)}", output.ResolveJsonMode(json, noJson));
+            var outputPath = ctx.GetValue(filesDownloadOutputOption);
+            var isJson = output.ResolveJsonMode(json, noJson);
+
+            if (string.IsNullOrWhiteSpace(outputPath))
+                await SimpleGetAsync(host, port, $"/api/v1/storage/files/{Uri.EscapeDataString(path)}{BuildStorageFilesQuery(root: root)}", isJson);
+            else
+                await DownloadFileToLocalPathAsync(host, port, path, root, outputPath, isJson);
         });
         filesCommand.Add(filesDownloadCmd);
 
         var filesUploadPathArg = new Argument<string>("path") { Description = "Relative file path under the selected storage root" };
-        var filesUploadContentArg = new Argument<string>("contentBase64") { Description = "Base64-encoded file content" };
-        var filesUploadCmd = new Command("upload", "Upload base64 content to a file") { filesUploadPathArg, filesUploadContentArg };
+        var filesUploadContentArg = new Argument<string?>("contentBase64")
+        {
+            Description = "Base64-encoded file content. Omit when using --file.",
+            DefaultValueFactory = _ => null
+        };
+        var filesUploadFileOption = new Option<string?>("--file", "-f")
+        {
+            Description = "Local file to upload. Relative paths are resolved from the current directory."
+        };
+        var filesUploadCmd = new Command("upload", "Upload base64 content or a local file") { filesUploadPathArg, filesUploadContentArg, filesUploadFileOption };
         filesUploadCmd.SetAction(async (ctx, ct) =>
         {
             var host = ctx.GetValue(agentHostOption)!;
@@ -1055,9 +1073,15 @@ public class DevFlowCommands
             var json = ctx.GetValue(jsonOption);
             var noJson = ctx.GetValue(noJsonOption);
             var path = ctx.GetValue(filesUploadPathArg)!;
-            var contentBase64 = ctx.GetValue(filesUploadContentArg)!;
+            var contentBase64Argument = ctx.GetValue(filesUploadContentArg);
+            var localFilePath = ctx.GetValue(filesUploadFileOption);
             var root = ctx.GetValue(filesRootOption);
             var isJson = output.ResolveJsonMode(json, noJson);
+
+            var contentBase64 = await GetUploadContentBase64Async(contentBase64Argument, localFilePath, isJson);
+            if (contentBase64 is null)
+                return;
+
             await SimplePutAsync(host, port, $"/api/v1/storage/files/{Uri.EscapeDataString(path)}{BuildStorageFilesQuery(root: root)}", new JsonObject
             {
                 ["contentBase64"] = contentBase64
@@ -1858,6 +1882,130 @@ public class DevFlowCommands
             query.Add($"root={Uri.EscapeDataString(root)}");
 
         return query.Count == 0 ? string.Empty : "?" + string.Join("&", query);
+    }
+
+    private static async Task<string?> GetUploadContentBase64Async(string? contentBase64Argument, string? localFilePath, bool json)
+    {
+        var hasContentArgument = contentBase64Argument is not null;
+        var hasLocalFile = !string.IsNullOrWhiteSpace(localFilePath);
+
+        if (hasContentArgument == hasLocalFile)
+        {
+            Output.WriteError("Provide exactly one of contentBase64 or --file.", json, "InvocationError");
+            _errorOccurred = true;
+            return null;
+        }
+
+        if (hasContentArgument)
+            return contentBase64Argument!;
+
+        try
+        {
+            var fullPath = Path.GetFullPath(localFilePath!);
+            if (!File.Exists(fullPath))
+            {
+                Output.WriteError($"Local file not found: {fullPath}", json, "InvocationError");
+                _errorOccurred = true;
+                return null;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(fullPath);
+            return Convert.ToBase64String(bytes);
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
+        {
+            Output.WriteError($"Failed to read local file: {ex.Message}", json);
+            _errorOccurred = true;
+            return null;
+        }
+    }
+
+    private static async Task DownloadFileToLocalPathAsync(string host, int port, string devicePath, string? root, string destinationPath, bool json)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            http.Timeout = TimeSpan.FromSeconds(30);
+            var response = await http.GetAsync($"http://{host}:{port}/api/v1/storage/files/{Uri.EscapeDataString(devicePath)}{BuildStorageFilesQuery(root: root)}");
+            var body = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine(body);
+                _errorOccurred = true;
+                return;
+            }
+
+            var responseObject = CliJson.ParseNode(body) as JsonObject;
+            if (responseObject is null ||
+                !responseObject.TryGetPropertyValue("contentBase64", out var contentNode) ||
+                contentNode is null ||
+                contentNode.GetValueKind() != JsonValueKind.String)
+            {
+                Output.WriteError("Download response did not include contentBase64.", json);
+                _errorOccurred = true;
+                return;
+            }
+
+            var contentBase64 = contentNode.GetValue<string>();
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(contentBase64);
+            }
+            catch (FormatException ex)
+            {
+                Output.WriteError($"Download response contained invalid base64 content: {ex.Message}", json);
+                _errorOccurred = true;
+                return;
+            }
+
+            var localPath = ResolveDownloadDestinationPath(destinationPath, devicePath);
+            var parentDirectory = Path.GetDirectoryName(localPath);
+            if (!string.IsNullOrEmpty(parentDirectory))
+                Directory.CreateDirectory(parentDirectory);
+
+            await File.WriteAllBytesAsync(localPath, bytes);
+
+            if (json)
+            {
+                responseObject.Remove("contentBase64");
+                responseObject["success"] = true;
+                responseObject["localPath"] = localPath;
+                Console.WriteLine(CliJson.SerializeUntyped(responseObject));
+            }
+            else
+            {
+                Console.WriteLine($"Downloaded {devicePath} to {localPath}");
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or HttpRequestException or IOException or JsonException or NotSupportedException or TaskCanceledException or UnauthorizedAccessException)
+        {
+            Output.WriteError(ex.Message, json);
+            _errorOccurred = true;
+        }
+    }
+
+    private static string ResolveDownloadDestinationPath(string destinationPath, string devicePath)
+    {
+        var fullDestinationPath = Path.GetFullPath(destinationPath);
+        if (Directory.Exists(fullDestinationPath) || EndsWithDirectorySeparator(destinationPath))
+            return Path.Combine(fullDestinationPath, GetDeviceFileName(devicePath));
+
+        return fullDestinationPath;
+    }
+
+    private static bool EndsWithDirectorySeparator(string path)
+        => path.Length > 0 && (path[^1] == Path.DirectorySeparatorChar || path[^1] == Path.AltDirectorySeparatorChar);
+
+    private static string GetDeviceFileName(string devicePath)
+    {
+        var normalizedPath = devicePath.Replace('\\', '/').TrimEnd('/');
+        var fileName = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        if (string.IsNullOrEmpty(fileName))
+            throw new ArgumentException("The device path must include a file name.", nameof(devicePath));
+
+        return fileName;
     }
 
     // ===== Generic agent HTTP helpers (for preferences, platform, sensors, etc.) =====
