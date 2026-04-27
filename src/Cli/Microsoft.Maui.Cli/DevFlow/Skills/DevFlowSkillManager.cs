@@ -108,12 +108,13 @@ internal static class DevFlowSkillManager
 
     public static Task<JsonObject> RemoveAsync(string skillId, string scope, string target, bool force)
     {
+        var skill = GetSkill(skillId);
         var result = CreateBaseResult("remove", scope, target);
         var results = new JsonArray();
 
         foreach (var installTarget in ResolveInstallTargets(scope, target, allowAll: true))
         {
-            var status = CreateStatusObject(installTarget, skillId);
+            var status = CreateStatusObject(installTarget, skill.Id);
             var statusValue = status["status"]?.GetValue<string>();
             if (statusValue == "dirty" && !force)
             {
@@ -123,12 +124,12 @@ internal static class DevFlowSkillManager
                 continue;
             }
 
-            var skillDirectory = GetSkillDirectory(installTarget, skillId);
+            var skillDirectory = GetSkillDirectory(installTarget, skill.Id);
             if (Directory.Exists(skillDirectory))
                 Directory.Delete(skillDirectory, recursive: true);
 
             var lockFile = ReadLockFile(installTarget.LockFilePath);
-            RemoveLockEntry(lockFile, installTarget, skillId);
+            RemoveLockEntry(lockFile, installTarget, skill.Id);
             WriteLockFile(installTarget.LockFilePath, lockFile);
 
             status["action"] = "removed";

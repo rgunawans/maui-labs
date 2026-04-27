@@ -96,6 +96,19 @@ public sealed class DevFlowSkillManagerTests
         Assert.Contains(warnings.Select(w => w?.GetValue<string>()), warning => warning?.Contains("local Microsoft.Maui.Cli version 0.0.1", StringComparison.Ordinal) == true);
     }
 
+    [Fact]
+    public async Task Remove_WithPathTraversalSkillName_ThrowsAndDoesNotDeleteOutsideSkillRoot()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        var outsideDirectory = Path.Combine(workspace.Path, "outside");
+        Directory.CreateDirectory(outsideDirectory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            DevFlowSkillManager.RemoveAsync(Path.Combine("..", "..", "outside"), "project", "claude", force: true));
+
+        Assert.True(Directory.Exists(outsideDirectory));
+    }
+
     sealed class TemporaryWorkspace : IDisposable
     {
         readonly string _originalDirectory;
@@ -113,6 +126,7 @@ public sealed class DevFlowSkillManagerTests
         {
             var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"maui-devflow-skills-{Guid.NewGuid():N}");
             Directory.CreateDirectory(path);
+            File.WriteAllText(System.IO.Path.Combine(path, ".git"), string.Empty);
             return new TemporaryWorkspace(path);
         }
 
