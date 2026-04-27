@@ -179,8 +179,8 @@ internal static class DevFlowSkillManager
                     continue;
                 }
 
-                WriteSkillBundle(installTarget, skill, bundle);
                 var lockFile = ReadLockFile(installTarget.LockFilePath);
+                WriteSkillBundle(installTarget, skill, bundle, lockFile);
                 UpsertLockEntry(lockFile, installTarget, skill, bundle);
                 WriteLockFile(installTarget.LockFilePath, lockFile);
 
@@ -300,7 +300,7 @@ internal static class DevFlowSkillManager
         => relativePath.StartsWith($"evals{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ||
            string.Equals(relativePath, "evals", StringComparison.OrdinalIgnoreCase);
 
-    static void WriteSkillBundle(InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle)
+    static void WriteSkillBundle(InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle, JsonObject lockFile)
     {
         var skillDirectory = GetSkillDirectory(installTarget, skill.Id);
         Directory.CreateDirectory(skillDirectory);
@@ -312,7 +312,6 @@ internal static class DevFlowSkillManager
             File.WriteAllText(filePath, file.Content);
         }
 
-        var lockFile = ReadLockFile(installTarget.LockFilePath);
         var existingEntry = FindLockEntry(lockFile, installTarget, skill.Id);
         if (existingEntry?["files"] is JsonArray files)
         {
