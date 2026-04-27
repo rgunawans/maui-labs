@@ -150,6 +150,25 @@ public sealed class DevFlowSkillManagerTests
         Assert.True(Directory.Exists(outsideDirectory));
     }
 
+    [Fact]
+    public async Task Remove_UnmanagedSkillDirectoryWithoutForce_SkipsAndPreservesFiles()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        var skillDirectory = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard");
+        Directory.CreateDirectory(skillDirectory);
+        var skillFile = Path.Combine(skillDirectory, "SKILL.md");
+        await File.WriteAllTextAsync(skillFile, "unmanaged content");
+
+        var result = await DevFlowSkillManager.RemoveAsync("maui-devflow-onboard", "project", "claude", force: false);
+
+        var results = Assert.IsType<JsonArray>(result["results"]);
+        var status = Assert.IsType<JsonObject>(Assert.Single(results));
+        Assert.Equal("unknown-or-unmanaged", status["status"]?.GetValue<string>());
+        Assert.Equal("skipped", status["action"]?.GetValue<string>());
+        Assert.Contains("not managed by this CLI", status["message"]?.GetValue<string>());
+        Assert.True(File.Exists(skillFile));
+    }
+
     sealed class TemporaryWorkspace : IDisposable
     {
         readonly string _originalDirectory;

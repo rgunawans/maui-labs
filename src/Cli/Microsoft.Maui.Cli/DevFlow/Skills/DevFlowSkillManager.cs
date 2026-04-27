@@ -125,6 +125,14 @@ internal static class DevFlowSkillManager
                 continue;
             }
 
+            if (statusValue == "unknown-or-unmanaged" && !force)
+            {
+                status["action"] = "skipped";
+                status["message"] = "Skill files are not managed by this CLI. Re-run with --force to remove anyway.";
+                AddJsonObject(results, status);
+                continue;
+            }
+
             var skillDirectory = GetSkillDirectory(installTarget, skill.Id);
             if (Directory.Exists(skillDirectory))
                 Directory.Delete(skillDirectory, recursive: true);
