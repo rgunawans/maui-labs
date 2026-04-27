@@ -355,7 +355,7 @@ public class PlatformAgentService : DevFlowAgentService
                     var getState = infoClass.GetMethod("getState");
                     var getRunAttemptCount = infoClass.GetMethod("getRunAttemptCount");
 
-                    var id = getId?.Invoke(info)?.ToString() ?? "";
+                    var identifier = getId?.Invoke(info)?.ToString() ?? "";
                     var tags = new List<string>();
                     if (getTags?.Invoke(info) is Java.Util.ICollection tagSet)
                     {
@@ -370,7 +370,7 @@ public class PlatformAgentService : DevFlowAgentService
 
                     jobs.Add(new
                     {
-                        id,
+                        identifier,
                         tags = tags.ToArray(),
                         state,
                         runAttemptCount
@@ -422,7 +422,7 @@ public class PlatformAgentService : DevFlowAgentService
             success = false,
             supported = false,
             identifier,
-            error = $"Running job '{identifier}' is not supported on Android because the original WorkManager worker type and request parameters cannot be reconstructed safely from the listed work id or tags."
+            error = $"Running job '{identifier}' is not supported on Android because the original WorkManager worker type and request parameters cannot be reconstructed safely from the listed identifier or tags."
         });
 #elif IOS || MACCATALYST
         try

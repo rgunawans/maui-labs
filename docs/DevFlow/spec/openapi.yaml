@@ -1401,7 +1401,7 @@ paths:
       summary: List platform background jobs
       description: >
         Returns platform background jobs known to the agent. Android reports
-        WorkManager work IDs, tags, states, and run attempts. iOS and Mac
+        WorkManager identifiers, tags, states, and run attempts. iOS and Mac
         Catalyst report pending BGTaskScheduler requests.
       responses:
         "200":
@@ -1423,7 +1423,7 @@ paths:
         Catalyst submit a BGTaskRequest for the identifier; pass `type` when
         the task is known to be an app refresh task. Android currently reports
         `success=false` because WorkManager worker types and request inputs
-        cannot be reconstructed safely from the listed work ID or tags.
+        cannot be reconstructed safely from the listed identifier or tags.
       parameters:
         - name: identifier
           in: path

@@ -2090,7 +2090,7 @@
           "device"
         ],
         "summary": "List platform background jobs",
-        "description": "Returns platform background jobs known to the agent. Android reports WorkManager work IDs, tags, states, and run attempts. iOS and Mac Catalyst report pending BGTaskScheduler requests.\n",
+        "description": "Returns platform background jobs known to the agent. Android reports WorkManager identifiers, tags, states, and run attempts. iOS and Mac Catalyst report pending BGTaskScheduler requests.\n",
         "responses": {
           "200": {
             "description": "Platform job list.",
@@ -2115,7 +2115,7 @@
           "device"
         ],
         "summary": "Trigger a platform background job",
-        "description": "Attempts to trigger the named platform background job. iOS and Mac Catalyst submit a BGTaskRequest for the identifier; pass `type` when the task is known to be an app refresh task. Android currently reports `success=false` because WorkManager worker types and request inputs cannot be reconstructed safely from the listed work ID or tags.\n",
+        "description": "Attempts to trigger the named platform background job. iOS and Mac Catalyst submit a BGTaskRequest for the identifier; pass `type` when the task is known to be an app refresh task. Android currently reports `success=false` because WorkManager worker types and request inputs cannot be reconstructed safely from the listed identifier or tags.\n",
         "parameters": [
           {
             "name": "identifier",
@@ -5113,14 +5113,13 @@
       "PlatformJob": {
         "type": "object",
         "description": "A platform background job. Android jobs expose WorkManager fields; iOS and Mac Catalyst jobs expose BGTaskScheduler fields.",
+        "required": [
+          "identifier"
+        ],
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Android WorkManager UUID. Omitted for iOS and Mac Catalyst BGTaskScheduler requests."
-          },
           "identifier": {
             "type": "string",
-            "description": "Platform job identifier. For iOS and Mac Catalyst this is the BGTask identifier."
+            "description": "Platform job identifier. Android maps this to the WorkManager UUID; iOS and Mac Catalyst map this to the BGTask identifier."
           },
           "tags": {
             "type": "array",

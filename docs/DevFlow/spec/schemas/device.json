@@ -261,14 +261,13 @@
     "PlatformJob": {
       "type": "object",
       "description": "A platform background job. Android jobs expose WorkManager fields; iOS and Mac Catalyst jobs expose BGTaskScheduler fields.",
+      "required": [
+        "identifier"
+      ],
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Android WorkManager UUID. Omitted for iOS and Mac Catalyst BGTaskScheduler requests."
-        },
         "identifier": {
           "type": "string",
-          "description": "Platform job identifier. For iOS and Mac Catalyst this is the BGTask identifier."
+          "description": "Platform job identifier. Android maps this to the WorkManager UUID; iOS and Mac Catalyst map this to the BGTask identifier."
         },
         "tags": {
           "type": "array",
