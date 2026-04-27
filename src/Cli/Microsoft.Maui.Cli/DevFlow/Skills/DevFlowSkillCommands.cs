@@ -74,7 +74,7 @@ internal static class DevFlowSkillCommands
         listCommand.SetAction(async (ctx, ct) =>
         {
             var isJson = output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
-            var result = await DevFlowSkillManager.ListAsync(ctx.GetValue(listScopeOption)!, ctx.GetValue(listTargetOption)!);
+            var result = await DevFlowSkillManager.ListAsync(ctx.GetValue(listScopeOption)!, ctx.GetValue(listTargetOption)!, ct);
             output.WriteResult(result, isJson, PrintSkillStatuses);
         });
         skillsCommand.Add(listCommand);
@@ -95,7 +95,8 @@ internal static class DevFlowSkillCommands
             var result = await DevFlowSkillManager.CheckAsync(
                 ctx.GetValue(checkScopeOption)!,
                 ctx.GetValue(checkTargetOption)!,
-                ctx.GetValue(onlineOption));
+                ctx.GetValue(onlineOption),
+                ct);
             output.WriteResult(result, isJson, PrintSkillStatuses);
         });
         skillsCommand.Add(checkCommand);
@@ -142,7 +143,8 @@ internal static class DevFlowSkillCommands
                 ctx.GetValue(removeSkillArg)!,
                 ctx.GetValue(removeScopeOption)!,
                 ctx.GetValue(removeTargetOption)!,
-                ctx.GetValue(removeForceOption));
+                ctx.GetValue(removeForceOption),
+                ct);
             output.WriteResult(result, isJson, PrintOperationResults);
         });
         skillsCommand.Add(removeCommand);
@@ -162,7 +164,8 @@ internal static class DevFlowSkillCommands
             var result = await DevFlowSkillManager.DoctorAsync(
                 ctx.GetValue(doctorScopeOption)!,
                 ctx.GetValue(doctorTargetOption)!,
-                ctx.GetValue(doctorOnlineOption));
+                ctx.GetValue(doctorOnlineOption),
+                ct);
             output.WriteResult(result, isJson, PrintDoctor);
         });
         skillsCommand.Add(doctorCommand);

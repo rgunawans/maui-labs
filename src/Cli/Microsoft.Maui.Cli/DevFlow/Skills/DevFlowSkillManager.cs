@@ -36,21 +36,23 @@ internal static class DevFlowSkillManager
     public static async Task<JsonObject> UpdateAsync(string scope, string target, bool force, bool allowDowngrade, CancellationToken cancellationToken)
         => await WriteSkillsAsync(s_skills.Select(s => s.Id), scope, target, force, allowDowngrade, "update", cancellationToken);
 
-    public static Task<JsonObject> ListAsync(string scope, string target)
+    public static async Task<JsonObject> ListAsync(string scope, string target, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("list", scope, target);
         var items = new JsonArray();
-        foreach (var installTarget in ResolveInstallTargets(scope, target, allowAll: true))
+        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
+        foreach (var installTarget in installTargets)
         {
-            foreach (var skill in s_skills)
-                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id));
+            foreach (var (skill, bundle) in skillBundles)
+                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
         }
 
         result["skills"] = items;
-        return Task.FromResult(result);
+        return result;
     }
 
-    public static Task<JsonObject> CheckAsync(string scope, string target, bool online)
+    public static async Task<JsonObject> CheckAsync(string scope, string target, bool online, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("check", scope, target);
         result["online"] = online;
@@ -60,26 +62,30 @@ internal static class DevFlowSkillManager
         }
 
         var items = new JsonArray();
-        foreach (var installTarget in ResolveInstallTargets(scope, target, allowAll: true))
+        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
+        foreach (var installTarget in installTargets)
         {
-            foreach (var skill in s_skills)
-                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id));
+            foreach (var (skill, bundle) in skillBundles)
+                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
         }
 
         result["skills"] = items;
-        return Task.FromResult(result);
+        return result;
     }
 
-    public static Task<JsonObject> DoctorAsync(string scope, string target, bool online)
+    public static async Task<JsonObject> DoctorAsync(string scope, string target, bool online, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("doctor", scope, target);
         result["online"] = online;
 
         var items = new JsonArray();
-        foreach (var installTarget in ResolveInstallTargets(scope, target, allowAll: true))
+        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
+        foreach (var installTarget in installTargets)
         {
-            foreach (var skill in s_skills)
-                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id));
+            foreach (var (skill, bundle) in skillBundles)
+                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
         }
         result["skills"] = items;
 
@@ -104,18 +110,20 @@ internal static class DevFlowSkillManager
 
         AddScopeConflictWarnings(warnings, target);
         result["warnings"] = warnings;
-        return Task.FromResult(result);
+        return result;
     }
 
-    public static Task<JsonObject> RemoveAsync(string skillId, string scope, string target, bool force)
+    public static async Task<JsonObject> RemoveAsync(string skillId, string scope, string target, bool force, CancellationToken cancellationToken)
     {
         var skill = GetSkill(skillId);
+        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var bundle = await LoadSkillBundleAsync(skill, cancellationToken);
         var result = CreateBaseResult("remove", scope, target);
         var results = new JsonArray();
 
-        foreach (var installTarget in ResolveInstallTargets(scope, target, allowAll: true))
+        foreach (var installTarget in installTargets)
         {
-            var status = CreateStatusObject(installTarget, skill.Id);
+            var status = CreateStatusObject(installTarget, skill.Id, bundle);
             var statusValue = status["status"]?.GetValue<string>();
             if (statusValue == "dirty" && !force)
             {
@@ -137,7 +145,7 @@ internal static class DevFlowSkillManager
             if (Directory.Exists(skillDirectory))
                 Directory.Delete(skillDirectory, recursive: true);
 
-            UpdateLockFile(installTarget.LockFilePath, CancellationToken.None, lockFile =>
+            UpdateLockFile(installTarget.LockFilePath, cancellationToken, lockFile =>
             {
                 RemoveLockEntry(lockFile, installTarget, skill.Id);
                 return true;
@@ -149,7 +157,7 @@ internal static class DevFlowSkillManager
         }
 
         result["results"] = results;
-        return Task.FromResult(result);
+        return result;
     }
 
     static async Task<JsonObject> WriteSkillsAsync(IEnumerable<string> skillIds, string scope, string target, bool force, bool allowDowngrade, string action, CancellationToken cancellationToken)
@@ -229,9 +237,8 @@ internal static class DevFlowSkillManager
             ["cliVersion"] = GetCurrentCliVersion()
         };
 
-    static JsonObject CreateStatusObject(InstallTarget installTarget, string skillId, SkillBundle? knownBundle = null, JsonObject? knownLockFile = null)
+    static JsonObject CreateStatusObject(InstallTarget installTarget, string skillId, SkillBundle bundle, JsonObject? knownLockFile = null)
     {
-        var bundle = knownBundle ?? TryLoadSkillBundle(skillId);
         var lockFile = knownLockFile ?? ReadLockFile(installTarget.LockFilePath);
         var entry = FindLockEntry(lockFile, installTarget, skillId);
         var skillDirectory = GetSkillDirectory(installTarget, skillId);
@@ -252,7 +259,7 @@ internal static class DevFlowSkillManager
             {
                 status = "dirty";
             }
-            else if (bundle != null && string.Equals(GetString(entry, "contentHash"), bundle.ContentHash, StringComparison.Ordinal))
+            else if (string.Equals(GetString(entry, "contentHash"), bundle.ContentHash, StringComparison.Ordinal))
             {
                 status = "up-to-date";
             }
@@ -276,11 +283,23 @@ internal static class DevFlowSkillManager
             ["status"] = status,
             ["path"] = installTarget.GetDisplayPath(skillId),
             ["installedVersion"] = entry != null ? GetString(entry, "skillVersion") : null,
-            ["bundledVersion"] = bundle?.Version,
+            ["bundledVersion"] = bundle.Version,
             ["installedByCliVersion"] = entry != null ? GetString(entry, "installedByCliVersion") : null,
             ["contentHash"] = entry != null ? GetString(entry, "contentHash") : null,
-            ["bundledContentHash"] = bundle?.ContentHash
+            ["bundledContentHash"] = bundle.ContentHash
         };
+    }
+
+    static async Task<List<(DevFlowSkillDefinition Skill, SkillBundle Bundle)>> LoadSkillBundlesAsync(IEnumerable<DevFlowSkillDefinition> skills, CancellationToken cancellationToken)
+    {
+        var bundles = new List<(DevFlowSkillDefinition Skill, SkillBundle Bundle)>();
+        foreach (var skill in skills)
+        {
+            var bundle = await LoadSkillBundleAsync(skill, cancellationToken);
+            bundles.Add((skill, bundle));
+        }
+
+        return bundles;
     }
 
     static async Task<SkillBundle> LoadSkillBundleAsync(DevFlowSkillDefinition skill, CancellationToken cancellationToken)
@@ -311,15 +330,6 @@ internal static class DevFlowSkillManager
         }
 
         return new SkillBundle(skill.Id, GetCurrentCliVersion(), files, HashBundle(files));
-    }
-
-    static SkillBundle? TryLoadSkillBundle(string skillId)
-    {
-        var skill = s_skills.FirstOrDefault(s => string.Equals(s.Id, skillId, StringComparison.OrdinalIgnoreCase));
-        if (skill == null)
-            return null;
-
-        return LoadSkillBundleAsync(skill, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     static bool ShouldExcludeSkillAsset(string relativePath)

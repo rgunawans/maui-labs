@@ -24,7 +24,7 @@ public sealed class DevFlowSkillManagerTests
         Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-debug", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json")));
 
-        var statuses = await DevFlowSkillManager.CheckAsync("project", "claude", online: false);
+        var statuses = await DevFlowSkillManager.CheckAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
         var skills = Assert.IsType<JsonArray>(statuses["skills"]);
         Assert.All(skills.OfType<JsonObject>(), skill => Assert.Equal("up-to-date", skill["status"]?.GetValue<string>()));
     }
@@ -38,7 +38,7 @@ public sealed class DevFlowSkillManagerTests
         var skillPath = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "SKILL.md");
         await File.AppendAllTextAsync(skillPath, "\nmanual edit\n");
 
-        var result = await DevFlowSkillManager.CheckAsync("project", "claude", online: false);
+        var result = await DevFlowSkillManager.CheckAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
         var skills = Assert.IsType<JsonArray>(result["skills"]);
         var onboard = skills.OfType<JsonObject>().Single(skill => skill["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
         Assert.Equal("dirty", onboard["status"]?.GetValue<string>());
@@ -125,7 +125,7 @@ public sealed class DevFlowSkillManagerTests
             }
             """);
 
-        var result = await DevFlowSkillManager.DoctorAsync("project", "claude", online: false);
+        var result = await DevFlowSkillManager.DoctorAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
 
         var warnings = Assert.IsType<JsonArray>(result["warnings"]);
         Assert.Contains(warnings.Select(w => w?.GetValue<string>()), warning => warning?.Contains("local Microsoft.Maui.Cli version 0.0.1", StringComparison.Ordinal) == true);
@@ -145,7 +145,7 @@ public sealed class DevFlowSkillManagerTests
         Directory.CreateDirectory(outsideDirectory);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevFlowSkillManager.RemoveAsync(Path.Combine("..", "..", "outside"), "project", "claude", force: true));
+            DevFlowSkillManager.RemoveAsync(Path.Combine("..", "..", "outside"), "project", "claude", force: true, cancellationToken: CancellationToken.None));
 
         Assert.True(Directory.Exists(outsideDirectory));
     }
@@ -159,7 +159,7 @@ public sealed class DevFlowSkillManagerTests
         var skillFile = Path.Combine(skillDirectory, "SKILL.md");
         await File.WriteAllTextAsync(skillFile, "unmanaged content");
 
-        var result = await DevFlowSkillManager.RemoveAsync("maui-devflow-onboard", "project", "claude", force: false);
+        var result = await DevFlowSkillManager.RemoveAsync("maui-devflow-onboard", "project", "claude", force: false, cancellationToken: CancellationToken.None);
 
         var results = Assert.IsType<JsonArray>(result["results"]);
         var status = Assert.IsType<JsonObject>(Assert.Single(results));
