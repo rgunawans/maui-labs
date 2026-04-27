@@ -322,6 +322,9 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// <summary>Whether platform background jobs can be queried on this agent.</summary>
     protected virtual bool IsJobsSupported => false;
 
+    /// <summary>Whether platform background jobs can be triggered on this agent.</summary>
+    protected virtual bool IsJobRunSupported => IsJobsSupported;
+
     /// <summary>
     /// Gets the list of platform background jobs (Android Workers / iOS BGTasks).
     /// Override in platform-specific subclasses to query WorkManager or BGTaskScheduler.
@@ -663,7 +666,9 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             jobs = new
             {
                 supported = IsJobsSupported,
-                features = IsJobsSupported ? new[] { "list", "run" } : Array.Empty<string>()
+                features = IsJobsSupported
+                    ? IsJobRunSupported ? new[] { "list", "run" } : new[] { "list" }
+                    : Array.Empty<string>()
             }
         };
 

@@ -300,6 +300,20 @@ public class PlatformAgentService : DevFlowAgentService
         }
     }
 
+    protected override bool IsJobRunSupported
+    {
+        get
+        {
+#if IOS || MACCATALYST
+            return true;
+#elif ANDROID
+            return false;
+#else
+            return base.IsJobRunSupported;
+#endif
+        }
+    }
+
     protected override async Task<object?> GetPlatformJobsAsync()
     {
 #if ANDROID
