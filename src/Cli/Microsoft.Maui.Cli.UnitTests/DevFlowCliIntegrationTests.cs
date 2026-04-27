@@ -236,6 +236,60 @@ public class DevFlowCliIntegrationTests
     }
 
     [Fact]
+    public async Task StorageFilesDownload_WithNestedDevicePathAndOutputDirectory_UsesRemoteFileName()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+        var tempDir = Directory.CreateTempSubdirectory("maui-devflow-download-");
+
+        try
+        {
+            var result = await cli.InvokeAsync("devflow", "storage", "files", "download", "logs/app.log", "--output", tempDir.FullName, "--json");
+
+            Assert.Equal(0, result.ExitCode);
+            var outputFile = Path.Combine(tempDir.FullName, "app.log");
+            Assert.Equal("hello", await File.ReadAllTextAsync(outputFile));
+            var json = result.ParseJsonOutput();
+            Assert.Equal(outputFile, json.GetProperty("localPath").GetString());
+
+            var request = Assert.Single(server.RecordedRequests, r => r.Path.StartsWith("/api/v1/storage/files/", StringComparison.Ordinal));
+            Assert.Equal("GET", request.Method);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StorageFilesDownload_WithTrailingDirectorySeparator_CreatesDirectoryAndUsesRemoteFileName()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+        var tempDir = Directory.CreateTempSubdirectory("maui-devflow-download-");
+
+        try
+        {
+            var outputDirectory = Path.Combine(tempDir.FullName, "created-downloads") + Path.DirectorySeparatorChar;
+
+            var result = await cli.InvokeAsync("devflow", "storage", "files", "download", "logs/app.log", "--output", outputDirectory, "--json");
+
+            Assert.Equal(0, result.ExitCode);
+            var outputFile = Path.Combine(outputDirectory, "app.log");
+            Assert.Equal("hello", await File.ReadAllTextAsync(outputFile));
+            var json = result.ParseJsonOutput();
+            Assert.Equal(outputFile, json.GetProperty("localPath").GetString());
+
+            var request = Assert.Single(server.RecordedRequests, r => r.Path.StartsWith("/api/v1/storage/files/", StringComparison.Ordinal));
+            Assert.Equal("GET", request.Method);
+        }
+        finally
+        {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task StorageFilesUpload_UsesPutV1FilesRoute()
     {
         var (server, cli) = await CreateFixturesAsync();
@@ -275,6 +329,36 @@ public class DevFlowCliIntegrationTests
         }
         finally
         {
+            tempDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StorageFilesUpload_WithRelativeLocalFile_ReadsFromCurrentDirectory()
+    {
+        var (server, cli) = await CreateFixturesAsync();
+        await using var serverHandle = server;
+        var tempDir = Directory.CreateTempSubdirectory("maui-devflow-upload-");
+        var originalCurrentDirectory = Directory.GetCurrentDirectory();
+
+        try
+        {
+            var localFile = Path.Combine(tempDir.FullName, "payload.txt");
+            await File.WriteAllTextAsync(localFile, "relative content");
+            Directory.SetCurrentDirectory(tempDir.FullName);
+
+            var result = await cli.InvokeAsync("devflow", "storage", "files", "upload", "app.log", "--file", "payload.txt", "--json");
+
+            Assert.Equal(0, result.ExitCode);
+            var expectedBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes("relative content"));
+
+            var request = Assert.Single(server.RecordedRequests, r => r.Path == "/api/v1/storage/files/app.log");
+            Assert.Equal("PUT", request.Method);
+            Assert.Contains($"\"contentBase64\":\"{expectedBase64}\"", request.Body);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalCurrentDirectory);
             tempDir.Delete(recursive: true);
         }
     }
