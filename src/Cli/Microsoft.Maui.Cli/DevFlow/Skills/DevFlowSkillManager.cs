@@ -616,7 +616,7 @@ internal static class DevFlowSkillManager
     }
 
     static bool VersionsEquivalent(string left, string right)
-        => CompareVersionLike(left, right) == 0 || right.StartsWith(left, StringComparison.OrdinalIgnoreCase);
+        => CompareVersionLike(left, right) == 0;
 
     static bool TryParseVersionPrefix(string? value, out Version version)
     {

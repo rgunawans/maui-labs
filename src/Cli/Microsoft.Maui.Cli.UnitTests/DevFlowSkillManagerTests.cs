@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -131,6 +132,12 @@ public sealed class DevFlowSkillManagerTests
     }
 
     [Fact]
+    public void VersionsEquivalent_WithDifferentPatchPrefix_ReturnsFalse()
+    {
+        Assert.False(InvokeVersionsEquivalent("0.0.1", "0.0.10"));
+    }
+
+    [Fact]
     public async Task Remove_WithPathTraversalSkillName_ThrowsAndDoesNotDeleteOutsideSkillRoot()
     {
         using var workspace = TemporaryWorkspace.Create();
@@ -186,5 +193,12 @@ public sealed class DevFlowSkillManagerTests
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content.ReplaceLineEndings("\n")));
         return "sha256-" + Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    static bool InvokeVersionsEquivalent(string left, string right)
+    {
+        var method = typeof(DevFlowSkillManager).GetMethod("VersionsEquivalent", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return Assert.IsType<bool>(method.Invoke(null, [left, right]));
     }
 }
