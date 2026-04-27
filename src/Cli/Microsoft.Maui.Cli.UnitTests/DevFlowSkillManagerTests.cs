@@ -71,6 +71,40 @@ public sealed class DevFlowSkillManagerTests
     }
 
     [Fact]
+    public async Task Update_ProjectScope_SkipsObsoleteLockFilePathsOutsideSkillDirectory()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+
+        var traversalPath = Path.Combine(workspace.Path, "traversal-sentinel.txt");
+        var absolutePath = Path.Combine(workspace.Path, "absolute-sentinel.txt");
+        await File.WriteAllTextAsync(traversalPath, "traversal content");
+        await File.WriteAllTextAsync(absolutePath, "absolute content");
+
+        var lockPath = Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json");
+        var lockFile = Assert.IsType<JsonObject>(CliJson.ParseNode(await File.ReadAllTextAsync(lockPath)));
+        var entries = Assert.IsType<JsonArray>(lockFile["entries"]);
+        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "devflow-onboard");
+        var files = Assert.IsType<JsonArray>(onboardEntry["files"]);
+        files.Add((JsonNode)new JsonObject
+        {
+            ["path"] = Path.Combine("..", "..", "..", "traversal-sentinel.txt"),
+            ["hash"] = HashContent("traversal content")
+        });
+        files.Add((JsonNode)new JsonObject
+        {
+            ["path"] = absolutePath,
+            ["hash"] = HashContent("absolute content")
+        });
+        await File.WriteAllTextAsync(lockPath, CliJson.SerializeUntyped(lockFile));
+
+        await DevFlowSkillManager.UpdateAsync("project", "claude", force: true, allowDowngrade: false, CancellationToken.None);
+
+        Assert.True(File.Exists(traversalPath));
+        Assert.True(File.Exists(absolutePath));
+    }
+
+    [Fact]
     public async Task Doctor_WithDifferentLocalToolManifestVersion_ReportsWarning()
     {
         using var workspace = TemporaryWorkspace.Create();

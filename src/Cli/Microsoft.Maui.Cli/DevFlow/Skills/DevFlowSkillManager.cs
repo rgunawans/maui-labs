@@ -324,7 +324,9 @@ internal static class DevFlowSkillManager
                 if (relativePath == null || currentFiles.Contains(NormalizeRelativePath(relativePath)))
                     continue;
 
-                var obsoletePath = Path.Combine(skillDirectory, relativePath);
+                if (!TryResolveSkillFilePath(skillDirectory, relativePath, out var obsoletePath))
+                    continue;
+
                 if (File.Exists(obsoletePath))
                 {
                     File.Delete(obsoletePath);
@@ -349,7 +351,9 @@ internal static class DevFlowSkillManager
             if (relativePath == null || expectedHash == null)
                 return true;
 
-            var filePath = Path.Combine(skillDirectory, relativePath);
+            if (!TryResolveSkillFilePath(skillDirectory, relativePath, out var filePath))
+                return true;
+
             if (!File.Exists(filePath))
                 return true;
 
@@ -542,6 +546,33 @@ internal static class DevFlowSkillManager
 
     static string NormalizeRelativePath(string path)
         => path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+
+    static bool TryResolveSkillFilePath(string skillDirectory, string relativePath, out string filePath)
+    {
+        filePath = string.Empty;
+
+        try
+        {
+            var skillRoot = Path.GetFullPath(skillDirectory);
+            if (!Path.EndsInDirectorySeparator(skillRoot))
+                skillRoot += Path.DirectorySeparatorChar;
+
+            filePath = Path.GetFullPath(Path.Combine(skillDirectory, NormalizeRelativePath(relativePath)));
+            return filePath.StartsWith(skillRoot, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
 
     static string HashContent(string content)
         => HashString(content.ReplaceLineEndings("\n"));
