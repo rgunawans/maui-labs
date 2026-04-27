@@ -99,8 +99,8 @@ public sealed class InvokeTools
 		  argsJson: '["user@test.com", "pass123"]'
 		  resolve: "service"
 
-		For methods on UI elements, use maui_invoke with an element reference,
-		or call maui_invoke_action for registered shortcuts.
+		This tool only invokes methods by type name or DI-resolved service type.
+		For registered shortcuts, use maui_invoke_action.
 		""")]
 	public static async Task<string> Invoke(
 		McpAgentSession session,

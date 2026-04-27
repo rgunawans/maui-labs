@@ -176,6 +176,9 @@ The `Microsoft.Maui.DevFlow.Agent.Core` NuGet package includes a Roslyn analyzer
 | MAUI_DFA002 | Error | Method must be public static |
 | MAUI_DFA003 | Warning | Return type may not serialize cleanly |
 | MAUI_DFA004 | Info | Missing `[Description]` on parameter |
+| MAUI_DFA005 | Warning | Duplicate `[DevFlowAction]` name |
+
+Action names must be unique across the project. Duplicates cause the later registration to be silently ignored at runtime.
 
 ## Capabilities Detection
 

@@ -1,10 +1,2 @@
-## Release 0.1.0
-
-### New Rules
-
-Rule ID | Category | Severity | Notes
---------|----------|----------|-------
-MAUI_DFA001 | DevFlow | Error | Unsupported parameter type for [DevFlowAction]
-MAUI_DFA002 | DevFlow | Error | [DevFlowAction] method must be public static
-MAUI_DFA003 | DevFlow | Warning | Return type may not serialize cleanly
-MAUI_DFA004 | DevFlow | Info | Parameter missing [Description] attribute
+; Shipped analyzer releases
+; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md

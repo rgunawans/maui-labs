@@ -107,16 +107,50 @@ public partial class DevFlowAgentService
 			.ToArray();
 	}
 
+	private static readonly Lazy<HashSet<string>> s_trustedPlatformAssemblyNames = new(
+		GetTrustedPlatformAssemblyNames,
+		LazyThreadSafetyMode.ExecutionAndPublication);
+
 	private static bool IsFrameworkAssembly(Assembly asm)
 	{
 		var name = asm.GetName().Name;
-		if (name == null) return true;
-		return name.StartsWith("System", StringComparison.Ordinal)
-			|| name.StartsWith("Microsoft.Extensions", StringComparison.Ordinal)
-			|| name.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal)
-			|| name.StartsWith("netstandard", StringComparison.Ordinal)
-			|| name.StartsWith("mscorlib", StringComparison.Ordinal)
-			|| name.StartsWith("Fizzler", StringComparison.Ordinal)
+		if (string.IsNullOrEmpty(name))
+			return true;
+
+		return s_trustedPlatformAssemblyNames.Value.Contains(name)
+			|| IsExplicitlyBlockedAssembly(name);
+	}
+
+	private static HashSet<string> GetTrustedPlatformAssemblyNames()
+	{
+		var trustedPlatformAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+		var assemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+		if (string.IsNullOrEmpty(trustedPlatformAssemblies))
+			return assemblyNames;
+
+		// Determine the shared framework directory so we only treat assemblies
+		// shipped with the runtime as "framework". TPA may also include app
+		// assemblies (e.g. in test runners), which we must NOT filter out.
+		var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+
+		foreach (var path in trustedPlatformAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+		{
+			// Only include assemblies that live in the shared framework directory
+			if (runtimeDir != null && !path.StartsWith(runtimeDir, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			var assemblyName = Path.GetFileNameWithoutExtension(path);
+			if (!string.IsNullOrEmpty(assemblyName))
+				assemblyNames.Add(assemblyName);
+		}
+
+		return assemblyNames;
+	}
+
+	private static bool IsExplicitlyBlockedAssembly(string name)
+	{
+		return name.StartsWith("Fizzler", StringComparison.Ordinal)
 			|| name.StartsWith("SkiaSharp", StringComparison.Ordinal);
 	}
 
@@ -194,7 +228,7 @@ public partial class DevFlowAgentService
 		}
 
 		// Scan loaded assemblies
-		Type? bestMatch = null;
+		var matches = new List<Type>();
 		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
 		{
 			if (asm.IsDynamic || IsFrameworkAssembly(asm)) continue;
@@ -215,17 +249,28 @@ public partial class DevFlowAgentService
 					foreach (var t in asm.GetTypes())
 					{
 						if (string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase))
-							bestMatch = t;
+							matches.Add(t);
 					}
 				}
 				catch { }
 			}
 		}
 
-		if (bestMatch != null)
-			_typeResolutionCache.TryAdd(typeName, bestMatch);
+		// Deduplicate: if all matches refer to the same type, use it
+		var distinct = matches.Select(t => t.FullName).Distinct().ToList();
+		if (distinct.Count == 1)
+		{
+			_typeResolutionCache.TryAdd(typeName, matches[0]);
+			return matches[0];
+		}
 
-		return bestMatch;
+		if (distinct.Count > 1)
+		{
+			System.Diagnostics.Debug.WriteLine(
+				$"[Microsoft.Maui.DevFlow] Warning: Ambiguous type name '{typeName}' matched {distinct.Count} types: {string.Join(", ", distinct)}. Use a fully-qualified type name to resolve the ambiguity.");
+		}
+
+		return null;
 	}
 
 	#endregion
@@ -253,27 +298,35 @@ public partial class DevFlowAgentService
 		{
 			if (argElement.ValueKind == JsonValueKind.True || argElement.ValueKind == JsonValueKind.False)
 				return argElement.GetBoolean();
+			if (argElement.ValueKind != JsonValueKind.String)
+				throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
 			var str = argElement.GetString()
 				?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
 			return bool.Parse(str);
 		}
 
 		// Integer types
-		if (underlying == typeof(int)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt32() : int.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
-		if (underlying == typeof(long)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt64() : long.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
-		if (underlying == typeof(short)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt16() : short.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
-		if (underlying == typeof(byte)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetByte() : byte.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(int)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt32() : argElement.ValueKind == JsonValueKind.String ? int.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
+		if (underlying == typeof(long)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt64() : argElement.ValueKind == JsonValueKind.String ? long.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
+		if (underlying == typeof(short)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetInt16() : argElement.ValueKind == JsonValueKind.String ? short.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
+		if (underlying == typeof(byte)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetByte() : argElement.ValueKind == JsonValueKind.String ? byte.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
 
 		// Floating point
-		if (underlying == typeof(float)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetSingle() : float.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
-		if (underlying == typeof(double)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDouble() : double.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
-		if (underlying == typeof(decimal)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDecimal() : decimal.Parse(argElement.GetString() ?? throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}"));
+		if (underlying == typeof(float)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetSingle() : argElement.ValueKind == JsonValueKind.String ? float.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
+		if (underlying == typeof(double)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDouble() : argElement.ValueKind == JsonValueKind.String ? double.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
+		if (underlying == typeof(decimal)) return argElement.ValueKind == JsonValueKind.Number ? argElement.GetDecimal() : argElement.ValueKind == JsonValueKind.String ? decimal.Parse(argElement.GetString()!) : throw new ArgumentException($"Cannot convert {argElement.ValueKind} to {underlying.Name}");
 
 		// Enums
 		if (underlying.IsEnum)
 		{
-			var s = argElement.GetString() ?? argElement.GetRawText();
-			return Enum.Parse(underlying, s, ignoreCase: true);
+			if (argElement.ValueKind == JsonValueKind.String)
+			{
+				var s = argElement.GetString() ?? throw new ArgumentException($"Cannot convert null string to {underlying.Name}");
+				return Enum.Parse(underlying, s, ignoreCase: true);
+			}
+			if (argElement.ValueKind == JsonValueKind.Number)
+				return Enum.ToObject(underlying, argElement.GetInt64());
+			throw new ArgumentException($"Cannot convert {argElement.ValueKind} to enum {underlying.Name}");
 		}
 
 		// Arrays and lists
@@ -459,7 +512,7 @@ public partial class DevFlowAgentService
 				? HttpResponse.Json(new { success = true, action = action.Name, returnValue, returnType })
 				: InvokeError($"Action '{actionName}' failed: {error}");
 		}
-		catch (ArgumentException ex)
+		catch (Exception ex)
 		{
 			return InvokeError($"Argument error: {ex.Message}");
 		}
@@ -499,21 +552,28 @@ public partial class DevFlowAgentService
 		else
 		{
 			var argCount = body.Args?.Length ?? 0;
-			var matched = candidates.FirstOrDefault(m =>
+			var matched = candidates.Where(m =>
 			{
 				var ps = m.GetParameters();
 				var required = ps.Count(p => !p.HasDefaultValue);
 				return argCount >= required && argCount <= ps.Length;
-			});
+			}).ToArray();
 
-			if (matched == null)
+			if (matched.Length == 0)
 			{
 				var signatures = string.Join(", ", candidates.Select(m =>
 					$"{m.Name}({string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})"));
-				return InvokeError($"Ambiguous method '{body.MethodName}' on type '{type.FullName}'. Candidates: {signatures}");
+				return InvokeError($"No overload of '{body.MethodName}' on type '{type.FullName}' matches {argCount} argument(s). Candidates: {signatures}");
 			}
 
-			method = matched;
+			if (matched.Length > 1)
+			{
+				var signatures = string.Join(", ", matched.Select(m =>
+					$"{m.Name}({string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})"));
+				return InvokeError($"Ambiguous method '{body.MethodName}' on type '{type.FullName}' — {matched.Length} overloads match {argCount} argument(s). Use a fully-qualified type or adjust argument count. Candidates: {signatures}");
+			}
+
+			method = matched[0];
 		}
 
 		object? target = null;
@@ -549,7 +609,7 @@ public partial class DevFlowAgentService
 				? HttpResponse.Json(new { success = true, typeName = type.FullName, methodName = method.Name, returnValue, returnType })
 				: InvokeError($"Invoke failed: {error}");
 		}
-		catch (ArgumentException ex)
+		catch (Exception ex)
 		{
 			return InvokeError($"Argument error: {ex.Message}");
 		}
@@ -624,7 +684,9 @@ public partial class DevFlowAgentService
 					name = m.Name,
 					returnType = FormatParameterTypeName(m.ReturnType),
 					isStatic = m.IsStatic,
-					isAsync = typeof(Task).IsAssignableFrom(m.ReturnType),
+					isAsync = typeof(Task).IsAssignableFrom(m.ReturnType)
+					|| m.ReturnType == typeof(ValueTask)
+					|| (m.ReturnType.IsGenericType && m.ReturnType.GetGenericTypeDefinition() == typeof(ValueTask<>)),
 					devFlowActionName = actionAttr?.Name,
 					parameters = m.GetParameters().Select(p => new
 					{

@@ -11,15 +11,6 @@ public class DevFlowActionAnalyzerTests
 	// can resolve them without referencing the real Agent.Core assembly.
 	private const string AttributeStubs = """
 
-		namespace System.ComponentModel
-		{
-			[System.AttributeUsage(System.AttributeTargets.All)]
-			public sealed class DescriptionAttribute : System.Attribute
-			{
-				public DescriptionAttribute(string description) { }
-			}
-		}
-
 		namespace Microsoft.Maui.DevFlow.Agent.Core
 		{
 			[System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = false)]
