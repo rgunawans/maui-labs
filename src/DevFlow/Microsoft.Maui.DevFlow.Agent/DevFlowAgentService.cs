@@ -287,6 +287,19 @@ public class PlatformAgentService : DevFlowAgentService
         return base.CreateProfilerCollector();
 #endif
     }
+
+    protected override bool IsJobsSupported
+    {
+        get
+        {
+#if ANDROID || IOS || MACCATALYST
+            return true;
+#else
+            return base.IsJobsSupported;
+#endif
+        }
+    }
+
     protected override async Task<object?> GetPlatformJobsAsync()
     {
 #if ANDROID
@@ -297,7 +310,7 @@ public class PlatformAgentService : DevFlowAgentService
             var getInstanceMethod = wmClass.GetMethod("getInstance", Java.Lang.Class.FromType(typeof(global::Android.Content.Context)));
             var wm = getInstanceMethod?.Invoke(null, context);
             if (wm == null)
-                return new { platform = "Android", type = "WorkManager", error = "WorkManager not initialized", jobs = Array.Empty<object>() };
+                return new { platform = "Android", type = "WorkManager", supported = true, runSupported = false, error = "WorkManager not initialized", jobs = Array.Empty<object>() };
 
             // Build WorkQuery for all states
             var queryBuilderClass = Java.Lang.Class.ForName("androidx.work.WorkQuery$Builder");
@@ -316,7 +329,7 @@ public class PlatformAgentService : DevFlowAgentService
             var fromStatesMethod = queryBuilderClass.GetMethod("fromStates", Java.Lang.Class.FromType(typeof(Java.Util.IList)));
             var builder = fromStatesMethod?.Invoke(null, stateList);
             if (builder == null)
-                return new { platform = "Android", type = "WorkManager", error = "Failed to create WorkQuery", jobs = Array.Empty<object>() };
+                return new { platform = "Android", type = "WorkManager", supported = true, runSupported = false, error = "Failed to create WorkQuery", jobs = Array.Empty<object>() };
 
             var buildMethod = builder.Class.GetMethod("build");
             var query = buildMethod?.Invoke(builder);
@@ -365,11 +378,11 @@ public class PlatformAgentService : DevFlowAgentService
                 }
             }
 
-            return new { platform = "Android", type = "WorkManager", jobs };
+            return new { platform = "Android", type = "WorkManager", supported = true, runSupported = false, jobs };
         }
         catch (Exception ex)
         {
-            return new { platform = "Android", type = "WorkManager", error = ex.Message, jobs = Array.Empty<object>() };
+            return new { platform = "Android", type = "WorkManager", supported = true, runSupported = false, error = ex.Message, jobs = Array.Empty<object>() };
         }
 #elif IOS || MACCATALYST
         try
@@ -388,78 +401,38 @@ public class PlatformAgentService : DevFlowAgentService
                         earliestBeginDate = req.EarliestBeginDate?.ToString() ?? ""
                     });
                 }
-                tcs.TrySetResult(new { platform = "iOS", type = "BGTaskScheduler", jobs });
+                tcs.TrySetResult(new { platform = "iOS", type = "BGTaskScheduler", supported = true, runSupported = true, jobs });
             });
             return await tcs.Task;
         }
         catch (Exception ex)
         {
-            return new { platform = "iOS", type = "BGTaskScheduler", error = ex.Message, jobs = Array.Empty<object>() };
+            return new { platform = "iOS", type = "BGTaskScheduler", supported = true, runSupported = true, error = ex.Message, jobs = Array.Empty<object>() };
         }
 #else
         return await base.GetPlatformJobsAsync();
 #endif
     }
 
-    protected override async Task<object?> RunPlatformJobAsync(string identifier)
+    protected override async Task<object?> RunPlatformJobAsync(string identifier, string? type = null)
     {
 #if ANDROID
-        try
+        return await Task.FromResult<object?>(new
         {
-            var context = global::Android.App.Application.Context;
-            var wmClass = Java.Lang.Class.ForName("androidx.work.WorkManager");
-            var getInstanceMethod = wmClass.GetMethod("getInstance", Java.Lang.Class.FromType(typeof(global::Android.Content.Context)));
-            var wm = getInstanceMethod?.Invoke(null, context);
-            if (wm == null)
-                return new { success = false, error = "WorkManager not initialized", identifier };
-
-            // Look up existing work by tag
-            var getByTagMethod = wm.Class.GetMethod("getWorkInfosByTag", Java.Lang.Class.FromType(typeof(Java.Lang.String)));
-            var future = getByTagMethod?.Invoke(wm, new Java.Lang.String(identifier)) as Java.Lang.Object;
-            var getMethod = future?.Class.GetMethod("get");
-            var existingList = getMethod?.Invoke(future) as Java.Util.IList;
-
-            if (existingList == null || existingList.Size() == 0)
-                return new { success = false, error = $"No worker found with tag '{identifier}'", identifier };
-
-            // Cancel existing work by tag
-            var cancelMethod = wm.Class.GetMethod("cancelAllWorkByTag", Java.Lang.Class.FromType(typeof(Java.Lang.String)));
-            cancelMethod?.Invoke(wm, new Java.Lang.String(identifier));
-
-            // Build a OneTimeWorkRequest with the same tag
-            var otwrBuilderClass = Java.Lang.Class.ForName("androidx.work.OneTimeWorkRequest$Builder");
-            var workerClass = Java.Lang.Class.ForName("androidx.work.Worker");
-            var builderCtor = otwrBuilderClass.GetConstructor(Java.Lang.Class.FromType(typeof(Java.Lang.Class)));
-            var builder = builderCtor?.NewInstance(workerClass);
-
-            var addTagMethod = builder?.Class.GetMethod("addTag", Java.Lang.Class.FromType(typeof(Java.Lang.String)));
-            addTagMethod?.Invoke(builder, new Java.Lang.String(identifier));
-
-            var buildMethod = builder?.Class.GetMethod("build");
-            var workRequest = buildMethod?.Invoke(builder);
-
-            // Enqueue
-            var enqueueMethod = wm.Class.GetMethod("enqueue", Java.Lang.Class.ForName("androidx.work.WorkRequest"));
-            enqueueMethod?.Invoke(wm, workRequest!);
-
-            return await Task.FromResult<object?>(new
-            {
-                success = true,
-                message = $"Job '{identifier}' re-enqueued via WorkManager",
-                identifier
-            });
-        }
-        catch (Exception ex)
-        {
-            return new { success = false, error = ex.Message, identifier };
-        }
+            success = false,
+            supported = false,
+            identifier,
+            error = $"Running job '{identifier}' is not supported on Android because the original WorkManager worker type and request parameters cannot be reconstructed safely from the listed work id or tags."
+        });
 #elif IOS || MACCATALYST
         try
         {
-            var taskRequest = new BGProcessingTaskRequest(identifier)
-            {
-                EarliestBeginDate = null // run as soon as possible
-            };
+            var taskType = await ResolveBgTaskRequestTypeAsync(identifier, type);
+            BGTaskRequest taskRequest = taskType.Equals("refresh", StringComparison.OrdinalIgnoreCase)
+                ? new BGAppRefreshTaskRequest(identifier)
+                : new BGProcessingTaskRequest(identifier);
+
+            taskRequest.EarliestBeginDate = null;
 
             BGTaskScheduler.Shared.Submit(taskRequest, out var error);
             if (error != null)
@@ -469,7 +442,8 @@ public class PlatformAgentService : DevFlowAgentService
             {
                 success = true,
                 message = $"BGTask '{identifier}' submitted",
-                identifier
+                identifier,
+                type = taskType
             });
         }
         catch (Exception ex)
@@ -477,9 +451,34 @@ public class PlatformAgentService : DevFlowAgentService
             return new { success = false, error = ex.Message, identifier };
         }
 #else
-        return await base.RunPlatformJobAsync(identifier);
+        return await base.RunPlatformJobAsync(identifier, type);
 #endif
     }
+
+#if IOS || MACCATALYST
+    private static async Task<string> ResolveBgTaskRequestTypeAsync(string identifier, string? requestedType)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedType))
+        {
+            if (requestedType.Equals("processing", StringComparison.OrdinalIgnoreCase))
+                return "processing";
+            if (requestedType.Equals("refresh", StringComparison.OrdinalIgnoreCase))
+                return "refresh";
+
+            throw new ArgumentException("BGTask type must be 'processing' or 'refresh'.", nameof(requestedType));
+        }
+
+        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        BGTaskScheduler.Shared.GetPending((requests) =>
+        {
+            var pending = requests.FirstOrDefault(r =>
+                string.Equals(r.Identifier, identifier, StringComparison.Ordinal));
+            tcs.TrySetResult(pending is null ? null : pending is BGProcessingTaskRequest ? "processing" : "refresh");
+        });
+
+        return await tcs.Task ?? "processing";
+    }
+#endif
 
     protected override bool TryNativeTap(VisualElement ve)
     {

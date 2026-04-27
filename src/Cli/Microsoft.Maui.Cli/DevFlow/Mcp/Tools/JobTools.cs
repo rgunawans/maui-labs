@@ -18,14 +18,15 @@ public sealed class JobTools
 		return result.ValueKind == JsonValueKind.Undefined ? "Failed to list jobs." : result.ToString();
 	}
 
-	[McpServerTool(Name = "maui_jobs_run"), Description("Trigger a background job by identifier. On Android, re-enqueues a WorkManager worker by tag. On iOS, submits a BGTaskRequest for the given identifier.")]
+	[McpServerTool(Name = "maui_jobs_run"), Description("Trigger a supported background job by identifier. Android jobs can be listed but cannot be safely re-run; iOS submits a BGTaskRequest for the given identifier.")]
 	public static async Task<string> RunJob(
 		McpAgentSession session,
-		[Description("Job identifier (Android worker tag or iOS BGTask identifier)")] string identifier,
+		[Description("Job identifier returned by maui_jobs_list (Android WorkManager id or iOS BGTask identifier)")] string identifier,
+		[Description("Optional iOS BGTask type: 'processing' or 'refresh'. If omitted, the agent resolves it from pending requests when possible.")] string? type = null,
 		[Description("Agent HTTP port (optional if only one agent connected)")] int? agentPort = null)
 	{
 		var agent = await session.GetAgentClientAsync(agentPort);
-		var result = await agent.RunJobAsync(identifier);
+		var result = await agent.RunJobAsync(identifier, type);
 		return result.ValueKind == JsonValueKind.Undefined ? $"Failed to run job '{identifier}'." : result.ToString();
 	}
 }

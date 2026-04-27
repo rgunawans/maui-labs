@@ -692,16 +692,20 @@ public class AgentClient : IDisposable
         return await GetJsonAsync($"{DeviceApi}/jobs");
     }
 
-    public async Task<JsonElement> RunJobAsync(string identifier)
+    public async Task<JsonElement> RunJobAsync(string identifier, string? type = null)
     {
         try
         {
-            using var content = DriverJson.CreateJsonContent(new JsonObject());
-            var response = await _http.PostAsync($"{_baseUrl}{DeviceApi}/jobs/{Uri.EscapeDataString(identifier)}/run", content);
-            var body = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(body))
+            var payload = new JsonObject();
+            if (!string.IsNullOrWhiteSpace(type))
+                payload["type"] = type;
+
+            using var content = DriverJson.CreateJsonContent(payload);
+            using var response = await _http.PostAsync($"{_baseUrl}{DeviceApi}/jobs/{Uri.EscapeDataString(identifier)}/run", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(responseBody))
                 return default;
-            return DriverJson.ParseElement(body);
+            return DriverJson.ParseElement(responseBody);
         }
         catch { return default; }
     }
@@ -854,6 +858,8 @@ public class AgentCapabilities
     public bool Storage { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("profiler")]
     public bool Profiler { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("jobs")]
+    public bool Jobs { get; set; }
 }
 
 public class NetworkRequest

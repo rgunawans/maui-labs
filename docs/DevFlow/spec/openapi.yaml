@@ -33,7 +33,7 @@ tags:
   - name: logs
     description: Application logs
   - name: device
-    description: Device info, sensors, permissions, geolocation
+    description: Device info, sensors, jobs, permissions, geolocation
   - name: storage
     description: Preferences and secure storage
   - name: extensions
@@ -1391,6 +1391,61 @@ paths:
                 $ref: "./schemas/device.json#/$defs/SensorInfo"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/device/jobs:
+    get:
+      operationId: listDeviceJobs
+      tags: [device]
+      summary: List platform background jobs
+      description: >
+        Returns platform background jobs known to the agent. Android reports
+        WorkManager work IDs, tags, states, and run attempts. iOS and Mac
+        Catalyst report pending BGTaskScheduler requests.
+      responses:
+        "200":
+          description: Platform job list.
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/device.json#/$defs/JobListResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/device/jobs/{identifier}/run:
+    post:
+      operationId: runDeviceJob
+      tags: [device]
+      summary: Trigger a platform background job
+      description: >
+        Attempts to trigger the named platform background job. iOS and Mac
+        Catalyst submit a BGTaskRequest for the identifier; pass `type` when
+        the task is known to be an app refresh task. Android currently reports
+        `success=false` because WorkManager worker types and request inputs
+        cannot be reconstructed safely from the listed work ID or tags.
+      parameters:
+        - name: identifier
+          in: path
+          required: true
+          description: Platform job identifier returned by the list endpoint.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "./schemas/device.json#/$defs/JobRunRequest"
+      responses:
+        "200":
+          description: Job trigger result.
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/device.json#/$defs/JobRunResponse"
+        "501":
+          $ref: "#/components/responses/UnsupportedCapability"
         "500":
           $ref: "#/components/responses/InternalError"
 

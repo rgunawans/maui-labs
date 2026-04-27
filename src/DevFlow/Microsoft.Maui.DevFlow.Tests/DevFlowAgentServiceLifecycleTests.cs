@@ -32,6 +32,33 @@ public class DevFlowAgentServiceLifecycleTests
         Assert.Equal(app.GetType().Assembly.GetName().Name, afterBind.AppName);
     }
 
+    [Fact]
+    public async Task BaseAgent_ReportsJobsUnsupportedConsistently()
+    {
+        var port = GetFreePort();
+        using var service = new DevFlowAgentService(new AgentOptions { Port = port });
+        using var client = new AgentClient("localhost", port);
+
+        service.StartServerOnly(new ImmediateDispatcher());
+
+        var status = await WaitForStatusAsync(client);
+        Assert.NotNull(status);
+        Assert.NotNull(status!.Capabilities);
+        Assert.False(status.Capabilities!.Jobs);
+
+        var capabilities = await client.GetCapabilitiesAsync();
+        Assert.False(capabilities.GetProperty("jobs").GetProperty("supported").GetBoolean());
+        Assert.Empty(capabilities.GetProperty("jobs").GetProperty("features").EnumerateArray());
+
+        var jobs = await client.GetJobsAsync();
+        Assert.False(jobs.GetProperty("supported").GetBoolean());
+        Assert.Empty(jobs.GetProperty("jobs").EnumerateArray());
+
+        var run = await client.RunJobAsync("missing-job");
+        Assert.False(run.GetProperty("success").GetBoolean());
+        Assert.Contains("not supported", run.GetProperty("error").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static async Task<AgentStatus?> WaitForStatusAsync(AgentClient client)
     {
         for (int i = 0; i < 10; i++)

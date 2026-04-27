@@ -318,6 +318,9 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// <summary>Gets native window dimensions when MAUI reports 0. Override for platform-specific access.</summary>
     protected virtual (double width, double height) GetNativeWindowSize(IWindow window) => (0, 0);
 
+    /// <summary>Whether platform background jobs can be queried on this agent.</summary>
+    protected virtual bool IsJobsSupported => false;
+
     /// <summary>
     /// Gets the list of platform background jobs (Android Workers / iOS BGTasks).
     /// Override in platform-specific subclasses to query WorkManager or BGTaskScheduler.
@@ -328,7 +331,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     /// Triggers a platform background job by identifier.
     /// Override in platform-specific subclasses to enqueue via WorkManager or submit via BGTaskScheduler.
     /// </summary>
-    protected virtual Task<object?> RunPlatformJobAsync(string identifier) => Task.FromResult<object?>(null);
+    protected virtual Task<object?> RunPlatformJobAsync(string identifier, string? type = null) => Task.FromResult<object?>(null);
 
     private bool IsProfilerFeatureAvailable => _options.EnableProfiler;
 
@@ -502,7 +505,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         _server.MapWebSocket("/ws/v1/sensors", HandleSensorWebSocket);
 
         _server.MapGet("/api/v1/device/jobs", HandleJobsList);
-        _server.MapPost("/api/v1/device/jobs/{id}/run", HandleJobRun);
+        _server.MapPost("/api/v1/device/jobs/{identifier}/run", HandleJobRun);
 
         _server.MapGet("/api/v1/storage/preferences", HandlePreferencesList);
         _server.MapGet("/api/v1/storage/preferences/{key}", HandlePreferencesGet);
@@ -576,7 +579,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
                     sensors = true,
                     storage = true,
                     profiler = IsProfilerFeatureAvailable,
-                    jobs = true,
+                    jobs = IsJobsSupported,
                 },
                 running = _app != null,
                 cdpReady = _cdpWebViews.Any(v => v.IsReady),
@@ -650,8 +653,8 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             },
             jobs = new
             {
-                supported = true,
-                features = new[] { "list", "run" }
+                supported = IsJobsSupported,
+                features = IsJobsSupported ? new[] { "list", "run" } : Array.Empty<string>()
             }
         };
 
@@ -5902,12 +5905,17 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
 
     private async Task<HttpResponse> HandleJobRun(HttpRequest request)
     {
-        if (!request.RouteParams.TryGetValue("id", out var identifier) || string.IsNullOrWhiteSpace(identifier))
+        if (!request.RouteParams.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))
             return HttpResponse.Error("job identifier is required");
 
-        var result = await RunPlatformJobAsync(identifier);
+        var runRequest = request.BodyAs<JobRunRequest>();
+        var type = runRequest?.Type;
+        if (string.IsNullOrWhiteSpace(type) && request.QueryParams.TryGetValue("type", out var queryType))
+            type = queryType;
+
+        var result = await RunPlatformJobAsync(identifier, type);
         if (result == null)
-            return HttpResponse.Error($"Running jobs is not supported on {PlatformName}");
+            return HttpResponse.Error($"Running jobs is not supported on {PlatformName}", 501, "unsupported-capability");
 
         return HttpResponse.Json(result);
     }
@@ -5923,6 +5931,11 @@ public class FillRequest
 {
     public string? ElementId { get; set; }
     public string? Text { get; set; }
+}
+
+public class JobRunRequest
+{
+    public string? Type { get; set; }
 }
 
 public class NavigateRequest
