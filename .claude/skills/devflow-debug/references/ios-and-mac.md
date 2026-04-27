@@ -91,7 +91,7 @@ xcrun simctl delete unavailable               # clean up old sims
 ### Mac Catalyst
 
 **⚠️ Entitlements required:** Mac Catalyst apps are sandboxed by default and need the
-`com.apple.security.network.server` entitlement for MauiDevFlow's in-app HTTP server.
+`com.apple.security.network.server` entitlement for MAUI DevFlow's in-app HTTP server.
 Without it, the agent fails to bind its port and the app may crash silently.
 
 **Quick fix (disable sandbox for Debug):** Create `Platforms/MacCatalyst/Entitlements.Debug.plist`:
@@ -245,7 +245,7 @@ apple simulator privacy grant <UDID> location com.company.appid
 
 Available services: `all`, `calendar`, `contacts`, `contacts-limited`, `location`, `location-always`, `photos`, `photos-add`, `media-library`, `microphone`, `motion`, `reminders`, `siri`.
 
-### Using MauiDevFlow.Driver for permissions
+### Using MAUI DevFlow Driver for permissions
 ```csharp
 var driver = new iOSSimulatorAppDriver();
 driver.DeviceUdid = "<UDID>";

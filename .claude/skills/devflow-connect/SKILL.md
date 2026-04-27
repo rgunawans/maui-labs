@@ -6,8 +6,9 @@ description: >-
   found, port conflicts, adb forwarding issues on Android, broker discovery
   problems, and validating an already-onboarded app. DO NOT USE FOR: first-time
   DevFlow package installation or MauiProgram.cs registration (use
-  devflow-onboard), generic app build failures, or visual tree/CDP work after
-  connection is established.
+  devflow-onboard), visual tree/CDP debugging after connection works (use
+  devflow-debug), or generic app build failures. INVOKES: maui devflow CLI,
+  dotnet CLI, adb, and Apple simctl tools.
 ---
 
 # DevFlow Connect
@@ -20,15 +21,15 @@ Diagnose connectivity between the `maui` CLI and running .NET MAUI apps that alr
 - `maui devflow wait` times out
 - `maui devflow ui tree` fails with "Cannot connect to agent"
 - Port conflicts on 9223 or the broker port
-- Android emulator connectivity issues (adb port forwarding)
+- Android emulator connectivity issues (`adb reverse` or `adb forward`)
 - App is running but DevFlow commands fail
 
 ## When Not to Use
 
 - First-time DevFlow integration (use `devflow-onboard`)
 - Build or deployment failures (use standard build diagnostics)
-- Visual tree queries after connection works
-- CDP/Blazor WebView debugging
+- Visual tree queries after connection works (use `devflow-debug`)
+- CDP/Blazor WebView debugging after connection works (use `devflow-debug`)
 
 ## Prerequisites
 
@@ -54,7 +55,7 @@ Use the output to decide whether the problem is broker startup, missing project 
 Confirm the app has the DevFlow agent NuGet package:
 
 ```bash
-grep -r "Microsoft.Maui.DevFlow.Agent" *.csproj
+grep -R --include="*.csproj" "Microsoft.Maui.DevFlow.Agent" .
 ```
 
 The agent must be initialized in `MauiProgram.cs`:
@@ -83,17 +84,19 @@ maui devflow broker start
 
 #### Android Emulator
 
-Android emulators run in a network namespace. Port forwarding is required:
+Android emulators run in a network namespace. Broker access and agent access use opposite directions. Use `maui devflow list` to find the assigned agent port first.
 
 ```bash
-adb reverse tcp:19223 tcp:19223  # Broker port
-adb reverse tcp:9223 tcp:9223    # Agent default port
+maui devflow list                # note the agent port
+adb reverse tcp:19223 tcp:19223  # lets the app in the emulator reach the host broker
+adb forward tcp:<port> tcp:<port> # lets the host CLI reach the app agent
 ```
 
 Verify with:
 
 ```bash
 adb reverse --list
+adb forward --list
 ```
 
 #### iOS Simulator
@@ -106,7 +109,7 @@ xcrun simctl list devices booted
 
 #### Mac Catalyst / macOS
 
-Direct localhost access. Check if the port is in use:
+Direct localhost access. For Mac Catalyst, ensure Debug entitlements include `com.apple.security.network.server`. Check if the port is in use:
 
 ```bash
 lsof -i :9223
@@ -153,7 +156,20 @@ A successful response returns the top-level visual tree. If this fails with a ti
 | Symptom | Fix |
 |---------|-----|
 | No agents listed | Check agent NuGet package + `AddMauiDevFlowAgent()` call |
-| Android: connection refused | Run `adb reverse` for both ports (19223 + 9223) |
+| Android: connection refused | Run `adb reverse tcp:19223 tcp:19223` for broker and `adb forward tcp:<port> tcp:<port>` for the agent port from `maui devflow list` |
 | Port already in use | Kill stale process: `lsof -i :9223` then `kill <PID>` |
 | Broker not running | `maui devflow broker start` |
 | App crashes on startup | Check that DevFlow agent version matches MAUI version |
+
+## Stop Signals
+
+- Stop and switch to `devflow-onboard` if package references or `AddMauiDevFlowAgent()` are missing.
+- Stop and switch to `devflow-debug` once `maui devflow wait` succeeds and `ui tree` returns a tree.
+- Stop and ask which agent/device to target if multiple connected agents or devices match the app.
+- Stop after confirming a generic build/deploy failure; do not keep debugging broker connectivity until the app launches.
+
+## Critical Anti-patterns
+
+- Do not assume an empty `maui devflow list` means DevFlow is not installed; it only means no runtime agent is connected.
+- Do not use `adb reverse` for the agent HTTP port when the host CLI must connect into the emulator; use `adb forward tcp:<port> tcp:<port>` for that direction.
+- Do not kill random processes by name when resolving port conflicts. Identify the owning PID first.

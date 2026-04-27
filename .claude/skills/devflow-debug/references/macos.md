@@ -41,7 +41,7 @@ Shared source files (pages, view models, services) are typically linked from the
 
 ## NuGet Packages
 
-The app project needs the Platform.Maui.MacOS packages plus the standard MauiDevFlow packages:
+The app project needs the Platform.Maui.MacOS packages plus the standard MAUI DevFlow packages:
 
 ```xml
 <ItemGroup>
@@ -50,14 +50,14 @@ The app project needs the Platform.Maui.MacOS packages plus the standard MauiDev
   <PackageReference Include="Platform.Maui.MacOS.BlazorWebView" Version="*" />  <!-- Blazor only -->
   <PackageReference Include="Platform.Maui.Essentials.MacOS" Version="*" />
 
-  <!-- MauiDevFlow (standard packages — they include net10.0-macos support) -->
+  <!-- MAUI DevFlow (standard packages — they include net10.0-macos support) -->
   <PackageReference Include="Microsoft.Maui.DevFlow.Agent" Version="*" />
   <PackageReference Include="Microsoft.Maui.DevFlow.Blazor" Version="*" />  <!-- Blazor only -->
 </ItemGroup>
 ```
 
 The standard `Microsoft.Maui.DevFlow.Agent` and `Microsoft.Maui.DevFlow.Blazor` packages include
-`net10.0-macos` targets — no separate macOS-specific MauiDevFlow packages needed.
+`net10.0-macos` targets — no separate macOS-specific MAUI DevFlow packages needed.
 
 ## Registration
 

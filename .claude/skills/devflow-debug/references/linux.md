@@ -5,7 +5,7 @@ Platform-specific setup and usage for .NET MAUI apps running on Linux via Maui.G
 ## Overview
 
 Maui.Gtk apps target `net10.0` (not a platform-specific TFM like `net10.0-ios`) and use
-GTK4 via GirCore bindings. MauiDevFlow provides dedicated Linux packages that work with
+GTK4 via GirCore bindings. MAUI DevFlow provides dedicated Linux packages that work with
 this architecture.
 
 ## NuGet Packages

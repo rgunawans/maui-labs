@@ -90,7 +90,7 @@ registers (range 10223–10899).
 
 If the broker isn't available (fallback mode), forward the port from `.mauidevflow` instead:
 ```bash
-adb reverse tcp:9223 tcp:9223                # Fallback: direct agent port
+adb forward tcp:9223 tcp:9223                # Fallback: direct agent port
 ```
 
 Then verify: `maui devflow ui status` and `maui devflow webview status`.
@@ -154,7 +154,7 @@ adb shell am start -n <pkg>/<activity>        # launch activity
 adb shell am force-stop <pkg>                 # kill app
 ```
 
-### Port forwarding (critical for MauiDevFlow)
+### Port forwarding (critical for MAUI DevFlow)
 ```bash
 adb reverse tcp:19223 tcp:19223              # Broker (agent → host)
 adb forward tcp:<port> tcp:<port>            # Agent (CLI → emulator, get port from `maui devflow list`)

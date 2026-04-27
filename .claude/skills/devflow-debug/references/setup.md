@@ -188,7 +188,7 @@ The library checks at runtime and logs a message:
 
 The `chobitsu.js` file is included in the NuGet package as a static web asset. It is
 automatically available at the root of your app's `wwwroot/` — no `.targets` file copying,
-no manual downloads. It works in both Debug and Release builds (though MauiDevFlow itself
+no manual downloads. It works in both Debug and Release builds (though MAUI DevFlow itself
 should only be referenced in Debug configurations).
 
 ## 5. Mac Catalyst: Entitlements
@@ -264,7 +264,7 @@ The agent forward uses the port shown in `maui devflow list` after the agent reg
 
 **Fallback (no broker):** If using direct mode with a `.mauidevflow` config file:
 ```bash
-adb reverse tcp:9223 tcp:9223    # Direct agent port (single port for Agent + CDP)
+adb forward tcp:9223 tcp:9223    # Direct agent port (single port for Agent + CDP)
 ```
 
 ## 7. Verify Setup
@@ -291,7 +291,7 @@ If status commands fail:
 
 ## Quick Checklist
 
-For an AI agent setting up MauiDevFlow in a new project:
+For an AI agent setting up MAUI DevFlow in a new project:
 
 1. [ ] `Microsoft.Maui.DevFlow.Agent` NuGet package added (or `Microsoft.Maui.DevFlow.Agent.Gtk` for Linux)
 2. [ ] `Microsoft.Maui.DevFlow.Blazor` NuGet package added (Blazor Hybrid only; or `Microsoft.Maui.DevFlow.Blazor.Gtk` for Linux)
