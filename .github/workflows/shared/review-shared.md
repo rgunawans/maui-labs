@@ -17,7 +17,7 @@ tools:
 
 safe-outputs:
   create-pull-request-review-comment:
-    max: 25
+    max: 50
     target: "*"
   submit-pull-request-review:
     max: 1
@@ -126,7 +126,7 @@ After posting inline comments, call `submit_pull_request_review` with `event: "C
 
 > **🚫 NEVER use `REQUEST_CHANGES` or `APPROVE` events.** The safe-output config only allows `COMMENT`. Using any other event will fail and block the entire review from posting.
 
-**Cap inline comments at 25** (the safe-output limit). If more than 25 findings, post the 25 most severe inline and include the rest only in the summary.
+**Cap inline comments at 50** (the safe-output limit). If more than 50 findings, post the 50 most severe inline and include the rest only in the summary.
 
 #### Part B: Lean Summary Comment
 
