@@ -71,13 +71,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\..\.claude\skills\maui-devflow-onboard\**\*" LogicalName="devflow.skills/maui-devflow-onboard/%(RecursiveDir)%(Filename)%(Extension)">
+    <EmbeddedResource Include="..\..\..\plugins\dotnet-maui\skills\maui-devflow-onboard\**\*" LogicalName="devflow.skills/maui-devflow-onboard/%(RecursiveDir)%(Filename)%(Extension)">
       <WithCulture>false</WithCulture>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\..\..\.claude\skills\maui-devflow-connect\**\*" LogicalName="devflow.skills/maui-devflow-connect/%(RecursiveDir)%(Filename)%(Extension)">
-      <WithCulture>false</WithCulture>
-    </EmbeddedResource>
-    <EmbeddedResource Include="..\..\..\.claude\skills\maui-devflow-debug\**\*" LogicalName="devflow.skills/maui-devflow-debug/%(RecursiveDir)%(Filename)%(Extension)">
+    <EmbeddedResource Include="..\..\..\plugins\dotnet-maui\skills\maui-devflow-debug\**\*" LogicalName="devflow.skills/maui-devflow-debug/%(RecursiveDir)%(Filename)%(Extension)">
       <WithCulture>false</WithCulture>
     </EmbeddedResource>
   </ItemGroup>

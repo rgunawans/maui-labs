@@ -9,15 +9,19 @@ internal static class DevFlowSkillCommands
     {
         var scopeOption = CreateScopeOption("project");
         var targetOption = CreateTargetOption();
-        var forceOption = new Option<bool>("--force", "-y") { Description = "Overwrite dirty or unmanaged skill files" };
+        var pathOption = CreatePathOption();
+        var forceOption = new Option<bool>("--force", "-y") { Description = "Force replacement, including skills installed by a newer CLI" };
         var allowDowngradeOption = new Option<bool>("--allow-downgrade") { Description = "Allow replacing skills installed by a newer CLI" };
+        var interactiveOption = CreateInteractiveOption();
 
         var command = new Command("init", "Initialize MAUI DevFlow skills for this workspace")
         {
             scopeOption,
             targetOption,
+            pathOption,
             forceOption,
-            allowDowngradeOption
+            allowDowngradeOption,
+            interactiveOption
         };
 
         command.SetAction(async (ctx, ct) =>
@@ -26,8 +30,10 @@ internal static class DevFlowSkillCommands
             var result = await DevFlowSkillManager.InstallRecommendedAsync(
                 ctx.GetValue(scopeOption)!,
                 ctx.GetValue(targetOption)!,
+                ctx.GetValue(pathOption),
                 ctx.GetValue(forceOption),
                 ctx.GetValue(allowDowngradeOption),
+                CreateConfirmation(ctx.GetValue(interactiveOption)),
                 ct);
 
             output.WriteResult(result, isJson, PrintInitSummary);
@@ -42,14 +48,18 @@ internal static class DevFlowSkillCommands
 
         var installScopeOption = CreateScopeOption("project");
         var installTargetOption = CreateTargetOption();
-        var installForceOption = new Option<bool>("--force", "-y") { Description = "Overwrite dirty or unmanaged skill files" };
+        var installPathOption = CreatePathOption();
+        var installForceOption = new Option<bool>("--force", "-y") { Description = "Force replacement, including skills installed by a newer CLI" };
         var installAllowDowngradeOption = new Option<bool>("--allow-downgrade") { Description = "Allow replacing skills installed by a newer CLI" };
+        var installInteractiveOption = CreateInteractiveOption();
         var installCommand = new Command("install", "Install bundled MAUI DevFlow skills")
         {
             installScopeOption,
             installTargetOption,
+            installPathOption,
             installForceOption,
-            installAllowDowngradeOption
+            installAllowDowngradeOption,
+            installInteractiveOption
         };
         installCommand.SetAction(async (ctx, ct) =>
         {
@@ -57,8 +67,10 @@ internal static class DevFlowSkillCommands
             var result = await DevFlowSkillManager.InstallAsync(
                 ctx.GetValue(installScopeOption)!,
                 ctx.GetValue(installTargetOption)!,
+                ctx.GetValue(installPathOption),
                 ctx.GetValue(installForceOption),
                 ctx.GetValue(installAllowDowngradeOption),
+                CreateConfirmation(ctx.GetValue(installInteractiveOption)),
                 ct);
             output.WriteResult(result, isJson, PrintOperationResults);
         });
@@ -66,26 +78,30 @@ internal static class DevFlowSkillCommands
 
         var listScopeOption = CreateScopeOption("project", allowAll: true);
         var listTargetOption = CreateTargetOption();
+        var listPathOption = CreatePathOption();
         var listCommand = new Command("list", "List MAUI DevFlow skill install status")
         {
             listScopeOption,
-            listTargetOption
+            listTargetOption,
+            listPathOption
         };
         listCommand.SetAction(async (ctx, ct) =>
         {
             var isJson = output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
-            var result = await DevFlowSkillManager.ListAsync(ctx.GetValue(listScopeOption)!, ctx.GetValue(listTargetOption)!, ct);
+            var result = await DevFlowSkillManager.ListAsync(ctx.GetValue(listScopeOption)!, ctx.GetValue(listTargetOption)!, ctx.GetValue(listPathOption), ct);
             output.WriteResult(result, isJson, PrintSkillStatuses);
         });
         skillsCommand.Add(listCommand);
 
         var checkScopeOption = CreateScopeOption("project", allowAll: true);
         var checkTargetOption = CreateTargetOption();
+        var checkPathOption = CreatePathOption();
         var onlineOption = new Option<bool>("--online") { Description = "Check for newer CLI packages instead of raw skill file updates (reserved)" };
         var checkCommand = new Command("check", "Check installed MAUI DevFlow skills against the current CLI bundle")
         {
             checkScopeOption,
             checkTargetOption,
+            checkPathOption,
             onlineOption
         };
         checkCommand.Aliases.Add("outdated");
@@ -95,35 +111,14 @@ internal static class DevFlowSkillCommands
             var result = await DevFlowSkillManager.CheckAsync(
                 ctx.GetValue(checkScopeOption)!,
                 ctx.GetValue(checkTargetOption)!,
+                ctx.GetValue(checkPathOption),
                 ctx.GetValue(onlineOption),
                 ct);
             output.WriteResult(result, isJson, PrintSkillStatuses);
         });
         skillsCommand.Add(checkCommand);
 
-        var updateScopeOption = CreateScopeOption("project", allowAll: true);
-        var updateTargetOption = CreateTargetOption();
-        var updateForceOption = new Option<bool>("--force", "-y") { Description = "Overwrite dirty or unmanaged skill files" };
-        var updateAllowDowngradeOption = new Option<bool>("--allow-downgrade") { Description = "Allow replacing skills installed by a newer CLI" };
-        var updateCommand = new Command("update", "Update installed MAUI DevFlow skills from the current CLI bundle")
-        {
-            updateScopeOption,
-            updateTargetOption,
-            updateForceOption,
-            updateAllowDowngradeOption
-        };
-        updateCommand.SetAction(async (ctx, ct) =>
-        {
-            var isJson = output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
-            var result = await DevFlowSkillManager.UpdateAsync(
-                ctx.GetValue(updateScopeOption)!,
-                ctx.GetValue(updateTargetOption)!,
-                ctx.GetValue(updateForceOption),
-                ctx.GetValue(updateAllowDowngradeOption),
-                ct);
-            output.WriteResult(result, isJson, PrintOperationResults);
-        });
-        skillsCommand.Add(updateCommand);
+        skillsCommand.Add(CreateUpdateCommand("update", hidden: false, jsonOption, noJsonOption, output));
 
         var removeScopeOption = CreateScopeOption("project", allowAll: true);
         var removeTargetOption = CreateTargetOption();
@@ -151,11 +146,13 @@ internal static class DevFlowSkillCommands
 
         var doctorScopeOption = CreateScopeOption("project", allowAll: true);
         var doctorTargetOption = CreateTargetOption();
+        var doctorPathOption = CreatePathOption();
         var doctorOnlineOption = new Option<bool>("--online") { Description = "Include online CLI update diagnostics when available (reserved)" };
-        var doctorCommand = new Command("doctor", "Validate DevFlow skill files, locks, scope conflicts, and CLI drift")
+        var doctorCommand = new Command("doctor", "Validate DevFlow skill files, state, scope conflicts, and CLI drift")
         {
             doctorScopeOption,
             doctorTargetOption,
+            doctorPathOption,
             doctorOnlineOption
         };
         doctorCommand.SetAction(async (ctx, ct) =>
@@ -164,6 +161,7 @@ internal static class DevFlowSkillCommands
             var result = await DevFlowSkillManager.DoctorAsync(
                 ctx.GetValue(doctorScopeOption)!,
                 ctx.GetValue(doctorTargetOption)!,
+                ctx.GetValue(doctorPathOption),
                 ctx.GetValue(doctorOnlineOption),
                 ct);
             output.WriteResult(result, isJson, PrintDoctor);
@@ -171,6 +169,41 @@ internal static class DevFlowSkillCommands
         skillsCommand.Add(doctorCommand);
 
         return skillsCommand;
+    }
+
+    public static Command CreateUpdateCommand(string name, bool hidden, Option<bool> jsonOption, Option<bool> noJsonOption, IDevFlowOutputWriter output)
+    {
+        var updateScopeOption = CreateScopeOption("project", allowAll: true);
+        var updateTargetOption = CreateTargetOption();
+        var updatePathOption = CreatePathOption();
+        var updateForceOption = new Option<bool>("--force", "-y") { Description = "Force replacement, including skills installed by a newer CLI" };
+        var updateAllowDowngradeOption = new Option<bool>("--allow-downgrade") { Description = "Allow replacing skills installed by a newer CLI" };
+        var updateInteractiveOption = CreateInteractiveOption();
+        var updateCommand = new Command(name, "Update or install MAUI DevFlow skills from the current CLI bundle")
+        {
+            updateScopeOption,
+            updateTargetOption,
+            updatePathOption,
+            updateForceOption,
+            updateAllowDowngradeOption,
+            updateInteractiveOption
+        };
+        updateCommand.Hidden = hidden;
+        updateCommand.SetAction(async (ctx, ct) =>
+        {
+            var isJson = output.ResolveJsonMode(ctx.GetValue(jsonOption), ctx.GetValue(noJsonOption));
+            var result = await DevFlowSkillManager.UpdateAsync(
+                ctx.GetValue(updateScopeOption)!,
+                ctx.GetValue(updateTargetOption)!,
+                ctx.GetValue(updatePathOption),
+                ctx.GetValue(updateForceOption),
+                ctx.GetValue(updateAllowDowngradeOption),
+                CreateConfirmation(ctx.GetValue(updateInteractiveOption)),
+                ct);
+            output.WriteResult(result, isJson, PrintOperationResults);
+        });
+
+        return updateCommand;
     }
 
     static Option<string> CreateScopeOption(string defaultScope, bool allowAll = false)
@@ -185,9 +218,36 @@ internal static class DevFlowSkillCommands
     static Option<string> CreateTargetOption()
         => new Option<string>("--target")
         {
-            Description = "Skill target location: claude (.claude/skills), github (.github/skills), or agents (.agents/skills)",
-            DefaultValueFactory = _ => "claude"
+            Description = "Skill target preset: auto, claude (.claude/skills), github (.github/skills), agent (.agent/skills), or agents (.agents/skills)",
+            DefaultValueFactory = _ => "auto"
         };
+
+    static Option<string?> CreatePathOption()
+        => new Option<string?>("--path")
+        {
+            Description = "Custom skill directory relative to the selected scope root, for example .agent/skills"
+        };
+
+    static Option<bool> CreateInteractiveOption()
+        => new Option<bool>("--interactive")
+        {
+            Description = "Ask before deleting legacy skills or overwriting dirty current skills"
+        };
+
+    static Func<DevFlowSkillManager.SkillActionPrompt, bool>? CreateConfirmation(bool interactive)
+    {
+        if (!interactive)
+            return null;
+
+        return prompt =>
+        {
+            Console.Error.WriteLine($"{prompt.SkillId}: {prompt.Message}");
+            Console.Error.WriteLine($"  {prompt.Status}: {prompt.Path}");
+            Console.Error.Write($"{prompt.Action} this skill? [y/N] ");
+            var response = Console.ReadLine()?.Trim();
+            return response is "y" or "Y" or "yes" or "YES" or "Yes";
+        };
+    }
 
     static void PrintInitSummary(JsonObject result)
     {

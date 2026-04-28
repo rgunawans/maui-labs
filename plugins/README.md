@@ -2,15 +2,15 @@
 
 Distributable agent skills for .NET MAUI development. Installable via the Copilot CLI, Claude Code, or VS Code plugin system.
 
-DevFlow runtime skills (`maui-devflow-onboard`, `maui-devflow-connect`, `maui-devflow-debug`) are bundled with the `maui` CLI from `.claude/skills/`, installed with `maui devflow init`, and also exposed through the plugin manifest.
+DevFlow runtime skills (`maui-devflow-onboard`, `maui-devflow-debug`) are bundled with the `maui` CLI from `plugins/dotnet-maui/skills/`, installed with `maui devflow init`, and exposed through the plugin manifest.
 
 ## Plugin
 
 | Plugin | Skill | Description |
 |--------|-------|-------------|
-| [dotnet-maui](dotnet-maui/) | [maui-devflow-onboard](../.claude/skills/maui-devflow-onboard/) | Add MAUI DevFlow packages and app registration to a project. |
-| | [maui-devflow-connect](../.claude/skills/maui-devflow-connect/) | Diagnose MAUI DevFlow broker, agent, and device connectivity. |
-| | [maui-devflow-debug](../.claude/skills/maui-devflow-debug/) | Run MAUI DevFlow build, deploy, inspect, and fix loops. |
+| [dotnet-maui](dotnet-maui/) | [maui-devflow-onboard](dotnet-maui/skills/maui-devflow-onboard/) | Add MAUI DevFlow packages and app registration to a project. |
+| | [maui-devflow-debug](dotnet-maui/skills/maui-devflow-debug/) | Run MAUI DevFlow build, deploy, connection recovery, inspect, and fix loops. |
+| | [maui-ai-debugging](dotnet-maui/skills/maui-ai-debugging/) | Legacy compatibility skill for older DevFlow clients. |
 | | [android-slim-bindings](dotnet-maui/skills/android-slim-bindings/) | Create Android slim bindings using the Native Library Interop approach. |
 | | [ios-slim-bindings](dotnet-maui/skills/ios-slim-bindings/) | Create iOS slim bindings using the Native Library Interop approach. |
 | | [dotnet-workload-info](dotnet-maui/skills/dotnet-workload-info/) | Discover installed .NET workloads, SDK versions, and dependency requirements. |

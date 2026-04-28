@@ -327,7 +327,7 @@ maui devflow skills update
 ```
 
 The skills manager compares installed files against the skills bundled in the running
-`Microsoft.Maui.Cli` and records file hashes in `.maui/devflow-skills.lock.json`.
+`Microsoft.Maui.Cli` and records local install state under `~/.maui/devflow`.
 
 **AI agents should check at session start:** run `maui devflow skills check`. If it reports
 `update-available-from-current-cli`, ask the user if they want to run

@@ -1,6 +1,6 @@
 # Setup & Installation
 
-Complete guide for integrating MAUI DevFlow into a .NET MAUI app.
+Complete guide for integrating MauiDevFlow into a .NET MAUI app.
 
 ## Table of Contents
 - [Install CLI Tools](#1-install-cli-tools)
@@ -75,8 +75,8 @@ Linux/GTK apps (using Maui.Gtk) use separate packages:
 ## 3. Register in MauiProgram.cs
 
 ```csharp
-using Microsoft.Maui.DevFlow.Agent;
-using Microsoft.Maui.DevFlow.Blazor;  // Blazor Hybrid only
+using MauiDevFlow.Agent;
+using MauiDevFlow.Blazor;  // Blazor Hybrid only
 
 var builder = MauiApp.CreateBuilder();
 // ... your existing setup ...
@@ -93,8 +93,8 @@ builder.AddMauiBlazorDevFlowTools(); // Blazor Hybrid only
 For Linux/GTK apps, use the GTK-specific namespaces and add the agent startup call:
 
 ```csharp
-using Microsoft.Maui.DevFlow.Agent.Gtk;
-using Microsoft.Maui.DevFlow.Blazor.Gtk;  // Blazor Hybrid only
+using MauiDevFlow.Agent.Gtk;
+using MauiDevFlow.Blazor.Gtk;  // Blazor Hybrid only
 
 var builder = MauiApp.CreateBuilder();
 // ... your existing setup ...
@@ -188,7 +188,7 @@ The library checks at runtime and logs a message:
 
 The `chobitsu.js` file is included in the NuGet package as a static web asset. It is
 automatically available at the root of your app's `wwwroot/` — no `.targets` file copying,
-no manual downloads. It works in both Debug and Release builds (though MAUI DevFlow itself
+no manual downloads. It works in both Debug and Release builds (though MauiDevFlow itself
 should only be referenced in Debug configurations).
 
 ## 5. Mac Catalyst: Entitlements
@@ -264,7 +264,7 @@ The agent forward uses the port shown in `maui devflow list` after the agent reg
 
 **Fallback (no broker):** If using direct mode with a `.mauidevflow` config file:
 ```bash
-adb forward tcp:9223 tcp:9223    # Direct agent port (single port for Agent + CDP)
+adb reverse tcp:9223 tcp:9223    # Direct agent port (single port for Agent + CDP)
 ```
 
 ## 7. Verify Setup
@@ -291,7 +291,7 @@ If status commands fail:
 
 ## Quick Checklist
 
-For an AI agent setting up MAUI DevFlow in a new project:
+For an AI agent setting up MauiDevFlow in a new project:
 
 1. [ ] `Microsoft.Maui.DevFlow.Agent` NuGet package added (or `Microsoft.Maui.DevFlow.Agent.Gtk` for Linux)
 2. [ ] `Microsoft.Maui.DevFlow.Blazor` NuGet package added (Blazor Hybrid only; or `Microsoft.Maui.DevFlow.Blazor.Gtk` for Linux)
@@ -322,16 +322,19 @@ dotnet tool update --global Microsoft.Maui.Cli
 
 ### Update the skill
 ```bash
+# Check installed skills against the current CLI bundle
 maui devflow skills check
+
+# Install or update bundled skills from the current CLI
 maui devflow skills update
 ```
 
-The skills manager compares installed files against the skills bundled in the running
-`Microsoft.Maui.Cli` and records file hashes in `.maui/devflow-skills.lock.json`.
+The hidden `update-skill` compatibility command now runs the same bundled update path as
+`maui devflow skills update`. Current CLIs remove legacy skill folders such as
+`.claude/skills/maui-ai-debugging` after installing the replacement DevFlow skills.
 
-**AI agents should check at session start:** run `maui devflow skills check`. If it reports
-`update-available-from-current-cli`, ask the user if they want to run
-`maui devflow skills update` before proceeding.
+**AI agents should check at session start:** Run `maui devflow skills check`. If it reports
+`update-available-from-current-cli`, ask the user if they'd like to update before proceeding.
 
 ### Check NuGet packages in the project
 ```bash

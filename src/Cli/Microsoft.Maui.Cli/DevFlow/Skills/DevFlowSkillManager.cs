@@ -10,42 +10,74 @@ internal static class DevFlowSkillManager
 {
     const string ResourceRoot = "devflow.skills";
     const string PackageId = "Microsoft.Maui.Cli";
-    const string LockFileRelativePath = ".maui/devflow-skills.lock.json";
-    static readonly TimeSpan LockFileRetryTimeout = TimeSpan.FromSeconds(10);
+    const string StateRootEnvironmentVariable = "MAUIDEVFLOW_STATE_ROOT";
+    const string AutoTarget = "auto";
+    const string DefaultTarget = "claude";
+    const int StateFileVersion = 2;
+    static readonly TimeSpan StateFileRetryTimeout = TimeSpan.FromSeconds(10);
+    static readonly TimeSpan FreshnessCheckInterval = TimeSpan.FromDays(7);
+    static readonly TimeSpan FreshnessPromptInterval = TimeSpan.FromDays(1);
 
     static readonly DevFlowSkillDefinition[] s_skills =
     [
         new("maui-devflow-onboard", "MAUI DevFlow Onboard", "Guides first-time MAUI DevFlow project integration.", Recommended: true),
-        new("maui-devflow-connect", "MAUI DevFlow Connect", "Diagnoses DevFlow broker, agent, and device connectivity.", Recommended: true),
-        new("maui-devflow-debug", "MAUI DevFlow Debug", "Guides build, deploy, inspect, and debug loops with MAUI DevFlow.", Recommended: true)
+        new("maui-devflow-debug", "MAUI DevFlow Debug", "Guides build, deploy, connection recovery, inspect, and debug loops with MAUI DevFlow.", Recommended: true)
+    ];
+
+    static readonly string[] s_legacySkillIds =
+    [
+        "maui-ai-debugging",
+        "maui-devflow-connect",
+        "devflow-onboard",
+        "devflow-connect",
+        "devflow-debug"
     ];
 
     static readonly Dictionary<string, string> s_targetDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
         ["claude"] = Path.Combine(".claude", "skills"),
         ["github"] = Path.Combine(".github", "skills"),
+        ["agent"] = Path.Combine(".agent", "skills"),
         ["agents"] = Path.Combine(".agents", "skills")
     };
 
+    internal static string? StateRootOverrideForTests { get; set; }
+    internal static string? UserRootOverrideForTests { get; set; }
+    internal static DateTimeOffset? UtcNowOverrideForTests { get; set; }
+
     public static async Task<JsonObject> InstallRecommendedAsync(string scope, string target, bool force, bool allowDowngrade, CancellationToken cancellationToken)
-        => await WriteSkillsAsync(s_skills.Where(s => s.Recommended).Select(s => s.Id), scope, target, force, allowDowngrade, "install", cancellationToken);
+        => await InstallRecommendedAsync(scope, target, customPath: null, force, allowDowngrade, confirm: null, cancellationToken);
+
+    internal static async Task<JsonObject> InstallRecommendedAsync(string scope, string target, string? customPath, bool force, bool allowDowngrade, Func<SkillActionPrompt, bool>? confirm, CancellationToken cancellationToken)
+        => await WriteSkillsAsync(s_skills.Where(s => s.Recommended).Select(s => s.Id), scope, target, customPath, force, allowDowngrade, "install", allowAllScopes: false, confirm, cancellationToken);
 
     public static async Task<JsonObject> InstallAsync(string scope, string target, bool force, bool allowDowngrade, CancellationToken cancellationToken)
-        => await WriteSkillsAsync(s_skills.Select(s => s.Id), scope, target, force, allowDowngrade, "install", cancellationToken);
+        => await InstallAsync(scope, target, customPath: null, force, allowDowngrade, confirm: null, cancellationToken);
+
+    internal static async Task<JsonObject> InstallAsync(string scope, string target, string? customPath, bool force, bool allowDowngrade, Func<SkillActionPrompt, bool>? confirm, CancellationToken cancellationToken)
+        => await WriteSkillsAsync(s_skills.Select(s => s.Id), scope, target, customPath, force, allowDowngrade, "install", allowAllScopes: false, confirm, cancellationToken);
 
     public static async Task<JsonObject> UpdateAsync(string scope, string target, bool force, bool allowDowngrade, CancellationToken cancellationToken)
-        => await WriteSkillsAsync(s_skills.Select(s => s.Id), scope, target, force, allowDowngrade, "update", cancellationToken);
+        => await UpdateAsync(scope, target, customPath: null, force, allowDowngrade, confirm: null, cancellationToken);
+
+    internal static async Task<JsonObject> UpdateAsync(string scope, string target, string? customPath, bool force, bool allowDowngrade, Func<SkillActionPrompt, bool>? confirm, CancellationToken cancellationToken)
+        => await WriteSkillsAsync(s_skills.Select(s => s.Id), scope, target, customPath, force, allowDowngrade, "update", allowAllScopes: true, confirm, cancellationToken);
 
     public static async Task<JsonObject> ListAsync(string scope, string target, CancellationToken cancellationToken)
+        => await ListAsync(scope, target, customPath: null, cancellationToken);
+
+    internal static async Task<JsonObject> ListAsync(string scope, string target, string? customPath, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("list", scope, target);
         var items = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
         var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
         foreach (var installTarget in installTargets)
         {
             foreach (var (skill, bundle) in skillBundles)
                 AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
+
+            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
         }
 
         result["skills"] = items;
@@ -53,6 +85,9 @@ internal static class DevFlowSkillManager
     }
 
     public static async Task<JsonObject> CheckAsync(string scope, string target, bool online, CancellationToken cancellationToken)
+        => await CheckAsync(scope, target, customPath: null, online, cancellationToken);
+
+    internal static async Task<JsonObject> CheckAsync(string scope, string target, string? customPath, bool online, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("check", scope, target);
         result["online"] = online;
@@ -62,12 +97,14 @@ internal static class DevFlowSkillManager
         }
 
         var items = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
         var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
         foreach (var installTarget in installTargets)
         {
             foreach (var (skill, bundle) in skillBundles)
                 AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
+
+            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
         }
 
         result["skills"] = items;
@@ -75,17 +112,22 @@ internal static class DevFlowSkillManager
     }
 
     public static async Task<JsonObject> DoctorAsync(string scope, string target, bool online, CancellationToken cancellationToken)
+        => await DoctorAsync(scope, target, customPath: null, online, cancellationToken);
+
+    internal static async Task<JsonObject> DoctorAsync(string scope, string target, string? customPath, bool online, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("doctor", scope, target);
         result["online"] = online;
 
         var items = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
+        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
         var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
         foreach (var installTarget in installTargets)
         {
             foreach (var (skill, bundle) in skillBundles)
                 AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
+
+            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
         }
         result["skills"] = items;
 
@@ -115,25 +157,31 @@ internal static class DevFlowSkillManager
 
     public static async Task<JsonObject> RemoveAsync(string skillId, string scope, string target, bool force, CancellationToken cancellationToken)
     {
-        var skill = GetSkill(skillId);
-        var installTargets = ResolveInstallTargets(scope, target, allowAll: true);
-        var bundle = await LoadSkillBundleAsync(skill, cancellationToken);
+        var skill = TryGetSkill(skillId);
+        var isLegacySkill = skill == null && IsLegacySkill(skillId);
+        if (skill == null && !isLegacySkill)
+            throw new InvalidOperationException($"Unknown DevFlow skill '{skillId}'.");
+
+        var installTargets = ResolveInstallTargets(scope, target, customPath: null, allowAll: true);
+        var bundle = skill != null ? await LoadSkillBundleAsync(skill, cancellationToken) : null;
         var result = CreateBaseResult("remove", scope, target);
         var results = new JsonArray();
 
         foreach (var installTarget in installTargets)
         {
-            var status = CreateStatusObject(installTarget, skill.Id, bundle);
+            var status = bundle != null
+                ? CreateStatusObject(installTarget, skill!.Id, bundle)
+                : CreateLegacyStatusObject(installTarget, skillId, ReadSkillState(installTarget.StateFilePath));
             var statusValue = status["status"]?.GetValue<string>();
-            if (statusValue == "dirty" && !force)
+            if (statusValue == "dirty" && !force && !isLegacySkill)
             {
                 status["action"] = "skipped";
-                status["message"] = "Skill files differ from the lockfile. Re-run with --force to remove anyway.";
+                status["message"] = "Skill files differ from the install state. Re-run with --force to remove anyway.";
                 AddJsonObject(results, status);
                 continue;
             }
 
-            if (statusValue == "unknown-or-unmanaged" && !force)
+            if (statusValue == "unknown-or-unmanaged" && !force && !isLegacySkill)
             {
                 status["action"] = "skipped";
                 status["message"] = "Skill files are not managed by this CLI. Re-run with --force to remove anyway.";
@@ -141,13 +189,13 @@ internal static class DevFlowSkillManager
                 continue;
             }
 
-            var skillDirectory = GetSkillDirectory(installTarget, skill.Id);
+            var skillDirectory = GetSkillDirectory(installTarget, skillId);
             if (Directory.Exists(skillDirectory))
                 Directory.Delete(skillDirectory, recursive: true);
 
-            await UpdateLockFileAsync(installTarget.LockFilePath, cancellationToken, lockFile =>
+            await UpdateSkillStateAsync(installTarget, cancellationToken, skillState =>
             {
-                RemoveLockEntry(lockFile, installTarget, skill.Id);
+                RemoveStateEntry(skillState, installTarget, skillId);
                 return true;
             });
 
@@ -160,11 +208,33 @@ internal static class DevFlowSkillManager
         return result;
     }
 
-    static async Task<JsonObject> WriteSkillsAsync(IEnumerable<string> skillIds, string scope, string target, bool force, bool allowDowngrade, string action, CancellationToken cancellationToken)
+    internal static async Task<string?> GetFreshnessHintAsync(bool machineReadableOutput, string target, CancellationToken cancellationToken)
+    {
+        if (machineReadableOutput)
+            return null;
+
+        var installTarget = ResolveInstallTargets("project", target, customPath: null, allowAll: false)[0];
+        var skillState = ReadSkillState(installTarget.StateFilePath);
+        var now = GetUtcNow();
+        if (!ShouldShowFreshnessHint(skillState, now))
+            return null;
+
+        await UpdateSkillStateAsync(installTarget, cancellationToken, state =>
+        {
+            state["lastPromptedUtc"] = now.ToString("O");
+            return true;
+        });
+
+        return "DevFlow skills have not been checked recently. Run `maui devflow skills check` to compare installed skills with this CLI.";
+    }
+
+    static async Task<JsonObject> WriteSkillsAsync(IEnumerable<string> skillIds, string scope, string target, string? customPath, bool force, bool allowDowngrade, string action, bool allowAllScopes, Func<SkillActionPrompt, bool>? confirm, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult(action, scope, target);
+        if (!string.IsNullOrWhiteSpace(customPath))
+            result["path"] = customPath;
         var results = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, allowAll: false);
+        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: allowAllScopes);
         var skillBundles = new List<(DevFlowSkillDefinition Skill, SkillBundle Bundle)>();
         foreach (var skillId in skillIds)
         {
@@ -176,26 +246,27 @@ internal static class DevFlowSkillManager
         foreach (var installTarget in installTargets)
         {
             var targetResults = new List<JsonObject>();
-            await UpdateLockFileAsync(installTarget.LockFilePath, cancellationToken, lockFile =>
+            await UpdateSkillStateAsync(installTarget, cancellationToken, skillState =>
             {
-                var lockFileChanged = false;
                 foreach (var (skill, bundle) in skillBundles)
                 {
-                    var status = CreateStatusObject(installTarget, skill.Id, bundle, lockFile);
+                    var status = CreateStatusObject(installTarget, skill.Id, bundle, skillState);
                     var statusValue = status["status"]?.GetValue<string>();
 
-                    if (statusValue == "dirty" && !force)
+                    if (statusValue == "dirty" &&
+                        !ConfirmAction(confirm, status, "overwrite", "Current skill files differ from the install state."))
                     {
                         status["action"] = "skipped";
-                        status["message"] = "Skill files differ from the lockfile. Re-run with --force to overwrite.";
+                        status["message"] = "Skipped by interactive choice.";
                         targetResults.Add(status);
                         continue;
                     }
 
-                    if (statusValue == "unknown-or-unmanaged" && !force)
+                    if (statusValue == "unknown-or-unmanaged" &&
+                        !ConfirmAction(confirm, status, "overwrite", "Current skill files already exist but are not managed by this CLI."))
                     {
                         status["action"] = "skipped";
-                        status["message"] = "Skill files already exist but are not managed by this CLI. Re-run with --force to overwrite.";
+                        status["message"] = "Skipped by interactive choice.";
                         targetResults.Add(status);
                         continue;
                     }
@@ -208,17 +279,33 @@ internal static class DevFlowSkillManager
                         continue;
                     }
 
-                    WriteSkillBundle(installTarget, skill, bundle, lockFile);
-                    UpsertLockEntry(lockFile, installTarget, skill, bundle);
-                    lockFileChanged = true;
+                    var removedObsoleteFiles = WriteSkillBundle(installTarget, skill, bundle, skillState, replaceDirectory: statusValue is "dirty" or "unknown-or-unmanaged");
+                    UpsertStateEntry(skillState, installTarget, skill, bundle);
 
-                    status = CreateStatusObject(installTarget, skill.Id, bundle, lockFile);
-                    status["action"] = statusValue == "up-to-date" ? "unchanged" : "written";
+                    status = CreateStatusObject(installTarget, skill.Id, bundle, skillState);
+                    status["action"] = statusValue == "up-to-date" && !removedObsoleteFiles ? "unchanged" : "written";
+                    var message = GetWriteMessage(statusValue, removedObsoleteFiles);
+                    if (!string.IsNullOrWhiteSpace(message))
+                        status["message"] = message;
                     targetResults.Add(status);
                 }
 
-                return lockFileChanged;
+                MarkSkillStateChecked(skillState, HashBundleSet(skillBundles));
+                return true;
             });
+
+            foreach (var targetResult in targetResults)
+                AddJsonObject(results, targetResult);
+        }
+
+        foreach (var cleanupTarget in GetLegacyCleanupTargets(installTargets))
+        {
+            if (!HasLegacySkillData(cleanupTarget))
+                continue;
+
+            var targetResults = new List<JsonObject>();
+            await UpdateSkillStateAsync(cleanupTarget, cancellationToken, skillState =>
+                MigrateLegacySkills(cleanupTarget, skillState, targetResults, confirm));
 
             foreach (var targetResult in targetResults)
                 AddJsonObject(results, targetResult);
@@ -227,6 +314,13 @@ internal static class DevFlowSkillManager
         result["results"] = results;
         return result;
     }
+
+    static async Task RecordSkillCheckAsync(InstallTarget installTarget, IReadOnlyList<(DevFlowSkillDefinition Skill, SkillBundle Bundle)> skillBundles, CancellationToken cancellationToken)
+        => await UpdateSkillStateAsync(installTarget, cancellationToken, skillState =>
+        {
+            MarkSkillStateChecked(skillState, HashBundleSet(skillBundles));
+            return true;
+        });
 
     static JsonObject CreateBaseResult(string action, string scope, string target)
         => new()
@@ -237,10 +331,10 @@ internal static class DevFlowSkillManager
             ["cliVersion"] = GetCurrentCliVersion()
         };
 
-    static JsonObject CreateStatusObject(InstallTarget installTarget, string skillId, SkillBundle bundle, JsonObject? knownLockFile = null)
+    static JsonObject CreateStatusObject(InstallTarget installTarget, string skillId, SkillBundle bundle, JsonObject? knownSkillState = null)
     {
-        var lockFile = knownLockFile ?? ReadLockFile(installTarget.LockFilePath);
-        var entry = FindLockEntry(lockFile, installTarget, skillId);
+        var skillState = knownSkillState ?? ReadSkillState(installTarget.StateFilePath);
+        var entry = FindStateEntry(skillState, installTarget, skillId);
         var skillDirectory = GetSkillDirectory(installTarget, skillId);
         var exists = Directory.Exists(skillDirectory);
 
@@ -282,12 +376,79 @@ internal static class DevFlowSkillManager
             ["target"] = installTarget.TargetKind,
             ["status"] = status,
             ["path"] = installTarget.GetDisplayPath(skillId),
+            ["statePath"] = installTarget.StateFilePath,
             ["installedVersion"] = entry != null ? GetString(entry, "skillVersion") : null,
             ["bundledVersion"] = bundle.Version,
             ["installedByCliVersion"] = entry != null ? GetString(entry, "installedByCliVersion") : null,
             ["contentHash"] = entry != null ? GetString(entry, "contentHash") : null,
             ["bundledContentHash"] = bundle.ContentHash
         };
+    }
+
+    static JsonObject CreateLegacyStatusObject(InstallTarget installTarget, string skillId, JsonObject skillState)
+    {
+        var entry = FindStateEntry(skillState, installTarget, skillId);
+        var skillDirectory = GetSkillDirectory(installTarget, skillId);
+        var exists = Directory.Exists(skillDirectory);
+
+        var status = "missing";
+        if (entry == null && exists)
+            status = "unknown-or-unmanaged";
+        else if (entry != null && !exists)
+            status = "missing";
+        else if (entry != null)
+            status = IsDirty(skillDirectory, entry) ? "dirty" : "legacy-managed";
+
+        return new JsonObject
+        {
+            ["skillId"] = skillId,
+            ["scope"] = installTarget.Scope,
+            ["target"] = installTarget.TargetKind,
+            ["status"] = status,
+            ["path"] = installTarget.GetDisplayPath(skillId),
+            ["statePath"] = installTarget.StateFilePath,
+            ["installedVersion"] = entry != null ? GetString(entry, "skillVersion") : null,
+            ["bundledVersion"] = null,
+            ["installedByCliVersion"] = entry != null ? GetString(entry, "installedByCliVersion") : null,
+            ["contentHash"] = entry != null ? GetString(entry, "contentHash") : null,
+            ["bundledContentHash"] = null
+        };
+    }
+
+    static bool MigrateLegacySkills(InstallTarget installTarget, JsonObject skillState, List<JsonObject> targetResults, Func<SkillActionPrompt, bool>? confirm)
+    {
+        var changed = false;
+        foreach (var skillId in s_legacySkillIds)
+        {
+            var entry = FindStateEntry(skillState, installTarget, skillId);
+            var skillDirectory = GetSkillDirectory(installTarget, skillId);
+            var exists = Directory.Exists(skillDirectory);
+            if (entry == null && !exists)
+                continue;
+
+            var status = CreateLegacyStatusObject(installTarget, skillId, skillState);
+            if (!ConfirmAction(confirm, status, "remove", "Legacy DevFlow skill will be removed because current bundled skills replace it."))
+            {
+                status["action"] = "skipped";
+                status["message"] = "Skipped by interactive choice.";
+                targetResults.Add(status);
+                continue;
+            }
+
+            if (exists)
+                Directory.Delete(skillDirectory, recursive: true);
+
+            if (entry != null)
+                RemoveStateEntry(skillState, installTarget, skillId);
+
+            status["action"] = "removed";
+            status["status"] = "legacy-removed";
+            status["message"] = "Legacy DevFlow skill was removed because current bundled skills were installed.";
+            targetResults.Add(status);
+            changed = true;
+        }
+
+        return changed;
     }
 
     static async Task<List<(DevFlowSkillDefinition Skill, SkillBundle Bundle)>> LoadSkillBundlesAsync(IEnumerable<DevFlowSkillDefinition> skills, CancellationToken cancellationToken)
@@ -336,9 +497,13 @@ internal static class DevFlowSkillManager
         => relativePath.StartsWith($"evals{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ||
            string.Equals(relativePath, "evals", StringComparison.OrdinalIgnoreCase);
 
-    static void WriteSkillBundle(InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle, JsonObject lockFile)
+    static bool WriteSkillBundle(InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle, JsonObject skillState, bool replaceDirectory)
     {
         var skillDirectory = GetSkillDirectory(installTarget, skill.Id);
+        var existingEntry = FindStateEntry(skillState, installTarget, skill.Id);
+        if (replaceDirectory && Directory.Exists(skillDirectory))
+            Directory.Delete(skillDirectory, recursive: true);
+
         Directory.CreateDirectory(skillDirectory);
 
         foreach (var file in bundle.Files)
@@ -348,11 +513,10 @@ internal static class DevFlowSkillManager
             File.WriteAllText(filePath, file.Content);
         }
 
-        var existingEntry = FindLockEntry(lockFile, installTarget, skill.Id);
-        if (existingEntry?["files"] is JsonArray files)
+        var deletedObsoleteFile = false;
+        if (!replaceDirectory && existingEntry?["files"] is JsonArray files)
         {
             var currentFiles = bundle.Files.Select(f => NormalizeRelativePath(f.RelativePath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var deletedObsoleteFile = false;
             foreach (var file in files.OfType<JsonObject>())
             {
                 var relativePath = GetString(file, "path");
@@ -372,7 +536,22 @@ internal static class DevFlowSkillManager
             if (deletedObsoleteFile)
                 PruneEmptyDirectories(skillDirectory);
         }
+
+        return deletedObsoleteFile;
     }
+
+    static string? GetWriteMessage(string? statusValue, bool removedObsoleteFiles)
+        => statusValue switch
+        {
+            "missing" => "Installed missing skill files from the current CLI bundle.",
+            "dirty" => "Overwrote dirty current skill files with the current CLI bundle.",
+            "unknown-or-unmanaged" => "Replaced unmanaged existing skill folder with the current CLI bundle.",
+            "update-available-from-current-cli" => "Updated skill files from the current CLI bundle.",
+            "installed-from-different-cli-same-version" => "Rewrote skill files because installed content differed from this CLI bundle.",
+            "installed-from-newer-cli" => "Replaced skill files that were installed by a newer CLI.",
+            "up-to-date" when removedObsoleteFiles => "Removed obsolete files no longer present in the current CLI bundle.",
+            _ => null
+        };
 
     static bool IsDirty(string skillDirectory, JsonObject entry)
     {
@@ -400,95 +579,106 @@ internal static class DevFlowSkillManager
         return false;
     }
 
-    static JsonObject ReadLockFile(string lockFilePath)
+    static JsonObject ReadSkillState(string stateFilePath)
     {
-        if (File.Exists(lockFilePath))
+        if (File.Exists(stateFilePath))
         {
             try
             {
-                var parsed = CliJson.ParseNode(File.ReadAllText(lockFilePath)) as JsonObject
-                    ?? throw new InvalidOperationException($"DevFlow skills lockfile '{lockFilePath}' must contain a JSON object.");
+                var parsed = CliJson.ParseNode(File.ReadAllText(stateFilePath)) as JsonObject
+                    ?? throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' must contain a JSON object.");
                 if (parsed["entries"] is not JsonArray)
                     parsed["entries"] = new JsonArray();
                 return parsed;
             }
             catch (JsonException ex)
             {
-                throw new InvalidOperationException($"DevFlow skills lockfile '{lockFilePath}' is not valid JSON.", ex);
+                throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' is not valid JSON.", ex);
             }
             catch (IOException ex)
             {
-                throw new InvalidOperationException($"Could not read DevFlow skills lockfile '{lockFilePath}'.", ex);
+                throw new InvalidOperationException($"Could not read DevFlow skills state file '{stateFilePath}'.", ex);
             }
             catch (UnauthorizedAccessException ex)
             {
-                throw new InvalidOperationException($"Could not access DevFlow skills lockfile '{lockFilePath}'.", ex);
+                throw new InvalidOperationException($"Could not access DevFlow skills state file '{stateFilePath}'.", ex);
             }
         }
 
-        return CreateEmptyLockFile();
+        return CreateEmptySkillState();
     }
 
-    static JsonObject ReadLockFile(string lockFilePath, FileStream stream, bool allowEmpty)
+    static JsonObject ReadSkillState(string stateFilePath, FileStream stream, bool allowEmpty)
     {
         try
         {
             stream.Position = 0;
             if (stream.Length == 0 && allowEmpty)
-                return CreateEmptyLockFile();
+                return CreateEmptySkillState();
 
             using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
             var parsed = CliJson.ParseNode(reader.ReadToEnd()) as JsonObject
-                ?? throw new InvalidOperationException($"DevFlow skills lockfile '{lockFilePath}' must contain a JSON object.");
+                ?? throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' must contain a JSON object.");
             if (parsed["entries"] is not JsonArray)
                 parsed["entries"] = new JsonArray();
             return parsed;
         }
         catch (JsonException ex)
         {
-            throw new InvalidOperationException($"DevFlow skills lockfile '{lockFilePath}' is not valid JSON.", ex);
+            throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' is not valid JSON.", ex);
         }
         catch (IOException ex)
         {
-            throw new InvalidOperationException($"Could not read DevFlow skills lockfile '{lockFilePath}'.", ex);
+            throw new InvalidOperationException($"Could not read DevFlow skills state file '{stateFilePath}'.", ex);
         }
         catch (UnauthorizedAccessException ex)
         {
-            throw new InvalidOperationException($"Could not access DevFlow skills lockfile '{lockFilePath}'.", ex);
+            throw new InvalidOperationException($"Could not access DevFlow skills state file '{stateFilePath}'.", ex);
         }
     }
 
-    static JsonObject CreateEmptyLockFile()
+    static JsonObject CreateEmptySkillState()
         => new()
         {
-            ["version"] = 1,
+            ["version"] = StateFileVersion,
             ["entries"] = new JsonArray()
         };
 
-    static void WriteLockFile(string lockFilePath, JsonObject lockFile)
+    static void WriteSkillState(InstallTarget installTarget, JsonObject skillState)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(lockFilePath)!);
-        PrepareLockFileForWrite(lockFile);
-        File.WriteAllText(lockFilePath, CliJson.SerializeUntyped(lockFile));
+        Directory.CreateDirectory(Path.GetDirectoryName(installTarget.StateFilePath)!);
+        PrepareSkillStateForWrite(installTarget, skillState);
+        File.WriteAllText(installTarget.StateFilePath, CliJson.SerializeUntyped(skillState));
     }
 
-    static void WriteLockFile(string lockFilePath, JsonObject lockFile, FileStream stream)
+    static void WriteSkillState(InstallTarget installTarget, JsonObject skillState, FileStream stream)
     {
-        PrepareLockFileForWrite(lockFile);
-        var bytes = Encoding.UTF8.GetBytes(CliJson.SerializeUntyped(lockFile));
+        PrepareSkillStateForWrite(installTarget, skillState);
+        var bytes = Encoding.UTF8.GetBytes(CliJson.SerializeUntyped(skillState));
         stream.Position = 0;
         stream.SetLength(0);
         stream.Write(bytes);
         stream.Flush(flushToDisk: true);
     }
 
-    static void PrepareLockFileForWrite(JsonObject lockFile)
+    static void PrepareSkillStateForWrite(InstallTarget installTarget, JsonObject skillState)
     {
-        lockFile["version"] = 1;
-        lockFile.Remove("updatedAtUtc");
+        skillState["version"] = StateFileVersion;
+        skillState["scope"] = installTarget.Scope;
+        skillState["target"] = installTarget.TargetKind;
+        skillState["targetRoot"] = installTarget.RootDirectory;
+        skillState["relativeSkillDirectory"] = installTarget.RelativeSkillDirectory.Replace(Path.DirectorySeparatorChar, '/');
+        if (installTarget.Scope == "project")
+            skillState["workspaceRoot"] = installTarget.WorkspaceRoot;
+        else
+            skillState.Remove("workspaceRoot");
+        skillState.Remove("updatedAtUtc");
 
-        if (lockFile["entries"] is not JsonArray entries)
-            return;
+        if (skillState["entries"] is not JsonArray entries)
+        {
+            entries = new JsonArray();
+            skillState["entries"] = entries;
+        }
 
         foreach (var entry in entries.OfType<JsonObject>())
         {
@@ -497,20 +687,20 @@ internal static class DevFlowSkillManager
         }
     }
 
-    static async Task UpdateLockFileAsync(string lockFilePath, CancellationToken cancellationToken, Func<JsonObject, bool> update)
+    static async Task UpdateSkillStateAsync(InstallTarget installTarget, CancellationToken cancellationToken, Func<JsonObject, bool> update)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(lockFilePath)!);
-        var (stream, createdLockFile) = await OpenLockFileStreamAsync(lockFilePath, cancellationToken);
+        Directory.CreateDirectory(Path.GetDirectoryName(installTarget.StateFilePath)!);
+        var (stream, createdStateFile) = await OpenSkillStateStreamAsync(installTarget.StateFilePath, cancellationToken);
         using (stream)
         {
-            var lockFile = ReadLockFile(lockFilePath, stream, allowEmpty: createdLockFile);
+            var skillState = ReadSkillState(installTarget.StateFilePath, stream, allowEmpty: createdStateFile);
 
-            if (update(lockFile) || createdLockFile)
-                WriteLockFile(lockFilePath, lockFile, stream);
+            if (update(skillState) || createdStateFile)
+                WriteSkillState(installTarget, skillState, stream);
         }
     }
 
-    static async Task<(FileStream Stream, bool CreatedLockFile)> OpenLockFileStreamAsync(string lockFilePath, CancellationToken cancellationToken)
+    static async Task<(FileStream Stream, bool CreatedStateFile)> OpenSkillStateStreamAsync(string stateFilePath, CancellationToken cancellationToken)
     {
         var startedAt = DateTime.UtcNow;
         while (true)
@@ -518,31 +708,31 @@ internal static class DevFlowSkillManager
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var createdLockFile = !File.Exists(lockFilePath);
+                var createdStateFile = !File.Exists(stateFilePath);
                 return (new FileStream(
-                    lockFilePath,
-                    createdLockFile ? FileMode.CreateNew : FileMode.Open,
+                    stateFilePath,
+                    createdStateFile ? FileMode.CreateNew : FileMode.Open,
                     FileAccess.ReadWrite,
-                    FileShare.None), createdLockFile);
+                    FileShare.None), createdStateFile);
             }
-            catch (IOException) when (DateTime.UtcNow - startedAt < LockFileRetryTimeout)
+            catch (IOException) when (DateTime.UtcNow - startedAt < StateFileRetryTimeout)
             {
                 await Task.Delay(50, cancellationToken);
             }
             catch (IOException ex)
             {
-                throw new InvalidOperationException($"Could not acquire exclusive access to DevFlow skills lockfile '{lockFilePath}'.", ex);
+                throw new InvalidOperationException($"Could not acquire exclusive access to DevFlow skills state file '{stateFilePath}'.", ex);
             }
             catch (UnauthorizedAccessException ex)
             {
-                throw new InvalidOperationException($"Could not access DevFlow skills lockfile '{lockFilePath}'.", ex);
+                throw new InvalidOperationException($"Could not access DevFlow skills state file '{stateFilePath}'.", ex);
             }
         }
     }
 
-    static JsonObject? FindLockEntry(JsonObject lockFile, InstallTarget installTarget, string skillId)
+    static JsonObject? FindStateEntry(JsonObject skillState, InstallTarget installTarget, string skillId)
     {
-        if (lockFile["entries"] is not JsonArray entries)
+        if (skillState["entries"] is not JsonArray entries)
             return null;
 
         return entries.OfType<JsonObject>().FirstOrDefault(entry =>
@@ -551,10 +741,23 @@ internal static class DevFlowSkillManager
             string.Equals(GetString(entry, "target"), installTarget.TargetKind, StringComparison.OrdinalIgnoreCase));
     }
 
-    static void UpsertLockEntry(JsonObject lockFile, InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle)
+    static bool ConfirmAction(Func<SkillActionPrompt, bool>? confirm, JsonObject status, string action, string message)
     {
-        RemoveLockEntry(lockFile, installTarget, skill.Id);
-        var entries = (JsonArray)lockFile["entries"]!;
+        if (confirm == null)
+            return true;
+
+        return confirm(new SkillActionPrompt(
+            GetString(status, "skillId") ?? "unknown",
+            action,
+            GetString(status, "status") ?? "unknown",
+            GetString(status, "path") ?? string.Empty,
+            message));
+    }
+
+    static void UpsertStateEntry(JsonObject skillState, InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle)
+    {
+        RemoveStateEntry(skillState, installTarget, skill.Id);
+        var entries = (JsonArray)skillState["entries"]!;
 
         var files = new JsonArray();
         foreach (var file in bundle.Files)
@@ -580,9 +783,9 @@ internal static class DevFlowSkillManager
         });
     }
 
-    static void RemoveLockEntry(JsonObject lockFile, InstallTarget installTarget, string skillId)
+    static void RemoveStateEntry(JsonObject skillState, InstallTarget installTarget, string skillId)
     {
-        if (lockFile["entries"] is not JsonArray entries)
+        if (skillState["entries"] is not JsonArray entries)
             return;
 
         for (var i = entries.Count - 1; i >= 0; i--)
@@ -597,25 +800,134 @@ internal static class DevFlowSkillManager
         }
     }
 
-    static IReadOnlyList<InstallTarget> ResolveInstallTargets(string scope, string target, bool allowAll)
+    static IReadOnlyList<InstallTarget> ResolveInstallTargets(string scope, string target, string? customPath, bool allowAll)
     {
-        var workspaceRoot = FindWorkspaceRoot(Directory.GetCurrentDirectory());
+        var workspaceRoot = Path.GetFullPath(FindWorkspaceRoot(Directory.GetCurrentDirectory()));
         var scopes = ResolveScopes(scope, allowAll);
-        var targetDirectory = ResolveTargetDirectory(target);
+        var customTargetDirectory = string.IsNullOrWhiteSpace(customPath) ? null : ResolveCustomTargetDirectory(customPath);
         var targets = new List<InstallTarget>();
 
         foreach (var resolvedScope in scopes)
         {
             var root = resolvedScope == "user" ? GetUserRoot() : workspaceRoot;
-            targets.Add(new InstallTarget(
-                resolvedScope,
-                target,
-                root,
-                targetDirectory,
-                Path.Combine(root, NormalizeRelativePath(LockFileRelativePath))));
+            var (targetKind, targetDirectory) = ResolveInstallTargetDirectory(root, target, customTargetDirectory);
+            targets.Add(CreateInstallTarget(resolvedScope, targetKind, targetDirectory, workspaceRoot));
         }
 
         return targets;
+    }
+
+    static (string TargetKind, string TargetDirectory) ResolveInstallTargetDirectory(string rootDirectory, string target, string? customTargetDirectory)
+    {
+        if (customTargetDirectory != null)
+            return (CreateCustomTargetKind(customTargetDirectory), customTargetDirectory);
+
+        if (string.Equals(target, AutoTarget, StringComparison.OrdinalIgnoreCase))
+            return InferTargetDirectory(rootDirectory);
+
+        return (target, ResolveTargetDirectory(target));
+    }
+
+    static (string TargetKind, string TargetDirectory) InferTargetDirectory(string rootDirectory)
+    {
+        foreach (var (targetKind, targetDirectory) in s_targetDirectories)
+        {
+            if (ContainsCurrentDevFlowSkill(rootDirectory, targetDirectory))
+                return (targetKind, targetDirectory);
+        }
+
+        foreach (var (targetKind, targetDirectory) in s_targetDirectories)
+        {
+            if (ContainsAnySkillDirectory(rootDirectory, targetDirectory))
+                return (targetKind, targetDirectory);
+        }
+
+        return (DefaultTarget, s_targetDirectories[DefaultTarget]);
+    }
+
+    static bool ContainsCurrentDevFlowSkill(string rootDirectory, string targetDirectory)
+        => s_skills.Any(skill => Directory.Exists(Path.Combine(rootDirectory, targetDirectory, skill.Id)));
+
+    static bool ContainsAnySkillDirectory(string rootDirectory, string targetDirectory)
+    {
+        var directory = Path.Combine(rootDirectory, targetDirectory);
+        if (!Directory.Exists(directory))
+            return false;
+
+        try
+        {
+            return Directory.EnumerateDirectories(directory).Any();
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    static IReadOnlyList<InstallTarget> GetLegacyCleanupTargets(IReadOnlyList<InstallTarget> installTargets)
+    {
+        var targets = new List<InstallTarget>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var installTarget in installTargets)
+        {
+            AddLegacyCleanupTarget(targets, seen, installTarget);
+
+            foreach (var (targetKind, targetDirectory) in s_targetDirectories)
+                AddLegacyCleanupTarget(targets, seen, CreateInstallTarget(installTarget.Scope, targetKind, targetDirectory, installTarget.WorkspaceRoot));
+
+            if (installTarget.Scope != "user")
+                AddLegacyCleanupTarget(targets, seen, CreateInstallTarget("user", installTarget.TargetKind, installTarget.RelativeSkillDirectory, installTarget.WorkspaceRoot));
+        }
+
+        var workspaceRoot = installTargets.Count > 0 ? installTargets[0].WorkspaceRoot : Path.GetFullPath(FindWorkspaceRoot(Directory.GetCurrentDirectory()));
+        foreach (var (targetKind, targetDirectory) in s_targetDirectories)
+            AddLegacyCleanupTarget(targets, seen, CreateInstallTarget("user", targetKind, targetDirectory, workspaceRoot));
+
+        return targets;
+    }
+
+    static void AddLegacyCleanupTarget(List<InstallTarget> targets, HashSet<string> seen, InstallTarget target)
+    {
+        var key = string.Join('\u001f', target.Scope, target.TargetKind, target.RootDirectory, target.RelativeSkillDirectory);
+        if (seen.Add(key))
+            targets.Add(target);
+    }
+
+    static bool HasLegacySkillData(InstallTarget installTarget)
+    {
+        if (s_legacySkillIds.Any(skillId => Directory.Exists(GetSkillDirectory(installTarget, skillId))))
+            return true;
+
+        if (!File.Exists(installTarget.StateFilePath))
+            return false;
+
+        var skillState = ReadSkillState(installTarget.StateFilePath);
+        return s_legacySkillIds.Any(skillId => FindStateEntry(skillState, installTarget, skillId) != null);
+    }
+
+    static InstallTarget CreateInstallTarget(string scope, string targetKind, string targetDirectory, string workspaceRoot)
+    {
+        var root = scope == "user" ? GetUserRoot() : workspaceRoot;
+        return new InstallTarget(
+            scope,
+            targetKind,
+            root,
+            targetDirectory,
+            ResolveStateFilePath(workspaceRoot, scope, targetKind),
+            workspaceRoot);
+    }
+
+    static string ResolveStateFilePath(string workspaceRoot, string scope, string target)
+    {
+        var stateRoot = GetDevFlowStateRoot();
+        var fileName = $"{target.ToLowerInvariant()}.json";
+        return scope == "user"
+            ? Path.Combine(stateRoot, "user", "skills", fileName)
+            : Path.Combine(stateRoot, "workspaces", GetWorkspaceStateId(workspaceRoot), "skills", fileName);
     }
 
     static IReadOnlyList<string> ResolveScopes(string scope, bool allowAll)
@@ -638,7 +950,29 @@ internal static class DevFlowSkillManager
         if (s_targetDirectories.TryGetValue(target, out var directory))
             return directory;
 
-        throw new InvalidOperationException($"Target must be one of: {string.Join(", ", s_targetDirectories.Keys)}.");
+        throw new InvalidOperationException($"Target must be {AutoTarget} or one of: {string.Join(", ", s_targetDirectories.Keys)}.");
+    }
+
+    static string ResolveCustomTargetDirectory(string customPath)
+    {
+        var normalized = NormalizeRelativePath(customPath.Trim());
+        if (string.IsNullOrWhiteSpace(normalized))
+            throw new InvalidOperationException("Custom skill path must not be empty.");
+        if (Path.IsPathRooted(normalized))
+            throw new InvalidOperationException("Custom skill path must be relative to the selected scope root.");
+
+        var segments = normalized.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0 || segments.Any(segment => segment == "." || segment == ".."))
+            throw new InvalidOperationException("Custom skill path must not contain . or .. path segments.");
+
+        return Path.Combine(segments);
+    }
+
+    static string CreateCustomTargetKind(string targetDirectory)
+    {
+        var normalized = targetDirectory.Replace(Path.DirectorySeparatorChar, '/');
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))[..16].ToLowerInvariant();
+        return $"path-{hash}";
     }
 
     static string FindWorkspaceRoot(string startDirectory)
@@ -658,6 +992,9 @@ internal static class DevFlowSkillManager
 
     static string GetUserRoot()
     {
+        if (!string.IsNullOrWhiteSpace(UserRootOverrideForTests))
+            return Path.GetFullPath(UserRootOverrideForTests);
+
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrWhiteSpace(home))
             return home;
@@ -669,12 +1006,37 @@ internal static class DevFlowSkillManager
         throw new InvalidOperationException("Cannot determine the user profile directory for user-scope skill installation.");
     }
 
+    static string GetDevFlowStateRoot()
+    {
+        var root = StateRootOverrideForTests;
+        if (string.IsNullOrWhiteSpace(root))
+            root = Environment.GetEnvironmentVariable(StateRootEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(root))
+            root = Path.Combine(GetUserRoot(), ".maui", "devflow");
+
+        return Path.GetFullPath(root);
+    }
+
+    static string GetWorkspaceStateId(string workspaceRoot)
+    {
+        var normalized = Path.GetFullPath(workspaceRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(bytes)[..24].ToLowerInvariant();
+    }
+
     static string GetSkillDirectory(InstallTarget installTarget, string skillId)
         => Path.Combine(installTarget.RootDirectory, installTarget.RelativeSkillDirectory, skillId);
 
+    static DevFlowSkillDefinition? TryGetSkill(string skillId)
+        => s_skills.FirstOrDefault(skill => string.Equals(skill.Id, skillId, StringComparison.OrdinalIgnoreCase));
+
     static DevFlowSkillDefinition GetSkill(string skillId)
-        => s_skills.FirstOrDefault(skill => string.Equals(skill.Id, skillId, StringComparison.OrdinalIgnoreCase))
+        => TryGetSkill(skillId)
            ?? throw new InvalidOperationException($"Unknown DevFlow skill '{skillId}'.");
+
+    static bool IsLegacySkill(string skillId)
+        => s_legacySkillIds.Contains(skillId, StringComparer.OrdinalIgnoreCase);
 
     static string NormalizeRelativePath(string path)
         => path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
@@ -723,6 +1085,20 @@ internal static class DevFlowSkillManager
         return HashString(builder.ToString());
     }
 
+    static string HashBundleSet(IEnumerable<(DevFlowSkillDefinition Skill, SkillBundle Bundle)> skillBundles)
+    {
+        var builder = new StringBuilder();
+        foreach (var (skill, bundle) in skillBundles.OrderBy(item => item.Skill.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            builder.Append(skill.Id);
+            builder.Append('\n');
+            builder.Append(bundle.ContentHash);
+            builder.Append('\n');
+        }
+
+        return HashString(builder.ToString());
+    }
+
     static string HashString(string value)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
@@ -737,6 +1113,39 @@ internal static class DevFlowSkillManager
 
     static string? GetString(JsonObject node, string propertyName)
         => node.TryGetPropertyValue(propertyName, out var value) ? value?.GetValue<string>() : null;
+
+    static DateTimeOffset GetUtcNow()
+        => UtcNowOverrideForTests ?? DateTimeOffset.UtcNow;
+
+    static DateTimeOffset? GetDateTimeOffset(JsonObject node, string propertyName)
+    {
+        var value = GetString(node, propertyName);
+        return DateTimeOffset.TryParse(value, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    static void MarkSkillStateChecked(JsonObject skillState, string bundleHash)
+    {
+        var now = GetUtcNow().ToString("O");
+        skillState["lastCheckedUtc"] = now;
+        skillState["lastCheckedCliVersion"] = GetCurrentCliVersion();
+        skillState["lastCheckedBundleHash"] = bundleHash;
+    }
+
+    static bool ShouldShowFreshnessHint(JsonObject skillState, DateTimeOffset now)
+    {
+        var lastChecked = GetDateTimeOffset(skillState, "lastCheckedUtc");
+        var lastCheckedCliVersion = GetString(skillState, "lastCheckedCliVersion");
+        var checkedRecently = lastChecked.HasValue && now - lastChecked.Value < FreshnessCheckInterval;
+        var checkedWithCurrentCli = !string.IsNullOrWhiteSpace(lastCheckedCliVersion) &&
+            VersionsEquivalent(lastCheckedCliVersion, GetCurrentCliVersion());
+        if (checkedRecently && checkedWithCurrentCli)
+            return false;
+
+        var lastPrompted = GetDateTimeOffset(skillState, "lastPromptedUtc");
+        return !lastPrompted.HasValue || now - lastPrompted.Value >= FreshnessPromptInterval;
+    }
 
     static int CompareVersionLike(string? left, string? right)
     {
@@ -838,18 +1247,19 @@ internal static class DevFlowSkillManager
 
     static void AddScopeConflictWarnings(JsonArray warnings, string target)
     {
-        if (!s_targetDirectories.ContainsKey(target))
+        if (!s_targetDirectories.ContainsKey(target) &&
+            !string.Equals(target, AutoTarget, StringComparison.OrdinalIgnoreCase))
             return;
 
-        var projectTarget = ResolveInstallTargets("project", target, allowAll: true)[0];
-        var userTarget = ResolveInstallTargets("user", target, allowAll: true)[0];
-        var projectLock = ReadLockFile(projectTarget.LockFilePath);
-        var userLock = ReadLockFile(userTarget.LockFilePath);
+        var projectTarget = ResolveInstallTargets("project", target, customPath: null, allowAll: true)[0];
+        var userTarget = ResolveInstallTargets("user", target, customPath: null, allowAll: true)[0];
+        var projectState = ReadSkillState(projectTarget.StateFilePath);
+        var userState = ReadSkillState(userTarget.StateFilePath);
 
         foreach (var skill in s_skills)
         {
-            var projectEntry = FindLockEntry(projectLock, projectTarget, skill.Id);
-            var userEntry = FindLockEntry(userLock, userTarget, skill.Id);
+            var projectEntry = FindStateEntry(projectState, projectTarget, skill.Id);
+            var userEntry = FindStateEntry(userState, userTarget, skill.Id);
             if (projectEntry == null || userEntry == null)
                 continue;
 
@@ -937,7 +1347,13 @@ internal static class DevFlowSkillManager
         }
     }
 
-    sealed record InstallTarget(string Scope, string TargetKind, string RootDirectory, string RelativeSkillDirectory, string LockFilePath)
+    sealed record InstallTarget(
+        string Scope,
+        string TargetKind,
+        string RootDirectory,
+        string RelativeSkillDirectory,
+        string StateFilePath,
+        string WorkspaceRoot)
     {
         public string GetDisplayPath(string skillId)
         {
@@ -945,4 +1361,11 @@ internal static class DevFlowSkillManager
             return Scope == "user" ? $"~/{path}" : path;
         }
     }
+
+    internal sealed record SkillActionPrompt(
+        string SkillId,
+        string Action,
+        string Status,
+        string Path,
+        string Message);
 }

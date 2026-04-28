@@ -6,10 +6,9 @@ description: >-
   Package Management guidance, and verification commands. USE FOR: first-time
   DevFlow setup, reviewing what files to edit, choosing DevFlow packages, or
   continuing after `maui devflow init` installs skills. DO NOT USE FOR:
-  troubleshooting an already-integrated app that cannot connect (use
-  maui-devflow-connect), iterative app debugging after connection works (use
-  maui-devflow-debug), or generic MAUI build failures. INVOKES: maui devflow
-  CLI and dotnet CLI.
+  troubleshooting an already-integrated app that cannot connect, iterative app
+  debugging, UI inspection, or generic MAUI build failures (use
+  maui-devflow-debug). INVOKES: maui devflow CLI and dotnet CLI.
 ---
 
 # DevFlow Onboard
@@ -26,7 +25,7 @@ Use this skill to add MAUI DevFlow to a project after `maui devflow init` has in
 
 ## Route Elsewhere
 
-- If package references and `AddMauiDevFlowAgent()` are already present but the CLI cannot connect, use `maui-devflow-connect`.
+- If package references and `AddMauiDevFlowAgent()` are already present but the CLI cannot connect, use `maui-devflow-debug`.
 - If an agent is reachable and the user wants to inspect, tap, screenshot, or debug UI, use `maui-devflow-debug`.
 
 ## Workflow
@@ -45,7 +44,7 @@ Use this skill to add MAUI DevFlow to a project after `maui devflow init` has in
    maui devflow ui tree --depth 1
    ```
 
-If verification fails after integration, switch to `maui-devflow-connect`.
+If verification fails after integration, switch to `maui-devflow-debug` for connectivity recovery.
 
 ## Stop Signals
 

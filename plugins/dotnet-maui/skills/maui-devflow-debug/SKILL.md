@@ -3,13 +3,13 @@ name: maui-devflow-debug
 description: >-
   Run build, deploy, inspect, and fix loops for .NET MAUI apps that already have
   MAUI DevFlow integrated. USE FOR: launching MAUI apps, selecting devices or
-  emulators, waiting for agents, visual tree inspection, screenshots, UI
-  interaction, Blazor WebView CDP debugging, reading DevFlow logs, and iterative
-  app debugging. DO NOT USE FOR: first-time DevFlow package setup (use
-  maui-devflow-onboard), connection failures before an agent is reachable (use
-  maui-devflow-connect), or generic desktop automation unrelated to MAUI.
-  INVOKES: maui devflow CLI, dotnet CLI, Android adb/android tools, and Apple
-  simctl tools.
+  emulators, waiting for or recovering agent connections, broker/port/adb
+  connectivity issues, visual tree inspection, screenshots, UI interaction,
+  Blazor WebView CDP debugging, reading DevFlow logs, and iterative app
+  debugging. DO NOT USE FOR: first-time DevFlow package setup (use
+  maui-devflow-onboard), or generic desktop automation unrelated to MAUI. INVOKES:
+  maui devflow CLI, dotnet CLI, Android adb/android tools, and Apple simctl
+  tools.
 ---
 
 # DevFlow Debug
@@ -22,6 +22,7 @@ packages and `builder.AddMauiDevFlowAgent()` registered.
 - Build and run a MAUI app on Android, iOS, Mac Catalyst, macOS, Windows, or GTK.
 - Choose or create a simulator/emulator for a project.
 - Wait for a DevFlow agent, inspect the visual tree, tap/fill UI, or capture screenshots.
+- Recover from DevFlow connection failures after the app is integrated, including broker, port, and Android adb forwarding issues.
 - Debug Blazor Hybrid content through DevFlow WebView/CDP commands.
 - Read app logs, network captures, preferences, device info, or recordings through DevFlow.
 - Iterate on an app bug with a build -> deploy -> inspect -> fix loop.
@@ -29,7 +30,6 @@ packages and `builder.AddMauiDevFlowAgent()` registered.
 ## Route Elsewhere
 
 - If DevFlow packages or `MauiProgram.cs` registration are missing, use `maui-devflow-onboard`.
-- If the app should be integrated but `maui devflow wait`, `list`, or `ui tree` cannot connect, use `maui-devflow-connect`.
 - If the failure is a generic build or SDK issue with no DevFlow angle, use normal .NET/MAUI diagnostics.
 
 ## Core Loop
@@ -63,6 +63,8 @@ packages and `builder.AddMauiDevFlowAgent()` registered.
    maui devflow ui tree --depth 3 --fields "id,type,text,automationId"
    ```
 
+   If `wait`, `list`, or `ui tree` cannot connect after the app is running, load `references/connectivity.md` and recover the broker/agent connection before continuing.
+
 6. Inspect, interact, capture evidence, then edit the app and repeat from launch.
 
 ## Critical Anti-patterns
@@ -76,7 +78,6 @@ packages and `builder.AddMauiDevFlowAgent()` registered.
 ## Stop Signals
 
 - Stop and switch to `maui-devflow-onboard` when package references or `AddMauiDevFlowAgent()` are absent.
-- Stop and switch to `maui-devflow-connect` when the app is running but DevFlow cannot connect.
 - Stop and ask which project, device, or agent to target when multiple candidates match.
 - Stop rebuilding after two identical failures until you inspect the first meaningful build/runtime error.
 - Stop using screenshots for exact property values; query the visual tree or properties instead.
@@ -86,6 +87,7 @@ packages and `builder.AddMauiDevFlowAgent()` registered.
 Load these only when needed:
 
 - `references/setup.md` - detailed integration, package, entitlement, and update notes.
+- `references/connectivity.md` - broker, agent, port, Android forwarding, and "no agents connected" recovery.
 - `references/android.md` - Android SDK, emulator, adb, build, deploy, and port forwarding details.
 - `references/ios-and-mac.md` - iOS simulator, Mac Catalyst, permissions, entitlements, and Apple tooling.
 - `references/macos.md` - macOS AppKit project shape, launch model, and troubleshooting.
