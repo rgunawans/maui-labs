@@ -10,16 +10,16 @@
       <_DevFlowPackagePayloadRoot>$([MSBuild]::EnsureTrailingSlash('$(_DevFlowPackagePayloadRoot)'))</_DevFlowPackagePayloadRoot>
       <_DevFlowPackageVersion Condition="'$(PackageVersion)' != ''">$(PackageVersion)</_DevFlowPackageVersion>
       <_DevFlowPackageVersion Condition="'$(_DevFlowPackageVersion)' == ''">$(Version)</_DevFlowPackageVersion>
-      <_DevFlowMacPackageRoot>$(_DevFlowRawPackageRoot)raw-packages-devflow-macos-latest/</_DevFlowMacPackageRoot>
-      <_DevFlowWindowsPackageRoot>$(_DevFlowRawPackageRoot)raw-packages-devflow-windows-latest/</_DevFlowWindowsPackageRoot>
+      <_DevFlowMacPackageRootPattern>$(_DevFlowRawPackageRoot)raw-packages-devflow-macos-*/</_DevFlowMacPackageRootPattern>
+      <_DevFlowWindowsPackageRootPattern>$(_DevFlowRawPackageRoot)raw-packages-devflow-windows-*/</_DevFlowWindowsPackageRootPattern>
       <_DevFlowPackageFileName>$(PackageId).$(_DevFlowPackageVersion).nupkg</_DevFlowPackageFileName>
     </PropertyGroup>
 
     <ItemGroup>
-      <_DevFlowMacPackageCandidate Include="$(_DevFlowMacPackageRoot)$(_DevFlowPackageFileName)" Condition="Exists('$(_DevFlowMacPackageRoot)$(_DevFlowPackageFileName)')" />
-      <_DevFlowMacPackageCandidate Include="$(_DevFlowMacPackageRoot)**/$(_DevFlowPackageFileName)" />
-      <_DevFlowWindowsPackageCandidate Include="$(_DevFlowWindowsPackageRoot)$(_DevFlowPackageFileName)" Condition="Exists('$(_DevFlowWindowsPackageRoot)$(_DevFlowPackageFileName)')" />
-      <_DevFlowWindowsPackageCandidate Include="$(_DevFlowWindowsPackageRoot)**/$(_DevFlowPackageFileName)" />
+      <_DevFlowMacPackageCandidate Include="$(_DevFlowMacPackageRootPattern)$(_DevFlowPackageFileName)" />
+      <_DevFlowMacPackageCandidate Include="$(_DevFlowMacPackageRootPattern)**/$(_DevFlowPackageFileName)" />
+      <_DevFlowWindowsPackageCandidate Include="$(_DevFlowWindowsPackageRootPattern)$(_DevFlowPackageFileName)" />
+      <_DevFlowWindowsPackageCandidate Include="$(_DevFlowWindowsPackageRootPattern)**/$(_DevFlowPackageFileName)" />
     </ItemGroup>
 
     <RemoveDuplicates Inputs="@(_DevFlowMacPackageCandidate)">
@@ -31,9 +31,9 @@
     </RemoveDuplicates>
 
     <Error Condition="'@(_DevFlowMacPackage)' == ''"
-           Text="Could not find macOS package payload '$(_DevFlowPackageFileName)' under '$(_DevFlowMacPackageRoot)'." />
+           Text="Could not find macOS package payload '$(_DevFlowPackageFileName)' matching '$(_DevFlowMacPackageRootPattern)'." />
     <Error Condition="'@(_DevFlowWindowsPackage)' == ''"
-           Text="Could not find Windows package payload '$(_DevFlowPackageFileName)' under '$(_DevFlowWindowsPackageRoot)'." />
+           Text="Could not find Windows package payload '$(_DevFlowPackageFileName)' matching '$(_DevFlowWindowsPackageRootPattern)'." />
 
     <RemoveDir Directories="$(_DevFlowPackagePayloadRoot)" />
     <MakeDir Directories="$(_DevFlowPackagePayloadRoot)macos;$(_DevFlowPackagePayloadRoot)windows" />
