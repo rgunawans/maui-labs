@@ -49,6 +49,8 @@ Review pull request #${{ github.event.pull_request.number || github.event.issue.
 > **🚨 No test messages.** Never call any safe-output tool with placeholder or test content. Every call posts permanently on the PR. This applies to you and all sub-agents.
 >
 > **🚨 Review event: ALWAYS use "COMMENT".** APPROVE and REQUEST_CHANGES are blocked by safe-outputs and will fail.
+>
+> **🚨 `add_comment` budget: exactly ONE call.** You may call `add_comment` at most once per review — either for the "zero findings" message (Step 3) or for the lean summary (Step 4 Part B). Follow-up agent responses (AGREE/DISAGREE from disputed-finding evaluation) are **internal data only** — NEVER post them as comments.
 
 ## Instructions
 
@@ -117,6 +119,7 @@ Collect findings from all 3 sub-agents and apply consensus. Two findings "agree"
    - If 2+ now agree → include
    - If still 1/3 → discard (note as "discarded — single reviewer only")
    - **Cap at 3 disputed findings** — select the **3 most severe** for follow-up. Discard lower-severity 1/3 findings without follow-up to preserve token budget for posting.
+   - **⚠️ Follow-up responses are internal data.** Read the AGREE/DISAGREE text, use it for consensus decisions, then discard it. Do NOT forward follow-up agent responses to `add_comment`, `create_pull_request_review_comment`, or any other safe-output tool.
 
 **Zero findings**: If all reviewers return zero findings, skip Step 4. Instead call `add-comment` with: "✅ Expert Code Review: 3 independent reviewers found no issues. Methodology: 3-model adversarial consensus."
 
@@ -141,7 +144,7 @@ After posting inline comments, call `submit_pull_request_review` with `event: "C
 
 #### Part B: Lean Summary Comment
 
-Post a **brief summary** using `add_comment`. The `hide-older-comments: true` configuration ensures previous summaries are automatically collapsed when a new review runs.
+Post a **brief summary** using `add_comment`. This is the **one and only** `add_comment` call for the entire review — do not call it anywhere else. The `hide-older-comments: true` configuration ensures previous summaries are automatically collapsed when a new review runs.
 
 The summary should be **lean** — all findings are already posted inline. Do NOT repeat findings in the summary.
 
