@@ -513,9 +513,9 @@ public class AgentClient : IDisposable
         {
             using var content = DriverJson.CreateJsonContent(body);
             var response = await _http.PostAsync($"{_baseUrl}{path}", content);
-            if (!response.IsSuccessStatusCode)
-                return null;
             var responseBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(responseBody))
+                return null;
             return DriverJson.Deserialize<T>(responseBody);
         }
         catch

@@ -464,7 +464,7 @@ public partial class DevFlowAgentService
 	#region HTTP Handlers
 
 	private static HttpResponse InvokeError(string error) =>
-		HttpResponse.Json(new { success = false, error });
+		HttpResponse.Error(error);
 
 	private Task<HttpResponse> HandleListActions(HttpRequest request)
 	{

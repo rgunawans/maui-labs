@@ -210,6 +210,37 @@ public class InvokeTests
 	}
 
 	[Fact]
+	public async Task Batch_WithInvokeFailure_StopsAndReportsFailure()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+		TestInvokeHelpers.LastSideEffect = null;
+
+		var result = await harness.Client.BatchAsync(
+			[
+				new System.Text.Json.Nodes.JsonObject
+				{
+					["action"] = "invoke",
+					["typeName"] = typeof(TestInvokeHelpers).FullName,
+					["methodName"] = "NonExistentMethod"
+				},
+				new System.Text.Json.Nodes.JsonObject
+				{
+					["action"] = "invoke",
+					["typeName"] = typeof(TestInvokeHelpers).FullName,
+					["methodName"] = nameof(TestInvokeHelpers.DoSideEffect),
+					["args"] = JsonArray(JsonElement("should-not-run"))
+				}
+			],
+			continueOnError: false);
+
+		Assert.False(result.GetProperty("success").GetBoolean());
+		var onlyResult = Assert.Single(result.GetProperty("results").EnumerateArray());
+		Assert.False(onlyResult.GetProperty("success").GetBoolean());
+		Assert.Equal(400, onlyResult.GetProperty("statusCode").GetInt32());
+		Assert.Null(TestInvokeHelpers.LastSideEffect);
+	}
+
+	[Fact]
 	public async Task Invoke_WithArrayParameter_ConvertsJsonArray()
 	{
 		using var harness = await InvokeTestHarness.CreateAsync();
