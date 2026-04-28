@@ -4,6 +4,17 @@
 # Imported by review.agent.md (slash command) and review-on-open.agent.md
 # (pull request opened). Keeps permissions, tools, and safe-outputs in
 # one place so all review entry points share the same behavior.
+#
+# COMPILER: Must use gh-aw v0.68.3. v0.69.3+ strips pull-requests:write
+# from the activation job, breaking slash_command reactions on PR comments
+# (403: Resource not accessible by integration). See github/gh-aw#28767.
+#
+# TODO(gh-aw upgrade): Once github/gh-aw#28767 is fixed in a newer version:
+#   1. Switch submit-pull-request-review allowed-events to [COMMENT, REQUEST_CHANGES]
+#   2. Add supersede-older-reviews: true (auto-dismisses old blocking reviews)
+#   3. Update Step 4 to use REQUEST_CHANGES when findings exist (enables fix button)
+#   4. Remove add-comment summary — the review body replaces it
+#   5. Recompile and test with /review slash command on a PR
 
 description: "Shared configuration for expert-review workflows"
 
