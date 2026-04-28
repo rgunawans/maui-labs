@@ -468,20 +468,33 @@ internal static class DevFlowSkillManager
     static void WriteLockFile(string lockFilePath, JsonObject lockFile)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(lockFilePath)!);
-        lockFile["version"] = 1;
-        lockFile["updatedAtUtc"] = DateTime.UtcNow.ToString("o");
+        PrepareLockFileForWrite(lockFile);
         File.WriteAllText(lockFilePath, CliJson.SerializeUntyped(lockFile));
     }
 
     static void WriteLockFile(string lockFilePath, JsonObject lockFile, FileStream stream)
     {
-        lockFile["version"] = 1;
-        lockFile["updatedAtUtc"] = DateTime.UtcNow.ToString("o");
+        PrepareLockFileForWrite(lockFile);
         var bytes = Encoding.UTF8.GetBytes(CliJson.SerializeUntyped(lockFile));
         stream.Position = 0;
         stream.SetLength(0);
         stream.Write(bytes);
         stream.Flush(flushToDisk: true);
+    }
+
+    static void PrepareLockFileForWrite(JsonObject lockFile)
+    {
+        lockFile["version"] = 1;
+        lockFile.Remove("updatedAtUtc");
+
+        if (lockFile["entries"] is not JsonArray entries)
+            return;
+
+        foreach (var entry in entries.OfType<JsonObject>())
+        {
+            entry.Remove("installedByCommandPath");
+            entry.Remove("installedAtUtc");
+        }
     }
 
     static void UpdateLockFile(string lockFilePath, CancellationToken cancellationToken, Func<JsonObject, bool> update)
@@ -561,8 +574,6 @@ internal static class DevFlowSkillManager
             ["contentHash"] = bundle.ContentHash,
             ["installedByCliVersion"] = GetCurrentCliVersion(),
             ["installedByBundleHash"] = bundle.ContentHash,
-            ["installedByCommandPath"] = Environment.ProcessPath ?? AppContext.BaseDirectory,
-            ["installedAtUtc"] = DateTime.UtcNow.ToString("o"),
             ["files"] = files
         });
     }

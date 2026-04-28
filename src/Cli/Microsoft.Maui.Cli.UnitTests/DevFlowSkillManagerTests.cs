@@ -22,7 +22,17 @@ public sealed class DevFlowSkillManagerTests
         Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-connect", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-debug", "SKILL.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json")));
+        var lockPath = Path.Combine(workspace.Path, ".maui", "devflow-skills.lock.json");
+        Assert.True(File.Exists(lockPath));
+
+        var lockFile = Assert.IsType<JsonObject>(CliJson.ParseNode(await File.ReadAllTextAsync(lockPath)));
+        Assert.False(lockFile.ContainsKey("updatedAtUtc"));
+        var lockEntries = Assert.IsType<JsonArray>(lockFile["entries"]);
+        Assert.All(lockEntries.OfType<JsonObject>(), entry =>
+        {
+            Assert.False(entry.ContainsKey("installedByCommandPath"));
+            Assert.False(entry.ContainsKey("installedAtUtc"));
+        });
 
         var statuses = await DevFlowSkillManager.CheckAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
         var skills = Assert.IsType<JsonArray>(statuses["skills"]);
