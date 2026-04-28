@@ -558,7 +558,7 @@ public class AgentClient : IDisposable
         }
     }
 
-    // ── Invoke / Reflection ──
+    // ── DevFlow Actions ──
 
     private const string InvokeApi = $"{ApiV1}/invoke";
 
@@ -578,43 +578,6 @@ public class AgentClient : IDisposable
             body["args"] = args;
         return await PostJsonAsync<InvokeResult>($"{InvokeApi}/actions/{Uri.EscapeDataString(actionName)}", body);
     }
-
-    /// <summary>
-    /// Invoke a method by type name and method name via reflection.
-    /// </summary>
-    public async Task<InvokeResult?> InvokeAsync(string typeName, string methodName, JsonArray? args = null, string? resolve = null)
-    {
-        var body = new JsonObject
-        {
-            ["typeName"] = typeName,
-            ["methodName"] = methodName
-        };
-        if (args != null)
-            body["args"] = args;
-        if (resolve != null)
-            body["resolve"] = resolve;
-        return await PostJsonAsync<InvokeResult>($"{InvokeApi}", body);
-    }
-
-    /// <summary>
-    /// Invoke a method on a visual tree element.
-    /// </summary>
-    public async Task<InvokeResult?> InvokeElementMethodAsync(string elementId, string methodName, JsonArray? args = null)
-    {
-        var body = new JsonObject
-        {
-            ["methodName"] = methodName
-        };
-        if (args != null)
-            body["args"] = args;
-        return await PostJsonAsync<InvokeResult>($"{UiApi}/elements/{elementId}/invoke", body);
-    }
-
-    /// <summary>
-    /// Discover public methods on a type.
-    /// </summary>
-    public async Task<JsonElement> ListMethodsAsync(string typeName)
-        => await GetJsonAsync($"{InvokeApi}/methods?typeName={Uri.EscapeDataString(typeName)}");
 
     // ── Preferences ──
 
@@ -1228,7 +1191,7 @@ public class ProfilerCapabilities
 }
 
 /// <summary>
-/// Result of an invoke operation.
+/// Result of a DevFlow Action invocation.
 /// </summary>
 public class InvokeResult
 {
@@ -1242,10 +1205,4 @@ public class InvokeResult
     public string? Error { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("action")]
     public string? Action { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("typeName")]
-    public string? TypeName { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("methodName")]
-    public string? MethodName { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("elementId")]
-    public string? ElementId { get; set; }
 }

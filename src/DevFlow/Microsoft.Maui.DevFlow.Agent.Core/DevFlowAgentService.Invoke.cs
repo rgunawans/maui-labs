@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Reflection;
 using System.Reflection.Metadata;
@@ -29,26 +28,24 @@ static class DevFlowActionHotReloadHandler
 public partial class DevFlowAgentService
 {
 	private static volatile Lazy<InvokeActionEntry[]> s_cachedActions = new(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
-	private static readonly ConcurrentDictionary<string, Type> s_typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
 
 	#region Action Discovery
 
 	private InvokeActionEntry[] DiscoverActions() => s_cachedActions.Value;
 
 	/// <summary>
-	/// Invalidates cached reflection data. The next call to DiscoverActions()
-	/// will rescan all loaded assemblies, and type resolution will rescan as needed.
+	/// Invalidates cached action metadata. The next call to DiscoverActions()
+	/// will rescan all loaded assemblies.
 	/// Called by AssemblyLoad handler and MetadataUpdateHandler (Hot Reload).
 	/// </summary>
 	internal static void InvalidateActionCache()
 	{
 		s_cachedActions = new Lazy<InvokeActionEntry[]>(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
-		s_typeResolutionCache.Clear();
 	}
 
 	private void OnAssemblyLoaded(object? sender, AssemblyLoadEventArgs args)
 	{
-		if (args.LoadedAssembly.IsDynamic || IsFrameworkAssembly(args.LoadedAssembly))
+		if (args.LoadedAssembly.IsDynamic)
 			return;
 
 		InvalidateActionCache();
@@ -60,7 +57,7 @@ public partial class DevFlowAgentService
 
 		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
 		{
-			if (asm.IsDynamic || IsFrameworkAssembly(asm))
+			if (asm.IsDynamic)
 				continue;
 
 			Type[] types;
@@ -105,75 +102,6 @@ public partial class DevFlowAgentService
 			.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
 			.Select(g => g.First())
 			.ToArray();
-	}
-
-	private static readonly Lazy<HashSet<string>> s_trustedPlatformAssemblyNames = new(
-		GetTrustedPlatformAssemblyNames,
-		LazyThreadSafetyMode.ExecutionAndPublication);
-
-	private static bool IsFrameworkAssembly(Assembly asm)
-	{
-		var name = asm.GetName().Name;
-		if (string.IsNullOrEmpty(name))
-			return true;
-
-		return s_trustedPlatformAssemblyNames.Value.Contains(name)
-			|| IsExplicitlyBlockedAssembly(name);
-	}
-
-	private static HashSet<string> GetTrustedPlatformAssemblyNames()
-	{
-		var trustedPlatformAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
-		var assemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-		if (string.IsNullOrEmpty(trustedPlatformAssemblies))
-			return assemblyNames;
-
-		// Determine the shared framework directory so we only treat assemblies
-		// shipped with the runtime as "framework". TPA may also include app
-		// assemblies (e.g. in test runners), which we must NOT filter out.
-		var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
-
-		foreach (var path in trustedPlatformAssemblies.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-		{
-			// Only include assemblies that live in the shared framework directory
-			if (runtimeDir != null && !path.StartsWith(runtimeDir, StringComparison.OrdinalIgnoreCase))
-				continue;
-
-			var assemblyName = Path.GetFileNameWithoutExtension(path);
-			if (!string.IsNullOrEmpty(assemblyName))
-				assemblyNames.Add(assemblyName);
-		}
-
-		return assemblyNames;
-	}
-
-	private static bool IsExplicitlyBlockedAssembly(string name)
-	{
-		return name.StartsWith("Fizzler", StringComparison.Ordinal)
-			|| name.StartsWith("SkiaSharp", StringComparison.Ordinal)
-			|| IsMicrosoftMauiFrameworkAssembly(name)
-			|| IsDevFlowAssembly(name)
-			|| name.StartsWith("Microsoft.CSharp", StringComparison.Ordinal)
-			|| name.StartsWith("Microsoft.Win32", StringComparison.Ordinal);
-	}
-
-	private static bool IsMicrosoftMauiFrameworkAssembly(string name)
-	{
-		return string.Equals(name, "Microsoft.Maui", StringComparison.Ordinal)
-			|| (name.StartsWith("Microsoft.Maui.", StringComparison.Ordinal)
-				&& !name.StartsWith("Microsoft.Maui.DevFlow.", StringComparison.Ordinal));
-	}
-
-	private static bool IsDevFlowAssembly(string name)
-	{
-		return string.Equals(name, "Microsoft.Maui.DevFlow.Agent", StringComparison.Ordinal)
-			|| string.Equals(name, "Microsoft.Maui.DevFlow.Agent.Core", StringComparison.Ordinal)
-			|| string.Equals(name, "Microsoft.Maui.DevFlow.Agent.Gtk", StringComparison.Ordinal)
-			|| string.Equals(name, "Microsoft.Maui.DevFlow.Blazor", StringComparison.Ordinal)
-			|| string.Equals(name, "Microsoft.Maui.DevFlow.Blazor.Gtk", StringComparison.Ordinal)
-			|| string.Equals(name, "Microsoft.Maui.DevFlow.Driver", StringComparison.Ordinal)
-			|| string.Equals(name, "Microsoft.Maui.DevFlow.Logging", StringComparison.Ordinal);
 	}
 
 	private static InvokeParameterInfo[] BuildParameterInfoList(MethodInfo method)
@@ -225,74 +153,6 @@ public partial class DevFlowAgentService
 		if (value is string s) return s;
 		if (value is bool b) return b ? "true" : "false";
 		return value.ToString();
-	}
-
-	#endregion
-
-	#region Type Resolution
-
-	private Type? ResolveType(string typeName)
-	{
-		if (s_typeResolutionCache.TryGetValue(typeName, out var cached))
-			return cached;
-
-		// Try fully-qualified name first
-		var type = Type.GetType(typeName);
-		if (type != null)
-		{
-			if (IsFrameworkAssembly(type.Assembly))
-				type = null;
-			else
-			{
-				s_typeResolutionCache.TryAdd(typeName, type);
-				return type;
-			}
-		}
-
-		// Scan loaded assemblies
-		var matches = new List<Type>();
-		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-		{
-			if (asm.IsDynamic || IsFrameworkAssembly(asm)) continue;
-
-			// Full name match (preferred)
-			type = asm.GetType(typeName, throwOnError: false, ignoreCase: true);
-			if (type != null)
-			{
-				s_typeResolutionCache.TryAdd(typeName, type);
-				return type;
-			}
-
-			// Simple name match (fallback for unqualified names)
-			if (!typeName.Contains('.'))
-			{
-				try
-				{
-					foreach (var t in asm.GetTypes())
-					{
-						if (string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase))
-							matches.Add(t);
-					}
-				}
-				catch { }
-			}
-		}
-
-		// Deduplicate: if all matches refer to the same type, use it
-		var distinct = matches.Select(t => t.FullName).Distinct().ToList();
-		if (distinct.Count == 1)
-		{
-			s_typeResolutionCache.TryAdd(typeName, matches[0]);
-			return matches[0];
-		}
-
-		if (distinct.Count > 1)
-		{
-			System.Diagnostics.Debug.WriteLine(
-				$"[Microsoft.Maui.DevFlow] Warning: Ambiguous type name '{typeName}' matched {distinct.Count} types: {string.Join(", ", distinct)}. Use a fully-qualified type name to resolve the ambiguity.");
-		}
-
-		return null;
 	}
 
 	#endregion
@@ -415,127 +275,6 @@ public partial class DevFlowAgentService
 		return result;
 	}
 
-	private static int? ScoreInvokeCandidate(MethodInfo method, JsonElement[]? args)
-	{
-		var parameters = method.GetParameters();
-		var argCount = args?.Length ?? 0;
-		var required = parameters.Count(p => !p.HasDefaultValue);
-		if (argCount < required || argCount > parameters.Length)
-			return null;
-
-		var score = argCount == parameters.Length ? 1 : 0;
-		for (var i = 0; i < argCount; i++)
-		{
-			var argScore = ScoreInvokeArg(parameters[i].ParameterType, args![i]);
-			if (argScore == null)
-				return null;
-
-			score += argScore.Value;
-		}
-
-		return score;
-	}
-
-	private static int? ScoreInvokeArg(Type targetType, JsonElement argElement)
-	{
-		var underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-		if (argElement.ValueKind == JsonValueKind.Null)
-			return Nullable.GetUnderlyingType(targetType) != null || !targetType.IsValueType ? 6 : null;
-
-		if (underlying == typeof(string))
-			return argElement.ValueKind == JsonValueKind.String ? 6 : null;
-
-		if (underlying == typeof(bool))
-			return argElement.ValueKind switch
-			{
-				JsonValueKind.True or JsonValueKind.False => 6,
-				JsonValueKind.String => bool.TryParse(argElement.GetString(), out _) ? 2 : null,
-				_ => null
-			};
-
-		var numericScore = ScoreNumericInvokeArg(underlying, argElement);
-		if (numericScore != null)
-			return numericScore;
-
-		if (underlying.IsEnum)
-		{
-			if (argElement.ValueKind == JsonValueKind.String)
-				return Enum.TryParse(underlying, argElement.GetString(), ignoreCase: true, out _) ? 4 : null;
-			if (argElement.ValueKind == JsonValueKind.Number)
-				return argElement.TryGetInt64(out _) ? 2 : null;
-			return null;
-		}
-
-		if (argElement.ValueKind == JsonValueKind.Array && TryGetInvokeCollectionElementType(underlying, out var elementType))
-		{
-			var score = 3;
-			foreach (var item in argElement.EnumerateArray())
-			{
-				var itemScore = ScoreInvokeArg(elementType, item);
-				if (itemScore == null)
-					return null;
-				score += Math.Min(itemScore.Value, 4);
-			}
-			return score;
-		}
-
-		return underlying == typeof(object) && argElement.ValueKind == JsonValueKind.String ? 1 : null;
-	}
-
-	private static int? ScoreNumericInvokeArg(Type underlying, JsonElement argElement)
-	{
-		if (argElement.ValueKind == JsonValueKind.Number)
-		{
-			if (underlying == typeof(int)) return argElement.TryGetInt32(out _) ? 6 : null;
-			if (underlying == typeof(long)) return argElement.TryGetInt64(out _) ? 6 : null;
-			if (underlying == typeof(short)) return argElement.TryGetInt16(out _) ? 6 : null;
-			if (underlying == typeof(byte)) return argElement.TryGetByte(out _) ? 6 : null;
-			if (underlying == typeof(float)) return argElement.TryGetSingle(out _) ? 6 : null;
-			if (underlying == typeof(double)) return argElement.TryGetDouble(out _) ? 6 : null;
-			if (underlying == typeof(decimal)) return argElement.TryGetDecimal(out _) ? 6 : null;
-		}
-
-		if (argElement.ValueKind != JsonValueKind.String)
-			return null;
-
-		var value = argElement.GetString();
-		if (underlying == typeof(int)) return int.TryParse(value, out _) ? 2 : null;
-		if (underlying == typeof(long)) return long.TryParse(value, out _) ? 2 : null;
-		if (underlying == typeof(short)) return short.TryParse(value, out _) ? 2 : null;
-		if (underlying == typeof(byte)) return byte.TryParse(value, out _) ? 2 : null;
-		if (underlying == typeof(float)) return float.TryParse(value, out _) ? 2 : null;
-		if (underlying == typeof(double)) return double.TryParse(value, out _) ? 2 : null;
-		if (underlying == typeof(decimal)) return decimal.TryParse(value, out _) ? 2 : null;
-
-		return null;
-	}
-
-	private static bool TryGetInvokeCollectionElementType(Type type, out Type elementType)
-	{
-		if (type.IsArray)
-		{
-			elementType = type.GetElementType()!;
-			return true;
-		}
-
-		if (type.IsGenericType)
-		{
-			var def = type.GetGenericTypeDefinition();
-			if (def == typeof(List<>) || def == typeof(IList<>) || def == typeof(IEnumerable<>) || def == typeof(IReadOnlyList<>) || def == typeof(ICollection<>) || def == typeof(IReadOnlyCollection<>))
-			{
-				elementType = type.GetGenericArguments()[0];
-				return true;
-			}
-		}
-
-		elementType = typeof(object);
-		return false;
-	}
-
-	private static string FormatInvokeMethodSignature(MethodInfo method) =>
-		$"{method.Name}({string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})";
-
 	#endregion
 
 	#region Invoke Execution
@@ -613,19 +352,6 @@ public partial class DevFlowAgentService
 		return result!;
 	}
 
-	private static bool IsElementInvokeAllowedMethod(MethodInfo method)
-	{
-		var declaringType = method.DeclaringType;
-		if (declaringType == null || IsFrameworkAssembly(declaringType.Assembly))
-			return false;
-
-		var assemblyName = declaringType.Assembly.GetName().Name;
-		return !string.Equals(assemblyName, "Microsoft.Maui", StringComparison.Ordinal)
-			&& (assemblyName == null
-				|| !assemblyName.StartsWith("Microsoft.Maui.", StringComparison.Ordinal)
-				|| assemblyName.StartsWith("Microsoft.Maui.DevFlow.", StringComparison.Ordinal));
-	}
-
 	#endregion
 
 	#region HTTP Handlers
@@ -673,8 +399,7 @@ public partial class DevFlowAgentService
 		try
 		{
 			var convertedArgs = ConvertInvokeArgs(action.Method.GetParameters(), args);
-			var invokeTask = await DispatchAsync(() => InvokeMethodAsync(action.Method, null, convertedArgs));
-			var (success, returnValue, returnType, error) = await invokeTask;
+			var (success, returnValue, returnType, error) = await DispatchInvokeMethodAsync(action.Method, null, convertedArgs);
 
 			return success
 				? HttpResponse.Json(new { success = true, action = action.Name, returnValue, returnType })
@@ -684,183 +409,6 @@ public partial class DevFlowAgentService
 		{
 			return InvokeError($"Argument error: {ex.Message}");
 		}
-	}
-
-	private async Task<HttpResponse> HandleInvoke(HttpRequest request)
-	{
-		var body = request.BodyAs<InvokeRequest>();
-		if (body?.TypeName == null)
-			return InvokeError("typeName is required");
-		if (body.MethodName == null)
-			return InvokeError("methodName is required");
-
-		var type = ResolveType(body.TypeName);
-		if (type == null)
-			return InvokeError($"Type '{body.TypeName}' not found in loaded assemblies.");
-
-		var resolve = body.Resolve ?? "static";
-		var isService = string.Equals(resolve, "service", StringComparison.OrdinalIgnoreCase);
-
-		var bindingFlags = BindingFlags.Public | BindingFlags.IgnoreCase
-			| (isService ? BindingFlags.Instance : BindingFlags.Static);
-
-		// Always enumerate methods by name to avoid AmbiguousMatchException on overloads
-		var candidates = type.GetMethods(bindingFlags)
-			.Where(m => string.Equals(m.Name, body.MethodName, StringComparison.OrdinalIgnoreCase))
-			.ToArray();
-
-		if (candidates.Length == 0)
-			return InvokeError($"Method '{body.MethodName}' not found on type '{type.FullName}'.");
-
-		var argCount = body.Args?.Length ?? 0;
-		var scored = candidates
-			.Select(m => new { Method = m, Score = ScoreInvokeCandidate(m, body.Args) })
-			.Where(m => m.Score != null)
-			.ToArray();
-
-		if (scored.Length == 0)
-		{
-			var signatures = string.Join(", ", candidates.Select(FormatInvokeMethodSignature));
-			return InvokeError($"No overload of '{body.MethodName}' on type '{type.FullName}' matches {argCount} argument(s). Candidates: {signatures}");
-		}
-
-		var bestScore = scored.Max(m => m.Score!.Value);
-		var matched = scored.Where(m => m.Score == bestScore).Select(m => m.Method).ToArray();
-
-		if (matched.Length > 1)
-		{
-			var signatures = string.Join(", ", matched.Select(FormatInvokeMethodSignature));
-			return InvokeError($"Ambiguous method '{body.MethodName}' on type '{type.FullName}' - {matched.Length} overloads match {argCount} argument(s). Use a fully-qualified type or adjust arguments. Candidates: {signatures}");
-		}
-
-		var method = matched[0];
-
-		object? target = null;
-		if (isService)
-		{
-			target = await DispatchAsync(() =>
-			{
-				var sp = _app?.Handler?.MauiContext?.Services;
-				return sp?.GetService(type);
-			});
-
-			if (target == null)
-				return InvokeError($"Could not resolve type '{type.FullName}' from DI container. Ensure it is registered in the app's service collection.");
-		}
-
-		try
-		{
-			var convertedArgs = ConvertInvokeArgs(method.GetParameters(), body.Args);
-
-			bool success; string? returnValue; string? returnType; string? error;
-			if (isService)
-			{
-				// Service invoke must run on UI thread since the service may access UI state
-				(success, returnValue, returnType, error) = await DispatchInvokeMethodAsync(method, target, convertedArgs);
-			}
-			else
-			{
-				var invokeTask = await DispatchAsync(() => InvokeMethodAsync(method, target, convertedArgs));
-				(success, returnValue, returnType, error) = await invokeTask;
-			}
-
-			return success
-				? HttpResponse.Json(new { success = true, typeName = type.FullName, methodName = method.Name, returnValue, returnType })
-				: InvokeError($"Invoke failed: {error}");
-		}
-		catch (Exception ex)
-		{
-			return InvokeError($"Argument error: {ex.Message}");
-		}
-	}
-
-	private async Task<HttpResponse> HandleElementInvoke(HttpRequest request)
-	{
-		if (_app == null) return InvokeError("Agent not bound to app");
-		if (!request.RouteParams.TryGetValue("id", out var id))
-			return InvokeError("Element ID required");
-
-		var body = request.BodyAs<ElementInvokeRequest>();
-		if (body?.MethodName == null)
-			return InvokeError("methodName is required");
-
-		// Resolve element and method on the UI thread
-		var resolution = await DispatchAsync(() =>
-		{
-			var el = _treeWalker.GetElementById(id, _app);
-			if (el == null)
-				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Element '{id}' not found");
-
-			var type = el.GetType();
-			var method = type.GetMethod(body.MethodName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-			if (method == null)
-				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Method '{body.MethodName}' not found on element type '{type.Name}'");
-			if (!IsElementInvokeAllowedMethod(method))
-				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Method '{body.MethodName}' on element type '{type.Name}' is not invocable because it is declared by framework type '{method.DeclaringType?.FullName}'.");
-
-			return (element: (object?)el, method: (MethodInfo?)method, error: (string?)null);
-		});
-
-		if (resolution.error != null)
-			return InvokeError(resolution.error);
-
-		try
-		{
-			var convertedArgs = ConvertInvokeArgs(resolution.method!.GetParameters(), body.Args);
-
-			// Invoke on the UI thread and await the result (handles both sync and async methods)
-			var invokeTask = await DispatchAsync(() => InvokeMethodAsync(resolution.method!, resolution.element, convertedArgs));
-			var (success, returnValue, returnType, error) = await invokeTask;
-
-			return success
-				? HttpResponse.Json(new { success = true, elementId = id, methodName = body.MethodName, returnValue, returnType })
-				: InvokeError($"Element invoke failed: {error}");
-		}
-		catch (ArgumentException ex)
-		{
-			return InvokeError($"Argument error: {ex.Message}");
-		}
-		catch (Exception ex)
-		{
-			return InvokeError($"Element invoke failed: {ex.Message}");
-		}
-	}
-
-	private Task<HttpResponse> HandleListMethods(HttpRequest request)
-	{
-		if (!request.QueryParams.TryGetValue("typeName", out var typeName) || string.IsNullOrWhiteSpace(typeName))
-			return Task.FromResult(HttpResponse.Error("Query parameter 'typeName' is required"));
-
-		var type = ResolveType(typeName);
-		if (type == null)
-			return Task.FromResult(HttpResponse.NotFound($"Type '{typeName}' not found in loaded assemblies."));
-
-		var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-			.Where(m => !m.IsSpecialName) // exclude property getters/setters, event add/remove
-			.Select(m =>
-			{
-				var actionAttr = m.GetCustomAttribute<DevFlowActionAttribute>();
-				return new
-				{
-					name = m.Name,
-					returnType = FormatParameterTypeName(m.ReturnType),
-					isStatic = m.IsStatic,
-					isAsync = typeof(Task).IsAssignableFrom(m.ReturnType)
-					|| m.ReturnType == typeof(ValueTask)
-					|| (m.ReturnType.IsGenericType && m.ReturnType.GetGenericTypeDefinition() == typeof(ValueTask<>)),
-					devFlowActionName = actionAttr?.Name,
-					parameters = m.GetParameters().Select(p => new
-					{
-						name = p.Name,
-						type = FormatParameterTypeName(p.ParameterType),
-						description = p.GetCustomAttribute<DescriptionAttribute>()?.Description,
-						defaultValue = p.HasDefaultValue ? FormatDefaultValue(p.DefaultValue) : null,
-						isRequired = !p.HasDefaultValue
-					})
-				};
-			});
-
-		return Task.FromResult(HttpResponse.Json(new { typeName = type.FullName, methods }));
 	}
 
 	#endregion
@@ -890,21 +438,7 @@ public partial class DevFlowAgentService
 	#endregion
 }
 
-public class InvokeRequest
-{
-	public string? TypeName { get; set; }
-	public string? MethodName { get; set; }
-	public JsonElement[]? Args { get; set; }
-	public string? Resolve { get; set; }
-}
-
 public class InvokeActionRequest
 {
-	public JsonElement[]? Args { get; set; }
-}
-
-public class ElementInvokeRequest
-{
-	public string? MethodName { get; set; }
 	public JsonElement[]? Args { get; set; }
 }

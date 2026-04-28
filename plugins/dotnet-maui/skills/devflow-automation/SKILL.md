@@ -1,147 +1,64 @@
 ---
 name: devflow-automation
 description: >-
-  Automate .NET MAUI app state via DevFlow reflection invoke and registered
-  actions. USE FOR: calling app methods via reflection, discovering and invoking
-  [DevFlowAction] shortcuts, logging in test users, seeding data, navigating to
-  deep screens, bypassing UI flows to reach target state quickly, calling DI
-  service methods. DO NOT USE FOR: basic UI interaction (tap/fill/scroll — use
-  DevFlow MCP tools directly), visual tree inspection, screenshot capture,
-  connectivity issues (use devflow-connect), or build/deployment problems.
+  Automate .NET MAUI app state via explicitly registered DevFlow Actions. USE
+  FOR: discovering and invoking [DevFlowAction] shortcuts, logging in test
+  users, seeding data, navigating to deep screens, bypassing long UI flows to
+  reach target state quickly. DO NOT USE FOR: calling arbitrary methods,
+  invoking DI services or framework types, basic UI interaction (tap/fill/scroll
+  - use DevFlow MCP tools directly), visual tree inspection, screenshot capture,
+  connectivity issues, or build/deployment problems.
 ---
 
-# DevFlow Automation — Reflection Invoke
+# DevFlow Automation - Actions
 
-Invoke methods in a running .NET MAUI app via reflection to rapidly set up app state. This is your most powerful tool for reducing round-trip steps when debugging or testing.
+DevFlow Actions are named shortcuts that a .NET MAUI app explicitly exposes for automation with `[DevFlowAction]`. Use them to reach useful app states quickly, such as logging in a test user, seeding data, toggling a feature flag, or navigating to a deep screen.
 
-## Why This Matters
+Actions are opt-in. DevFlow does not expose arbitrary reflection invoke; if you need a new shortcut, add an attributed method in app debug/test code, let Hot Reload apply it, then list and invoke the action.
 
-Traditional DevFlow interaction (navigate → fill → tap → screenshot → repeat) works but is slow for multi-step flows like authentication, data setup, or deep navigation. If the app has helper methods — especially in debug builds — you can call them directly and skip the UI entirely.
+## Start by Listing Actions
 
-**Always check for available actions first.** A single `maui_list_actions` call can reveal shortcuts that save dozens of UI interaction steps.
+Always check for available actions early in a DevFlow session:
 
-## Two-Tier System
-
-### Tier 1: Registered DevFlow Actions (Preferred)
-
-App developers annotate methods with `[DevFlowAction]` to expose named, documented shortcuts:
-
-```csharp
-[DevFlowAction("login-test-user", Description = "Log in as the standard test account")]
-public static async Task LoginTestUser(
-    [Description("Email address")] string email = "test@example.com",
-    [Description("Password")] string password = "password123")
-{
-    await AuthService.LoginAsync(email, password);
-}
-```
-
-**Discover actions:**
 ```
 maui_list_actions
 ```
 
-**Invoke an action:**
+Look for action names and descriptions that match your goal. Common patterns:
+
+- `login-*` for authentication shortcuts
+- `seed-*` for data population
+- `navigate-*` for deep links or screen setup
+- `set-*` for feature flags or configuration
+- `reset-*` for state cleanup
+
+## Invoke an Action
+
+Arguments are passed as a JSON array in parameter order. Omit trailing optional parameters to use their defaults.
+
 ```
 maui_invoke_action actionName="login-test-user"
 maui_invoke_action actionName="login-test-user" argsJson='["alice@test.com", "secret"]'
 maui_invoke_action actionName="seed-catalog" argsJson='[100]'
 ```
 
-### Tier 2: Open Reflection Invoke (Flexible)
-
-When no registered action exists, call any public method by type and method name:
-
-**Static methods:**
-```
-maui_invoke typeName="MyApp.DebugHelpers" methodName="ResetDatabase"
-maui_invoke typeName="MyApp.DebugHelpers" methodName="LoginTestUser" argsJson='["user@test.com", "pass"]'
-```
-
-**DI service methods:**
-```
-maui_invoke typeName="MyApp.Services.IAuthService" methodName="LoginAsync" argsJson='["user@test.com", "pass"]' resolve="service"
-```
-
-**Discover methods on a type:**
-```
-maui_list_methods typeName="MyApp.DebugHelpers"
-```
-
-## When to Use Each Approach
-
-| Scenario | Approach | Why |
-|----------|----------|-----|
-| Starting a session — check what's available | `maui_list_actions` | Discover shortcuts before doing anything manual |
-| App has a known debug helper | `maui_invoke_action` | Named, documented, safe to call |
-| You know the source code has a useful method | `maui_invoke` with type+method | Direct reflection, no registration needed |
-| You need to call a registered DI service | `maui_invoke` with `resolve="service"` | Resolves from the app's DI container |
-| Need to explore what's callable | `maui_list_methods` | See all public methods on a type |
-| Simple UI interaction (tap, type, scroll) | Use `maui_tap`, `maui_fill`, etc. | Standard DevFlow tools, no reflection needed |
-
-## Workflow: Efficient App State Setup
-
-### Step 1: Check for Registered Actions
-
-```
-maui_list_actions
-```
-
-Look for actions that match your goal. Common patterns:
-- `login-*` — authentication shortcuts
-- `seed-*` — data population
-- `navigate-*` — deep navigation
-- `set-*` — feature flags, configuration
-- `reset-*` — state cleanup
-
-### Step 2: Use Actions or Fall Back to Invoke
-
-If an action exists, invoke it. If not, check the app source for helper methods and use `maui_invoke`.
-
-### Step 3: Verify with Screenshot
-
-After invoking, take a screenshot to confirm the app reached the expected state:
+After invoking an action, verify the state with a screenshot, tree query, or other DevFlow tools:
 
 ```
 maui_screenshot
 ```
 
-### Step 4: Continue with Standard Tools
+## Hot Reload Workflow
 
-Once the app is in the right state, use standard DevFlow tools (tree, tap, fill, etc.) for fine-grained interaction.
+If no useful action exists and you can edit the app:
 
-## Supported Parameter Types
+1. Add a public static method annotated with `[DevFlowAction]`.
+2. Add `[Description]` to each parameter so agents know what to pass.
+3. Save and let C# Hot Reload apply the change.
+4. Call `maui_list_actions` again.
+5. Invoke the new action with `maui_invoke_action`.
 
-Arguments are passed as a JSON array. These types are auto-converted:
-
-| Type | JSON Example |
-|------|-------------|
-| `string` | `"hello"` |
-| `bool` | `true` or `false` |
-| `int`, `long`, `short`, `byte` | `42` |
-| `float`, `double`, `decimal` | `3.14` |
-| `enum` | `"MemberName"` (case-insensitive) |
-| `string[]`, `int[]`, etc. | `["a", "b", "c"]` or `[1, 2, 3]` |
-| `List<T>` | Same as arrays |
-| Nullable types | `null` or the value |
-
-## Batch Support
-
-Invoke actions as part of a batch for complex setup sequences:
-
-```json
-{
-  "actions": [
-    {"action": "invoke-action", "name": "login-test-user"},
-    {"action": "invoke", "typeName": "MyApp.Debug", "methodName": "NavigateTo", "args": ["settings"]},
-    {"action": "tap", "elementId": "btn-advanced"}
-  ]
-}
-```
-
-## For App Developers: Adding DevFlow Actions
-
-### 1. Add the Attribute
+Example:
 
 ```csharp
 using System.ComponentModel;
@@ -159,45 +76,60 @@ public static class DebugHelpers
 }
 ```
 
-### 2. Rules
+## Supported Parameter Types
 
-- Methods **must be `public static`** (enforced by analyzer: MAUI_DFA002)
-- Parameter types must be supported primitives, enums, or arrays/lists of these (MAUI_DFA001)
-- Add `[Description]` to parameters so AI agents know what to pass (MAUI_DFA004)
-- Return `void`, `Task`, or `Task<T>` with a simple type (MAUI_DFA003 warns on complex returns)
+Arguments are converted from JSON to these action parameter types:
 
-### 3. Roslyn Analyzer
+| Type | JSON example |
+|------|--------------|
+| `string` | `"hello"` |
+| `bool` | `true` or `false` |
+| `int`, `long`, `short`, `byte` | `42` |
+| `float`, `double`, `decimal` | `3.14` |
+| `enum` | `"MemberName"` (case-insensitive) |
+| arrays and supported list interfaces | `["a", "b"]` or `[1, 2, 3]` |
+| nullable types | `null` or the value |
 
-The `Microsoft.Maui.DevFlow.Agent.Core` NuGet package includes a Roslyn analyzer that validates `[DevFlowAction]` methods at compile time:
+## Batch Support
+
+Use `invoke-action` in batches when setup needs several steps:
+
+```json
+{
+  "actions": [
+    { "action": "invoke-action", "name": "login-test-user" },
+    { "action": "invoke-action", "name": "seed-catalog", "args": [100] },
+    { "action": "tap", "elementId": "btn-advanced" }
+  ]
+}
+```
+
+## Rules for App Developers
+
+- Methods must be `public static`.
+- Parameters should be simple supported types, enums, nullable supported types, arrays, or supported list interfaces.
+- Add `[Description]` to parameters so AI agents know what to pass.
+- Prefer returning `void`, `Task`, `ValueTask`, `Task<T>`, or `ValueTask<T>` with simple return values.
+- Action names should be unique and intention-revealing.
+
+The DevFlow analyzer validates attributed methods:
 
 | Diagnostic | Severity | Description |
-|-----------|----------|-------------|
+|------------|----------|-------------|
 | MAUI_DFA001 | Error | Unsupported parameter type |
 | MAUI_DFA002 | Error | Method must be public static |
 | MAUI_DFA003 | Warning | Return type may not serialize cleanly |
 | MAUI_DFA004 | Info | Missing `[Description]` on parameter |
 | MAUI_DFA005 | Warning | Duplicate `[DevFlowAction]` name |
 
-Action names must be unique across the project. Duplicates cause the later registration to be silently ignored at runtime.
-
-## Capabilities Detection
-
-Check if the connected agent supports invoke:
-
-```
-maui_status
-```
-
-The capabilities response includes an `invoke` section when supported. This handles version mismatches gracefully — if the app uses an older DevFlow agent without invoke support, the tools will report this clearly.
-
 ## Common Patterns
 
 ### Authentication Bypass
 
 ```
-maui_list_actions                                    # Check for login actions
-maui_invoke_action actionName="login-test-user"      # Use the shortcut
-maui_screenshot                                      # Verify logged-in state
+maui_list_actions
+maui_invoke_action actionName="login-test-user"
+maui_screenshot
 ```
 
 ### Data Seeding
@@ -210,11 +142,11 @@ maui_invoke_action actionName="seed-orders" argsJson='[50, true]'
 ### Feature Flag Override
 
 ```
-maui_invoke typeName="MyApp.FeatureFlags" methodName="Enable" argsJson='["dark-mode"]'
-maui_invoke typeName="MyApp.FeatureFlags" methodName="Enable" argsJson='["experimental-ui"]'
+maui_invoke_action actionName="set-feature-flag" argsJson='["dark-mode", true]'
+maui_invoke_action actionName="set-feature-flag" argsJson='["experimental-ui", true]'
 ```
 
-### Navigate to Deep Screen
+### Navigate to a Deep Screen
 
 ```
 maui_invoke_action actionName="navigate-to" argsJson='["//settings/advanced/network"]'

@@ -557,9 +557,6 @@ public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
         // Invoke / reflection
         _server.MapGet("/api/v1/invoke/actions", HandleListActions);
         _server.MapPost("/api/v1/invoke/actions/{name}", HandleInvokeAction);
-        _server.MapPost("/api/v1/invoke", HandleInvoke);
-        _server.MapGet("/api/v1/invoke/methods", HandleListMethods);
-        _server.MapPost("/api/v1/ui/elements/{id}/invoke", HandleElementInvoke);
     }
 
     private async Task<HttpResponse> HandleStatus(HttpRequest request)
@@ -712,7 +709,7 @@ public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
             invoke = new
             {
                 supported = true,
-                features = new[] { "actions", "static", "service", "element", "discover" }
+                features = new[] { "actions" }
             }
         };
 
@@ -2026,11 +2023,7 @@ public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
         public string? Direction { get; set; }
         public double Distance { get; set; } = 120;
         public int DurationMs { get; set; } = 200;
-        // Invoke-related properties
-        public string? TypeName { get; set; }
-        public string? MethodName { get; set; }
         public JsonElement[]? Args { get; set; }
-        public string? Resolve { get; set; }
         public string? Name { get; set; }
     }
 
@@ -2309,19 +2302,6 @@ public partial class DevFlowAgentService : IDisposable, IMarkerPublisher
                             ["name"] = action.Property ?? string.Empty
                         },
                         Body = JsonSerializer.Serialize(new SetPropertyRequest { Value = action.Value ?? string.Empty })
-                    });
-                    break;
-                case "invoke":
-                    response = await HandleInvoke(new HttpRequest
-                    {
-                        Method = "POST",
-                        Body = JsonSerializer.Serialize(new InvokeRequest
-                        {
-                            TypeName = action.TypeName,
-                            MethodName = action.MethodName,
-                            Args = action.Args,
-                            Resolve = action.Resolve
-                        })
                     });
                     break;
                 case "invoke-action":
