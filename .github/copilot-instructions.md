@@ -150,6 +150,8 @@ on:
     branches: [main]
     paths:
       - 'src/{Product}/**'
+      # CUSTOMIZE: add paths for cross-product ProjectReference dependencies, e.g.:
+      # - 'src/OtherProduct/SharedLib/**'
       - 'eng/**'
       - 'Directory.Build.props'
       - 'Directory.Build.targets'
@@ -163,6 +165,8 @@ on:
     branches: [main]
     paths:
       - 'src/{Product}/**'
+      # CUSTOMIZE: add paths for cross-product ProjectReference dependencies, e.g.:
+      # - 'src/OtherProduct/SharedLib/**'
       - 'eng/**'
       - 'Directory.Build.props'
       - 'Directory.Build.targets'
@@ -174,11 +178,11 @@ jobs:
   build:
     uses: ./.github/workflows/_build.yml
     with:
-      project-path: src/{Product}/{Product}.slnf   # CUSTOMIZE: path to solution filter
+      project-path: src/{Product}/{Product}.slnf   # CUSTOMIZE: path to solution filter (.slnf or .slnx)
       project-name: {product}                       # CUSTOMIZE: lowercase, used in artifact names
       run-tests: true
       pack: true
-      install-workloads: false                      # CUSTOMIZE: see decision guide below
+      install-workloads: true                       # CUSTOMIZE: set false for net10.0-only products (no MAUI TFMs)
       # os: '["macos-latest", "windows-latest"]'    # CUSTOMIZE: default is macOS + Windows
       # native-deps: 'sudo apt-get install ...'     # CUSTOMIZE: if Linux-only with native libs
 ```
@@ -303,7 +307,7 @@ This stage filters the product's `.nupkg` files from the shared `PackageArtifact
 
 #### Key conventions
 
-- **Package glob pattern**: `Microsoft.Maui.{Product}.*.nupkg` — must match the `<PackageId>` in your `.csproj` files.
+- **Package glob pattern**: example: `Microsoft.Maui.{Product}.*.nupkg` — use the actual `<PackageId>` prefix from your `.csproj` files (e.g., Linux GTK4 uses `Microsoft.Maui.Platforms.Linux.Gtk4.*.nupkg`).
 - **`dependsOn: [Validate, publish_using_darc]`**: these stages come from the Arcade post-build template (`eng/common/templates-official/post-build/post-build.yml`) and must always be listed.
 - **Signing**: All shipped NuGet packages must build on Windows so MicroBuild/ESRP can sign the DLLs. If the product is Linux-only, build *and pack* on Windows (signing), then optionally add a separate Linux verification job (see the `LinuxGtk4_LinuxVerify` job for the pattern).
 - **`publishFeedCredentials`**: Always use `'nuget.org (dotnetframework)'` — this is the service connection configured in the Azure DevOps project.

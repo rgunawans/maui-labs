@@ -167,7 +167,7 @@ Each product requires source setup **and** CI/CD configuration across two system
 ### Source Setup
 
 1. Create `src/{NewProduct}/` with `Version.props`, project folders, test project, `{NewProduct}.slnf`
-2. Add projects to `MauiLabs.sln`
+2. Add projects to `MauiLabs.slnx`
 3. Add package versions to `Directory.Packages.props`
 4. Add signing entries in `eng/Signing.props` for any new third-party DLLs
 

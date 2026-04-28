@@ -65,7 +65,7 @@ For the full repo, open `MauiLabs.sln`.
    - Project folders with `.csproj` files
    - Test project
    - `{NewProduct}.slnf` solution filter
-2. Add projects to `MauiLabs.sln`
+2. Add projects to `MauiLabs.slnx`
 3. Add any new package versions to `Directory.Packages.props`
 
 ### 2. GitHub Actions CI workflow
