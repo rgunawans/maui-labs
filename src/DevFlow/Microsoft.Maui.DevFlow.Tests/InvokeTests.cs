@@ -506,6 +506,56 @@ public class InvokeTests
 	}
 
 	[Fact]
+	public async Task Invoke_OverloadedMethod_ResolvesByStringArgumentType()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpersWithOverloads).FullName!,
+			"Choose",
+			JsonArray(JsonElement("42")),
+			resolve: "static");
+
+		Assert.NotNull(result);
+		Assert.True(result.Success, result.Error);
+		Assert.Equal("string:42", result.ReturnValue);
+	}
+
+	[Fact]
+	public async Task Invoke_OverloadedMethod_ResolvesByNumberArgumentType()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpersWithOverloads).FullName!,
+			"Choose",
+			JsonArray(JsonElement(42)),
+			resolve: "static");
+
+		Assert.NotNull(result);
+		Assert.True(result.Success, result.Error);
+		Assert.Equal("int:42", result.ReturnValue);
+	}
+
+	[Fact]
+	public async Task Invoke_OverloadedMethod_WithEquallyConvertibleArguments_ReturnsAmbiguous()
+	{
+		using var harness = await InvokeTestHarness.CreateAsync();
+
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpersWithOverloads).FullName!,
+			"AmbiguousNumber",
+			JsonArray(JsonElement(42)),
+			resolve: "static");
+
+		Assert.NotNull(result);
+		Assert.False(result.Success);
+		Assert.Contains("Ambiguous method", result.Error, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("Int32 value", result.Error, StringComparison.Ordinal);
+		Assert.Contains("Int64 value", result.Error, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public async Task Invoke_WithMcpStyleComplexArgs_ConvertsTypes()
 	{
 		using var harness = await InvokeTestHarness.CreateAsync();
@@ -895,6 +945,18 @@ public static class TestInvokeHelpersWithOverloads
 
 	public static string Concat(string a, string b, string c)
 		=> $"{a}-{b}-{c}";
+
+	public static string Choose(string value)
+		=> $"string:{value}";
+
+	public static string Choose(int value)
+		=> $"int:{value}";
+
+	public static string AmbiguousNumber(int value)
+		=> $"int:{value}";
+
+	public static string AmbiguousNumber(long value)
+		=> $"long:{value}";
 }
 
 /// <summary>

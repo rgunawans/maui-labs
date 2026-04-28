@@ -415,6 +415,127 @@ public partial class DevFlowAgentService
 		return result;
 	}
 
+	private static int? ScoreInvokeCandidate(MethodInfo method, JsonElement[]? args)
+	{
+		var parameters = method.GetParameters();
+		var argCount = args?.Length ?? 0;
+		var required = parameters.Count(p => !p.HasDefaultValue);
+		if (argCount < required || argCount > parameters.Length)
+			return null;
+
+		var score = argCount == parameters.Length ? 1 : 0;
+		for (var i = 0; i < argCount; i++)
+		{
+			var argScore = ScoreInvokeArg(parameters[i].ParameterType, args![i]);
+			if (argScore == null)
+				return null;
+
+			score += argScore.Value;
+		}
+
+		return score;
+	}
+
+	private static int? ScoreInvokeArg(Type targetType, JsonElement argElement)
+	{
+		var underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+		if (argElement.ValueKind == JsonValueKind.Null)
+			return Nullable.GetUnderlyingType(targetType) != null || !targetType.IsValueType ? 6 : null;
+
+		if (underlying == typeof(string))
+			return argElement.ValueKind == JsonValueKind.String ? 6 : null;
+
+		if (underlying == typeof(bool))
+			return argElement.ValueKind switch
+			{
+				JsonValueKind.True or JsonValueKind.False => 6,
+				JsonValueKind.String => bool.TryParse(argElement.GetString(), out _) ? 2 : null,
+				_ => null
+			};
+
+		var numericScore = ScoreNumericInvokeArg(underlying, argElement);
+		if (numericScore != null)
+			return numericScore;
+
+		if (underlying.IsEnum)
+		{
+			if (argElement.ValueKind == JsonValueKind.String)
+				return Enum.TryParse(underlying, argElement.GetString(), ignoreCase: true, out _) ? 4 : null;
+			if (argElement.ValueKind == JsonValueKind.Number)
+				return argElement.TryGetInt64(out _) ? 2 : null;
+			return null;
+		}
+
+		if (argElement.ValueKind == JsonValueKind.Array && TryGetInvokeCollectionElementType(underlying, out var elementType))
+		{
+			var score = 3;
+			foreach (var item in argElement.EnumerateArray())
+			{
+				var itemScore = ScoreInvokeArg(elementType, item);
+				if (itemScore == null)
+					return null;
+				score += Math.Min(itemScore.Value, 4);
+			}
+			return score;
+		}
+
+		return underlying == typeof(object) && argElement.ValueKind == JsonValueKind.String ? 1 : null;
+	}
+
+	private static int? ScoreNumericInvokeArg(Type underlying, JsonElement argElement)
+	{
+		if (argElement.ValueKind == JsonValueKind.Number)
+		{
+			if (underlying == typeof(int)) return argElement.TryGetInt32(out _) ? 6 : null;
+			if (underlying == typeof(long)) return argElement.TryGetInt64(out _) ? 6 : null;
+			if (underlying == typeof(short)) return argElement.TryGetInt16(out _) ? 6 : null;
+			if (underlying == typeof(byte)) return argElement.TryGetByte(out _) ? 6 : null;
+			if (underlying == typeof(float)) return argElement.TryGetSingle(out _) ? 6 : null;
+			if (underlying == typeof(double)) return argElement.TryGetDouble(out _) ? 6 : null;
+			if (underlying == typeof(decimal)) return argElement.TryGetDecimal(out _) ? 6 : null;
+		}
+
+		if (argElement.ValueKind != JsonValueKind.String)
+			return null;
+
+		var value = argElement.GetString();
+		if (underlying == typeof(int)) return int.TryParse(value, out _) ? 2 : null;
+		if (underlying == typeof(long)) return long.TryParse(value, out _) ? 2 : null;
+		if (underlying == typeof(short)) return short.TryParse(value, out _) ? 2 : null;
+		if (underlying == typeof(byte)) return byte.TryParse(value, out _) ? 2 : null;
+		if (underlying == typeof(float)) return float.TryParse(value, out _) ? 2 : null;
+		if (underlying == typeof(double)) return double.TryParse(value, out _) ? 2 : null;
+		if (underlying == typeof(decimal)) return decimal.TryParse(value, out _) ? 2 : null;
+
+		return null;
+	}
+
+	private static bool TryGetInvokeCollectionElementType(Type type, out Type elementType)
+	{
+		if (type.IsArray)
+		{
+			elementType = type.GetElementType()!;
+			return true;
+		}
+
+		if (type.IsGenericType)
+		{
+			var def = type.GetGenericTypeDefinition();
+			if (def == typeof(List<>) || def == typeof(IList<>) || def == typeof(IEnumerable<>) || def == typeof(IReadOnlyList<>) || def == typeof(ICollection<>) || def == typeof(IReadOnlyCollection<>))
+			{
+				elementType = type.GetGenericArguments()[0];
+				return true;
+			}
+		}
+
+		elementType = typeof(object);
+		return false;
+	}
+
+	private static string FormatInvokeMethodSignature(MethodInfo method) =>
+		$"{method.Name}({string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})";
+
 	#endregion
 
 	#region Invoke Execution
@@ -591,37 +712,28 @@ public partial class DevFlowAgentService
 		if (candidates.Length == 0)
 			return InvokeError($"Method '{body.MethodName}' not found on type '{type.FullName}'.");
 
-		MethodInfo method;
-		if (candidates.Length == 1)
+		var argCount = body.Args?.Length ?? 0;
+		var scored = candidates
+			.Select(m => new { Method = m, Score = ScoreInvokeCandidate(m, body.Args) })
+			.Where(m => m.Score != null)
+			.ToArray();
+
+		if (scored.Length == 0)
 		{
-			method = candidates[0];
+			var signatures = string.Join(", ", candidates.Select(FormatInvokeMethodSignature));
+			return InvokeError($"No overload of '{body.MethodName}' on type '{type.FullName}' matches {argCount} argument(s). Candidates: {signatures}");
 		}
-		else
+
+		var bestScore = scored.Max(m => m.Score!.Value);
+		var matched = scored.Where(m => m.Score == bestScore).Select(m => m.Method).ToArray();
+
+		if (matched.Length > 1)
 		{
-			var argCount = body.Args?.Length ?? 0;
-			var matched = candidates.Where(m =>
-			{
-				var ps = m.GetParameters();
-				var required = ps.Count(p => !p.HasDefaultValue);
-				return argCount >= required && argCount <= ps.Length;
-			}).ToArray();
-
-			if (matched.Length == 0)
-			{
-				var signatures = string.Join(", ", candidates.Select(m =>
-					$"{m.Name}({string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})"));
-				return InvokeError($"No overload of '{body.MethodName}' on type '{type.FullName}' matches {argCount} argument(s). Candidates: {signatures}");
-			}
-
-			if (matched.Length > 1)
-			{
-				var signatures = string.Join(", ", matched.Select(m =>
-					$"{m.Name}({string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"))})"));
-				return InvokeError($"Ambiguous method '{body.MethodName}' on type '{type.FullName}' — {matched.Length} overloads match {argCount} argument(s). Use a fully-qualified type or adjust argument count. Candidates: {signatures}");
-			}
-
-			method = matched[0];
+			var signatures = string.Join(", ", matched.Select(FormatInvokeMethodSignature));
+			return InvokeError($"Ambiguous method '{body.MethodName}' on type '{type.FullName}' - {matched.Length} overloads match {argCount} argument(s). Use a fully-qualified type or adjust arguments. Candidates: {signatures}");
 		}
+
+		var method = matched[0];
 
 		object? target = null;
 		if (isService)
