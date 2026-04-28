@@ -727,8 +727,8 @@ internal static class DevFlowSkillManager
 
     static int CompareVersionLike(string? left, string? right)
     {
-        if (TryParseVersionPrefix(left, out var leftVersion) &&
-            TryParseVersionPrefix(right, out var rightVersion))
+        if (TryParseSemanticVersion(left, out var leftVersion) &&
+            TryParseSemanticVersion(right, out var rightVersion))
             return leftVersion.CompareTo(rightVersion);
 
         return string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
@@ -737,28 +737,46 @@ internal static class DevFlowSkillManager
     static bool VersionsEquivalent(string left, string right)
         => CompareVersionLike(left, right) == 0;
 
-    static bool TryParseVersionPrefix(string? value, out Version version)
+    static bool TryParseSemanticVersion(string? value, out ComparableSemanticVersion version)
     {
-        version = new Version(0, 0, 0);
+        version = default!;
         if (string.IsNullOrWhiteSpace(value))
             return false;
 
-        var end = 0;
-        while (end < value.Length && (char.IsDigit(value[end]) || value[end] == '.'))
-            end++;
+        var normalized = value.Trim();
+        var buildMetadataIndex = normalized.IndexOf('+');
+        if (buildMetadataIndex >= 0)
+            normalized = normalized[..buildMetadataIndex];
 
-        var prefix = value[..end].Trim('.');
-        if (string.IsNullOrWhiteSpace(prefix))
+        string[] prereleaseIdentifiers = [];
+        var prereleaseIndex = normalized.IndexOf('-');
+        if (prereleaseIndex >= 0)
+        {
+            var prerelease = normalized[(prereleaseIndex + 1)..];
+            if (string.IsNullOrWhiteSpace(prerelease))
+                return false;
+
+            prereleaseIdentifiers = prerelease.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            normalized = normalized[..prereleaseIndex];
+        }
+
+        var releaseParts = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (releaseParts.Length == 0 || releaseParts.Length > 4)
             return false;
 
-        var parts = prefix.Split('.', StringSplitOptions.RemoveEmptyEntries).ToList();
-        while (parts.Count < 3)
-            parts.Add("0");
+        var releaseNumbers = new List<int>(releaseParts.Length);
+        foreach (var part in releaseParts)
+        {
+            if (!int.TryParse(part, out var number) || number < 0)
+                return false;
 
-        if (!Version.TryParse(string.Join('.', parts.Take(4)), out var parsedVersion))
-            return false;
+            releaseNumbers.Add(number);
+        }
 
-        version = parsedVersion;
+        while (releaseNumbers.Count < 3)
+            releaseNumbers.Add(0);
+
+        version = new ComparableSemanticVersion(releaseNumbers.ToArray(), prereleaseIdentifiers);
         return true;
     }
 
@@ -850,6 +868,61 @@ internal static class DevFlowSkillManager
     sealed record DevFlowSkillDefinition(string Id, string DisplayName, string Description, bool Recommended);
     sealed record SkillAssetFile(string RelativePath, string Content, string Hash);
     sealed record SkillBundle(string Id, string Version, IReadOnlyList<SkillAssetFile> Files, string ContentHash);
+
+    sealed record ComparableSemanticVersion(int[] ReleaseParts, string[] PrereleaseIdentifiers)
+    {
+        public int CompareTo(ComparableSemanticVersion other)
+        {
+            var maxReleaseParts = Math.Max(ReleaseParts.Length, other.ReleaseParts.Length);
+            for (var i = 0; i < maxReleaseParts; i++)
+            {
+                var left = i < ReleaseParts.Length ? ReleaseParts[i] : 0;
+                var right = i < other.ReleaseParts.Length ? other.ReleaseParts[i] : 0;
+                var releaseComparison = left.CompareTo(right);
+                if (releaseComparison != 0)
+                    return releaseComparison;
+            }
+
+            if (PrereleaseIdentifiers.Length == 0 && other.PrereleaseIdentifiers.Length == 0)
+                return 0;
+
+            if (PrereleaseIdentifiers.Length == 0)
+                return 1;
+
+            if (other.PrereleaseIdentifiers.Length == 0)
+                return -1;
+
+            var maxPrereleaseIdentifiers = Math.Max(PrereleaseIdentifiers.Length, other.PrereleaseIdentifiers.Length);
+            for (var i = 0; i < maxPrereleaseIdentifiers; i++)
+            {
+                if (i >= PrereleaseIdentifiers.Length)
+                    return -1;
+
+                if (i >= other.PrereleaseIdentifiers.Length)
+                    return 1;
+
+                var left = PrereleaseIdentifiers[i];
+                var right = other.PrereleaseIdentifiers[i];
+                var leftIsNumeric = long.TryParse(left, out var leftNumber);
+                var rightIsNumeric = long.TryParse(right, out var rightNumber);
+
+                int prereleaseComparison;
+                if (leftIsNumeric && rightIsNumeric)
+                    prereleaseComparison = leftNumber.CompareTo(rightNumber);
+                else if (leftIsNumeric)
+                    prereleaseComparison = -1;
+                else if (rightIsNumeric)
+                    prereleaseComparison = 1;
+                else
+                    prereleaseComparison = string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+
+                if (prereleaseComparison != 0)
+                    return prereleaseComparison;
+            }
+
+            return 0;
+        }
+    }
 
     sealed record InstallTarget(string Scope, string TargetKind, string RootDirectory, string RelativeSkillDirectory, string LockFilePath)
     {

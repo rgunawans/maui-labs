@@ -137,6 +137,17 @@ public sealed class DevFlowSkillManagerTests
         Assert.False(InvokeVersionsEquivalent("0.0.1", "0.0.10"));
     }
 
+    [Theory]
+    [InlineData("0.1.0-preview.5", "0.1.0-preview.4", 1)]
+    [InlineData("0.1.0-preview.4", "0.1.0-preview.5", -1)]
+    [InlineData("0.1.0-preview.10", "0.1.0-preview.2", 1)]
+    [InlineData("0.1.0", "0.1.0-preview.5", 1)]
+    [InlineData("0.1.0-preview.5+build1", "0.1.0-preview.5+build2", 0)]
+    public void CompareVersionLike_WithSemanticPrerelease_ReturnsExpectedOrder(string left, string right, int expectedSign)
+    {
+        Assert.Equal(expectedSign, Math.Sign(InvokeCompareVersionLike(left, right)));
+    }
+
     [Fact]
     public async Task Remove_WithPathTraversalSkillName_ThrowsAndDoesNotDeleteOutsideSkillRoot()
     {
@@ -219,5 +230,12 @@ public sealed class DevFlowSkillManagerTests
         var method = typeof(DevFlowSkillManager).GetMethod("VersionsEquivalent", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
         return Assert.IsType<bool>(method.Invoke(null, [left, right]));
+    }
+
+    static int InvokeCompareVersionLike(string left, string right)
+    {
+        var method = typeof(DevFlowSkillManager).GetMethod("CompareVersionLike", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return Assert.IsType<int>(method.Invoke(null, [left, right]));
     }
 }
