@@ -492,6 +492,19 @@ public partial class DevFlowAgentService
 		return result!;
 	}
 
+	private static bool IsElementInvokeAllowedMethod(MethodInfo method)
+	{
+		var declaringType = method.DeclaringType;
+		if (declaringType == null || IsFrameworkAssembly(declaringType.Assembly))
+			return false;
+
+		var assemblyName = declaringType.Assembly.GetName().Name;
+		return !string.Equals(assemblyName, "Microsoft.Maui", StringComparison.Ordinal)
+			&& (assemblyName == null
+				|| !assemblyName.StartsWith("Microsoft.Maui.", StringComparison.Ordinal)
+				|| assemblyName.StartsWith("Microsoft.Maui.DevFlow.", StringComparison.Ordinal));
+	}
+
 	#endregion
 
 	#region HTTP Handlers
@@ -670,6 +683,8 @@ public partial class DevFlowAgentService
 			var method = type.GetMethod(body.MethodName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
 			if (method == null)
 				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Method '{body.MethodName}' not found on element type '{type.Name}'");
+			if (!IsElementInvokeAllowedMethod(method))
+				return (element: (object?)null, method: (MethodInfo?)null, error: (string?)$"Method '{body.MethodName}' on element type '{type.Name}' is not invocable because it is declared by framework type '{method.DeclaringType?.FullName}'.");
 
 			return (element: (object?)el, method: (MethodInfo?)method, error: (string?)null);
 		});

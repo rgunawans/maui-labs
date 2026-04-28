@@ -619,6 +619,21 @@ public class InvokeTests
 		Assert.Contains("not found", result.Error, StringComparison.OrdinalIgnoreCase);
 	}
 
+	[Fact]
+	public async Task InvokeElement_FrameworkDeclaredMethod_ReturnsError()
+	{
+		var view = new TestInvokeView { AutomationId = "test-invoke-view" };
+		using var harness = await InvokeTestHarness.CreateAsync(view);
+
+		var result = await harness.Client.InvokeElementMethodAsync(
+			"test-invoke-view",
+			nameof(GetType));
+
+		Assert.NotNull(result);
+		Assert.False(result.Success);
+		Assert.Contains("not invocable", result.Error, StringComparison.OrdinalIgnoreCase);
+	}
+
 	// ── DI Service Resolution Tests ──
 
 	[Fact]
