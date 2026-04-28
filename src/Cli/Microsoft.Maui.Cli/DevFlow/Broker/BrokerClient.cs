@@ -243,12 +243,12 @@ public static class BrokerClient
                     return null;
                 }
                 fileName = exePath;
-                arguments = $"\"{dllPath}\" broker start --foreground";
+                arguments = $"\"{dllPath}\" devflow broker start --foreground";
             }
             else
             {
                 fileName = exePath;
-                arguments = "broker start --foreground";
+                arguments = "devflow broker start --foreground";
             }
 
             var startInfo = new ProcessStartInfo
