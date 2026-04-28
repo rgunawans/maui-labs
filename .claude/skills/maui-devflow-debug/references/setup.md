@@ -312,12 +312,12 @@ packages are up to date. Outdated components can cause confusing failures or mis
 ### Check CLI version
 ```bash
 maui devflow version
-dotnet tool search Microsoft.Maui.DevFlow.CLI | head -5
+dotnet tool search Microsoft.Maui.Cli | head -5
 ```
 
 If a newer version is available:
 ```bash
-dotnet tool update --global Microsoft.Maui.DevFlow.CLI
+dotnet tool update --global Microsoft.Maui.Cli
 ```
 
 ### Update the skill
