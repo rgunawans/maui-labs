@@ -64,7 +64,7 @@ Fetch the PR diff, changed files, description, and existing reviews using the Gi
 
 > ⚠️ **Large diff guard**: After fetching the diff, count the changed files. If the PR has more than 50 changed files, do NOT embed the full diff in sub-agent prompts. Instead, split the changed files into 3 roughly equal batches and assign each reviewer a different batch (with the full PR description). In Step 3, skip cross-reviewer agreement checks for findings on files only one reviewer saw — include them directly but **downgrade severity by one level** (CRITICAL→MODERATE, MODERATE→MINOR, MINOR stays MINOR) and annotate with "low confidence — single reviewer (batch split)".
 
-> ⚠️ **Pre-flight**: Before dispatching sub-agents, verify `.github/agents/expert-reviewer.agent.md` exists using the `view` tool. If missing, call `add-comment` with: "❌ Expert Code Review: Cannot run — `.github/agents/expert-reviewer.agent.md` not found. For slash_command on fork PRs, rebase on main. For workflow_dispatch, verify the skill file exists in the PR branch." and exit.
+> ⚠️ **Pre-flight**: Before dispatching sub-agents, verify `.github/agents/expert-reviewer.agent.md` exists using the `view` tool. If missing, call `add_comment` with: "❌ Expert Code Review: Cannot run — `.github/agents/expert-reviewer.agent.md` not found. For slash_command on fork PRs, rebase on main. For workflow_dispatch, verify the skill file exists in the PR branch." and exit.
 
 ### Step 2: Dispatch 3 Parallel Expert Reviewers
 
@@ -107,25 +107,25 @@ Each sub-agent prompt must include:
 
 **Wait for all 3 to complete before proceeding.** If a sub-agent fails or returns no findings, proceed with consensus from the remaining reviewers. If fewer than 2 complete successfully, post a comment explaining the failure instead of a review.
 
-> ⚠️ **2-reviewer fallback**: If only 2 reviewers completed, adjust consensus thresholds: **2/2 agree** = full consensus (include immediately); **1/2 split** = disputed — dispatch the 1 remaining successful model for follow-up. If it agrees, include; otherwise discard. Do NOT retry the failed model.
+> ⚠️ **2-reviewer fallback**: If only 2 reviewers completed, adjust consensus thresholds: **2/2 agree** = full consensus (include immediately); **1/2 split** = discard the finding (no valid tiebreaker — the 3rd model failed and must NOT be retried).
 
 ### Step 3: Adversarial Consensus
 
 Collect findings from all 3 sub-agents and apply consensus. Two findings "agree" if they identify the **same root cause** in the **same file**, even if they cite different lines or use different wording. Group by root cause, not by exact line number.
 
 1. **3/3 agree** on a finding → include immediately
-2. **2/3 agree** → include with the **lower** of the two severity levels (e.g., 🔴+🟢 → 🟢, 🔴+🟡 → 🟡, 🟡+🟢 → 🟢)
+2. **2/3 agree** → include with severity downgraded by **at most one step** from the higher rating (e.g., 🔴+🟡 → 🟡, 🔴+🟢 → 🟡, 🟡+🟢 → 🟢). This prevents a single lenient reviewer from burying a critical finding.
 3. **Only 1/3 flagged** → dispatch **exactly 2** follow-up sub-agents (the other 2 models that didn't flag it) asking: "Reviewer X found this issue: [finding]. Do you agree or disagree? Explain why." Do NOT dispatch all 3 models — only the 2 that didn't flag it.
    - If 2+ now agree → include
    - If still 1/3 → discard (note as "discarded — single reviewer only")
    - **Cap at 3 disputed findings** — select the **3 most severe** for follow-up. Discard lower-severity 1/3 findings without follow-up to preserve token budget for posting.
    - **⚠️ Follow-up responses are internal data.** Read the AGREE/DISAGREE text, use it for consensus decisions, then discard it. Do NOT forward follow-up agent responses to `add_comment`, `create_pull_request_review_comment`, or any other safe-output tool.
 
-**Zero findings**: If all reviewers return zero findings, skip Step 4. Instead call `add-comment` with: "✅ Expert Code Review: 3 independent reviewers found no issues. Methodology: 3-model adversarial consensus."
+**Zero findings**: If all reviewers return zero findings, skip Step 4. Instead call `add_comment` with: "✅ Expert Code Review: 3 independent reviewers found no issues. Methodology: 3-model adversarial consensus."
 
 ### Step 4: Post Results
 
-Post results in **two parts**: inline review comments for critical findings, and a standalone summary comment for the full report.
+Post results in **two parts**: inline review comments for all findings, and a standalone lean summary comment.
 
 #### Part A: Inline Review Comments
 
@@ -135,6 +135,7 @@ For each finding:
 1. Validate path (must be in `list_pull_request_files`) and line (must be in a `@@` diff hunk, RIGHT side only)
 2. If path or line is invalid, skip the inline comment — the finding still appears in the summary (Part B)
 3. Include severity emoji, consensus marker, and a concise explanation
+4. Always pass `pull_request_number` explicitly (required by `target: "*"` config)
 
 After posting inline comments, call `submit_pull_request_review` with `event: "COMMENT"` and a brief body summarizing the review (e.g., "Expert Code Review: {N} findings posted inline. See summary comment below for full details.").
 
