@@ -481,6 +481,17 @@ public partial class DevFlowAgentService
 		}
 	}
 
+	private async Task<InvokeMethodResult> DispatchInvokeMethodAsync(MethodInfo method, object? target, object?[] args)
+	{
+		// Force the async DispatchAsync overload so invoke continuations are awaited by the dispatcher callback.
+		var result = await DispatchAsync<InvokeMethodResult>(async () =>
+		{
+			var (success, returnValue, returnType, error) = await InvokeMethodAsync(method, target, args);
+			return new InvokeMethodResult(success, returnValue, returnType, error);
+		});
+		return result!;
+	}
+
 	#endregion
 
 	#region HTTP Handlers
@@ -620,8 +631,7 @@ public partial class DevFlowAgentService
 			if (isService)
 			{
 				// Service invoke must run on UI thread since the service may access UI state
-				var invokeTask = await DispatchAsync(() => InvokeMethodAsync(method, target, convertedArgs));
-				(success, returnValue, returnType, error) = await invokeTask;
+				(success, returnValue, returnType, error) = await DispatchInvokeMethodAsync(method, target, convertedArgs);
 			}
 			else
 			{
@@ -747,6 +757,8 @@ public partial class DevFlowAgentService
 		public string? DefaultValue { get; set; }
 		public bool IsRequired { get; set; }
 	}
+
+	private sealed record InvokeMethodResult(bool Success, string? ReturnValue, string? ReturnType, string? Error);
 
 	#endregion
 }
