@@ -6334,21 +6334,66 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         var autoScan = request.QueryParams.GetValueOrDefault("scan", "false")
             .Equals("true", StringComparison.OrdinalIgnoreCase);
 
-        if (autoScan)
-            Ble.StartScanning();
+        var replay = 100;
+        if (request.QueryParams.TryGetValue("replay", out var replayStr) &&
+            (!int.TryParse(replayStr, out replay) || replay < 0))
+        {
+            await AgentHttpServer.WebSocketSendTextAsync(stream,
+                JsonSerializer.Serialize(new
+                {
+                    type = "error",
+                    timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                    error = "BLE stream replay must be a non-negative integer"
+                }), ct);
+            return;
+        }
 
-        var queue = Ble.Subscribe();
+        var type = request.QueryParams.GetValueOrDefault("type");
+        List<BleEvent> replayEvents = replay > 0 ? Ble.GetEvents(replay, type) : [];
+        var queue = Ble.Subscribe(type);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+        var startedScan = false;
 
         try
         {
+            if (autoScan)
+            {
+                startedScan = Ble.TryStartScanning(out var error);
+                if (error != null)
+                {
+                    await AgentHttpServer.WebSocketSendTextAsync(stream,
+                        JsonSerializer.Serialize(new
+                        {
+                            type = "error",
+                            timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                            error
+                        }), ct);
+                    return;
+                }
+            }
+
             await AgentHttpServer.WebSocketSendTextAsync(stream,
                 JsonSerializer.Serialize(new
                 {
                     type = "subscribed",
                     timestamp = DateTimeOffset.UtcNow.ToString("O"),
-                    scanning = Ble.IsScanning
+                    scanning = Ble.IsScanning,
+                    replay,
+                    eventType = type
                 }), ct);
+
+            if (replay > 0)
+            {
+                await AgentHttpServer.WebSocketSendTextAsync(stream,
+                    JsonSerializer.Serialize(new
+                    {
+                        type = "replay",
+                        timestamp = DateTimeOffset.UtcNow.ToString("O"),
+                        count = replayEvents.Count,
+                        events = replayEvents
+                    }), ct);
+            }
 
             var readTask = Task.Run(async () =>
             {
@@ -6390,7 +6435,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         finally
         {
             Ble.Unsubscribe(queue);
-            if (autoScan)
+            if (startedScan)
                 Ble.StopScanning();
         }
     }

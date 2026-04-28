@@ -1570,10 +1570,12 @@ paths:
       summary: Stream BLE events
       description: >
         Opens a WebSocket stream for BLE events. The server first sends a
-        `subscribed` message containing the current scanning state, then sends
-        `ble_event` messages as events are recorded. Set `scan=true` to start a
-        native BLE scan for the lifetime of this WebSocket connection when
-        scanning is supported.
+        `subscribed` message containing the current scanning state and replay
+        settings, optionally sends a `replay` message with buffered events, then
+        sends `ble_event` messages as events are recorded. Streamed events remain
+        in the bounded BLE event buffer until evicted by retention or cleared via
+        the REST API. Set `scan=true` to start a native BLE scan for the lifetime
+        of this WebSocket connection when scanning is supported.
       parameters:
         - name: scan
           in: query
@@ -1581,6 +1583,18 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: replay
+          in: query
+          description: Number of buffered BLE events to replay after subscription. Use 0 for live-only streaming.
+          schema:
+            type: integer
+            minimum: 0
+            default: 100
+        - name: type
+          in: query
+          description: Optional event type filter applied to replayed and live events.
+          schema:
+            $ref: "./schemas/device.json#/$defs/BleEventType"
       responses:
         "101":
           description: WebSocket connection established.

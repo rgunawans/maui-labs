@@ -30,6 +30,18 @@ public sealed class BleTools
 		return result.ValueKind == JsonValueKind.Undefined ? "Failed to get BLE events." : result.ToString();
 	}
 
+	[McpServerTool(Name = "maui_ble_stream_url"), Description("Get the WebSocket URL for streaming live BLE events. The stream can replay buffered events on connect without consuming them.")]
+	public static async Task<string> GetBleStreamUrl(
+		McpAgentSession session,
+		[Description("Agent HTTP port (optional if only one agent connected)")] int? agentPort = null,
+		[Description("Start BLE scanning automatically for the lifetime of this stream when supported (default false)")] bool scan = false,
+		[Description("Number of buffered events to replay when the stream opens. Use 0 for live-only streaming. Default is 100.")] int replay = 100,
+		[Description("Optional event type filter, such as scan_result, connected, disconnected, notification, or a custom app-defined event type.")] string? type = null)
+	{
+		var agent = await session.GetAgentClientAsync(agentPort);
+		return agent.GetBleWebSocketUrl(scan, replay, type);
+	}
+
 	[McpServerTool(Name = "maui_ble_scan_start"), Description("Start a BLE scan to discover nearby Bluetooth Low Energy devices. Scan results appear as BLE events.")]
 	public static async Task<string> StartBleScan(
 		McpAgentSession session,

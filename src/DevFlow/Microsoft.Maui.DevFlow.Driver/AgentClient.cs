@@ -785,6 +785,22 @@ public class AgentClient : IDisposable
     public Task<bool> ClearBleEventsAsync()
         => DeleteActionAsync($"{DeviceApi}/ble/events");
 
+    /// <summary>
+    /// Returns the WebSocket URL for live BLE event streaming.
+    /// </summary>
+    public string GetBleWebSocketUrl(bool scan = false, int replay = 100, string? type = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(replay);
+
+        var query = new List<string> { $"replay={replay}" };
+        if (scan)
+            query.Add("scan=true");
+        if (!string.IsNullOrEmpty(type))
+            query.Add($"type={Uri.EscapeDataString(type)}");
+
+        return $"{GetWebSocketBaseUrl()}/ws/v1/ble?{string.Join("&", query)}";
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -829,9 +845,11 @@ public class AgentClient : IDisposable
     /// </summary>
     public string GetNetworkWebSocketUrl()
     {
-        var wsBase = _baseUrl.Replace("http://", "ws://").Replace("https://", "wss://");
-        return $"{wsBase}/ws/v1/network";
+        return $"{GetWebSocketBaseUrl()}/ws/v1/network";
     }
+
+    private string GetWebSocketBaseUrl()
+        => _baseUrl.Replace("http://", "ws://").Replace("https://", "wss://");
 
     internal sealed class ProfilerSessionEnvelope
     {

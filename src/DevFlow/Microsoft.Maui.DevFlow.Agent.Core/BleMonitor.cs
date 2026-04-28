@@ -17,7 +17,7 @@ public class BleMonitor : IDisposable
     public static BleMonitor? Instance { get; internal set; }
 
     private readonly ConcurrentQueue<BleEvent> _events = new();
-    private readonly List<ConcurrentQueue<string>> _subscribers = new();
+    private readonly List<BleSubscriber> _subscribers = new();
     private readonly object _gate = new();
     private readonly int _maxEvents;
     private int _eventCount;
@@ -109,10 +109,15 @@ public class BleMonitor : IDisposable
             @event = evt
         }, JsonOpts);
 
-        List<ConcurrentQueue<string>> snapshot;
-        lock (_gate) { snapshot = new List<ConcurrentQueue<string>>(_subscribers); }
-        foreach (var q in snapshot)
-            q.Enqueue(json);
+        List<BleSubscriber> snapshot;
+        lock (_gate) { snapshot = new List<BleSubscriber>(_subscribers); }
+        foreach (var subscriber in snapshot)
+        {
+            if (subscriber.Type != null && !evt.Type.Equals(subscriber.Type, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            subscriber.Queue.Enqueue(json);
+        }
     }
 
     // Convenience methods for common event types
@@ -208,14 +213,32 @@ public class BleMonitor : IDisposable
 
     public string? StartScanning()
     {
+        TryStartScanning(out var error);
+        return error;
+    }
+
+    public bool TryStartScanning(out string? error)
+    {
         lock (_gate)
         {
-            if (_disposed) return "BLE monitor disposed";
-            if (_scanning) return null;
-            var error = StartPlatformScan();
-            if (error != null) return error;
+            if (_disposed)
+            {
+                error = "BLE monitor disposed";
+                return false;
+            }
+
+            if (_scanning)
+            {
+                error = null;
+                return false;
+            }
+
+            error = StartPlatformScan();
+            if (error != null)
+                return false;
+
             _scanning = true;
-            return null;
+            return true;
         }
     }
 
@@ -238,16 +261,16 @@ public class BleMonitor : IDisposable
 
     // WebSocket subscriber management
 
-    public ConcurrentQueue<string> Subscribe()
+    public ConcurrentQueue<string> Subscribe(string? type = null)
     {
         var queue = new ConcurrentQueue<string>();
-        lock (_gate) { _subscribers.Add(queue); }
+        lock (_gate) { _subscribers.Add(new BleSubscriber(queue, type)); }
         return queue;
     }
 
     public void Unsubscribe(ConcurrentQueue<string> queue)
     {
-        lock (_gate) { _subscribers.Remove(queue); }
+        lock (_gate) { _subscribers.RemoveAll(subscriber => ReferenceEquals(subscriber.Queue, queue)); }
     }
 
     public void Dispose()
@@ -266,6 +289,12 @@ public class BleMonitor : IDisposable
     /// </summary>
     protected virtual void DisposePlatform()
     {
+    }
+
+    private sealed class BleSubscriber(ConcurrentQueue<string> queue, string? type)
+    {
+        public ConcurrentQueue<string> Queue { get; } = queue;
+        public string? Type { get; } = string.IsNullOrWhiteSpace(type) ? null : type;
     }
 }
 
