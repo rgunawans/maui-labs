@@ -316,6 +316,73 @@ public class AgentHttpServerTests : IDisposable
     }
 
     [Fact]
+    public async Task JobsEndpoints_UseV1PathsAndParseResponses()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, _port);
+        listener.Start();
+
+        var acceptTask = Task.Run(async () =>
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                using var client = await listener.AcceptTcpClientAsync();
+                using var stream = client.GetStream();
+                var buffer = new byte[8192];
+                var read = await stream.ReadAsync(buffer);
+                var request = Encoding.UTF8.GetString(buffer, 0, read);
+
+                if (request.Contains("GET /api/v1/device/jobs", StringComparison.Ordinal))
+                {
+                    var body = """
+                    {
+                      "platform": "iOS",
+                      "type": "BGTaskScheduler",
+                      "supported": true,
+                      "runSupported": true,
+                      "jobs": [
+                        {
+                          "identifier": "com.example.refresh",
+                          "type": "refresh",
+                          "earliestBeginDate": ""
+                        }
+                      ]
+                    }
+                    """;
+                    var response = $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}";
+                    await stream.WriteAsync(Encoding.UTF8.GetBytes(response));
+                    continue;
+                }
+
+                if (request.Contains("POST /api/v1/device/jobs/com.example.refresh/run", StringComparison.Ordinal))
+                {
+                    Assert.Contains("\"type\":\"refresh\"", request);
+
+                    var body = """{"success":true,"identifier":"com.example.refresh","type":"refresh"}""";
+                    var response = $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}";
+                    await stream.WriteAsync(Encoding.UTF8.GetBytes(response));
+                    continue;
+                }
+
+                throw new InvalidOperationException($"Unexpected request: {request}");
+            }
+        });
+
+        using var agentClient = new Microsoft.Maui.DevFlow.Driver.AgentClient("localhost", _port);
+
+        var jobs = await agentClient.GetJobsAsync();
+        Assert.True(jobs.GetProperty("supported").GetBoolean());
+        Assert.True(jobs.GetProperty("runSupported").GetBoolean());
+        Assert.Equal("com.example.refresh", jobs.GetProperty("jobs")[0].GetProperty("identifier").GetString());
+
+        var result = await agentClient.RunJobAsync("com.example.refresh", "refresh");
+        Assert.True(result.GetProperty("success").GetBoolean());
+        Assert.Equal("refresh", result.GetProperty("type").GetString());
+
+        await acceptTask;
+        listener.Stop();
+    }
+
+    [Fact]
     public async Task BatchEndpoint_SendsV1BatchPayload()
     {
         using var listener = new TcpListener(IPAddress.Loopback, _port);
