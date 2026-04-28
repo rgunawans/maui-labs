@@ -145,7 +145,7 @@ internal static class DevFlowSkillManager
             if (Directory.Exists(skillDirectory))
                 Directory.Delete(skillDirectory, recursive: true);
 
-            UpdateLockFile(installTarget.LockFilePath, cancellationToken, lockFile =>
+            await UpdateLockFileAsync(installTarget.LockFilePath, cancellationToken, lockFile =>
             {
                 RemoveLockEntry(lockFile, installTarget, skill.Id);
                 return true;
@@ -176,7 +176,7 @@ internal static class DevFlowSkillManager
         foreach (var installTarget in installTargets)
         {
             var targetResults = new List<JsonObject>();
-            UpdateLockFile(installTarget.LockFilePath, cancellationToken, lockFile =>
+            await UpdateLockFileAsync(installTarget.LockFilePath, cancellationToken, lockFile =>
             {
                 var lockFileChanged = false;
                 foreach (var (skill, bundle) in skillBundles)
@@ -497,18 +497,20 @@ internal static class DevFlowSkillManager
         }
     }
 
-    static void UpdateLockFile(string lockFilePath, CancellationToken cancellationToken, Func<JsonObject, bool> update)
+    static async Task UpdateLockFileAsync(string lockFilePath, CancellationToken cancellationToken, Func<JsonObject, bool> update)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(lockFilePath)!);
-        var createdLockFile = false;
-        using var stream = OpenLockFileStream(lockFilePath, cancellationToken, out createdLockFile);
-        var lockFile = ReadLockFile(lockFilePath, stream, allowEmpty: createdLockFile);
+        var (stream, createdLockFile) = await OpenLockFileStreamAsync(lockFilePath, cancellationToken);
+        using (stream)
+        {
+            var lockFile = ReadLockFile(lockFilePath, stream, allowEmpty: createdLockFile);
 
-        if (update(lockFile) || createdLockFile)
-            WriteLockFile(lockFilePath, lockFile, stream);
+            if (update(lockFile) || createdLockFile)
+                WriteLockFile(lockFilePath, lockFile, stream);
+        }
     }
 
-    static FileStream OpenLockFileStream(string lockFilePath, CancellationToken cancellationToken, out bool createdLockFile)
+    static async Task<(FileStream Stream, bool CreatedLockFile)> OpenLockFileStreamAsync(string lockFilePath, CancellationToken cancellationToken)
     {
         var startedAt = DateTime.UtcNow;
         while (true)
@@ -516,16 +518,16 @@ internal static class DevFlowSkillManager
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                createdLockFile = !File.Exists(lockFilePath);
-                return new FileStream(
+                var createdLockFile = !File.Exists(lockFilePath);
+                return (new FileStream(
                     lockFilePath,
                     createdLockFile ? FileMode.CreateNew : FileMode.Open,
                     FileAccess.ReadWrite,
-                    FileShare.None);
+                    FileShare.None), createdLockFile);
             }
             catch (IOException) when (DateTime.UtcNow - startedAt < LockFileRetryTimeout)
             {
-                Thread.Sleep(50);
+                await Task.Delay(50, cancellationToken);
             }
             catch (IOException ex)
             {
