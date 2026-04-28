@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
+using Spectre.Console;
 
 namespace Microsoft.Maui.Cli.DevFlow.Skills;
 
@@ -259,30 +260,33 @@ internal static class DevFlowSkillCommands
         };
     }
 
-    static void PrintInitSummary(JsonObject result)
+    internal static void PrintInitSummary(JsonObject result, IAnsiConsole console)
     {
-        Console.WriteLine("MAUI DevFlow skills initialized");
-        Console.WriteLine();
-        PrintOperationResults(result);
-        Console.WriteLine();
-        Console.WriteLine("Next prompt for your AI agent:");
-        Console.WriteLine("  Use the maui-devflow-onboard skill to add MAUI DevFlow to this project.");
-        Console.WriteLine("  Use maui-devflow-debug after the app is running for build/deploy/inspect/fix loops.");
-        Console.WriteLine();
-        Console.WriteLine("Manual fallback:");
-        Console.WriteLine("  Add the DevFlow agent package, call builder.AddMauiDevFlowAgent() under #if DEBUG, build and run the app.");
-        Console.WriteLine();
-        Console.WriteLine("After integration, verify with:");
-        Console.WriteLine("  maui devflow diagnose");
-        Console.WriteLine("  maui devflow wait");
-        Console.WriteLine("  maui devflow ui tree --depth 1");
+        console.MarkupLine("[green]✓[/] [bold]MAUI DevFlow skills initialized[/]");
+        console.WriteLine();
+        PrintOperationResults(result, console);
+        console.WriteLine();
+
+        console.Write(new Rule("[yellow]Next prompt for your AI agent[/]").LeftJustified());
+        console.MarkupLine("  Use the [bold cyan]maui-devflow-onboard[/] skill to add MAUI DevFlow to this project.");
+        console.MarkupLine("  Use [bold cyan]maui-devflow-debug[/] after the app is running for build/deploy/inspect/fix loops.");
+        console.WriteLine();
+
+        console.MarkupLine("[yellow]Manual fallback:[/]");
+        console.MarkupLine($"  Add the DevFlow agent package, call [cyan]{Markup.Escape("builder.AddMauiDevFlowAgent()")}[/] under [grey]{Markup.Escape("#if DEBUG")}[/], build and run the app.");
+        console.WriteLine();
+
+        console.MarkupLine("[yellow]After integration, verify with:[/]");
+        WriteCommand(console, "maui devflow diagnose");
+        WriteCommand(console, "maui devflow wait");
+        WriteCommand(console, "maui devflow ui tree --depth 1");
     }
 
-    static void PrintOperationResults(JsonObject result)
+    static void PrintOperationResults(JsonObject result, IAnsiConsole console)
     {
         if (result["results"] is not JsonArray results || results.Count == 0)
         {
-            Console.WriteLine("No skill changes.");
+            console.MarkupLine("[grey]No skill changes.[/]");
             return;
         }
 
@@ -292,23 +296,33 @@ internal static class DevFlowSkillCommands
             var skillId = GetString(item, "skillId") ?? "unknown";
             var status = GetString(item, "status") ?? "unknown";
             var path = GetString(item, "path") ?? "";
-            Console.WriteLine($"{skillId}: {action} ({status}) {path}");
+            var pathText = string.IsNullOrWhiteSpace(path)
+                ? string.Empty
+                : $" [grey]{Markup.Escape(path)}[/]";
+            console.MarkupLine($"[cyan]{Markup.Escape(skillId)}[/]: [{GetActionColor(action)}]{Markup.Escape(action)}[/] ([{GetStatusColor(status)}]{Markup.Escape(status)}[/]){pathText}");
             var message = GetString(item, "message");
             if (!string.IsNullOrWhiteSpace(message))
-                Console.WriteLine($"  {message}");
+                console.MarkupLine($"  [grey]{Markup.Escape(message)}[/]");
         }
     }
 
-    static void PrintSkillStatuses(JsonObject result)
+    static void PrintSkillStatuses(JsonObject result, IAnsiConsole console)
     {
         if (result["onlineMessage"] is JsonValue onlineMessage)
-            Console.WriteLine(onlineMessage.GetValue<string>());
+            console.MarkupLine($"[cyan]ℹ[/] {Markup.Escape(onlineMessage.GetValue<string>())}");
 
         if (result["skills"] is not JsonArray skills || skills.Count == 0)
         {
-            Console.WriteLine("No DevFlow skills found.");
+            console.MarkupLine("[grey]No DevFlow skills found.[/]");
             return;
         }
+
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .AddColumn(new TableColumn("[cyan]Skill[/]"))
+            .AddColumn(new TableColumn("[cyan]Scope[/]"))
+            .AddColumn(new TableColumn("[cyan]Status[/]"))
+            .AddColumn(new TableColumn("[cyan]Path[/]"));
 
         foreach (var item in skills.OfType<JsonObject>())
         {
@@ -316,30 +330,69 @@ internal static class DevFlowSkillCommands
             var scope = GetString(item, "scope") ?? "unknown";
             var status = GetString(item, "status") ?? "unknown";
             var path = GetString(item, "path") ?? "";
-            Console.WriteLine($"{skillId,-18} {scope,-7} {status,-36} {path}");
+            table.AddRow(
+                Markup.Escape(skillId),
+                Markup.Escape(scope),
+                $"[{GetStatusColor(status)}]{Markup.Escape(status)}[/]",
+                string.IsNullOrWhiteSpace(path) ? string.Empty : $"[grey]{Markup.Escape(path)}[/]");
         }
+
+        console.Write(table);
     }
 
-    static void PrintDoctor(JsonObject result)
+    static void PrintDoctor(JsonObject result, IAnsiConsole console)
     {
-        PrintSkillStatuses(result);
+        PrintSkillStatuses(result, console);
 
         if (result["diagnostics"] is JsonObject diagnostics)
         {
-            Console.WriteLine();
-            Console.WriteLine("Diagnostics:");
+            console.WriteLine();
+            console.MarkupLine("[yellow]Diagnostics:[/]");
             foreach (var item in diagnostics)
-                Console.WriteLine($"  {item.Key}: {item.Value}");
+                console.MarkupLine($"  [cyan]{Markup.Escape(item.Key)}[/]: {Markup.Escape(item.Value?.ToString() ?? string.Empty)}");
         }
 
         if (result["warnings"] is JsonArray warnings && warnings.Count > 0)
         {
-            Console.WriteLine();
-            Console.WriteLine("Warnings:");
+            console.WriteLine();
+            console.MarkupLine("[yellow]Warnings:[/]");
             foreach (var warning in warnings)
-                Console.WriteLine($"  {warning?.GetValue<string>()}");
+            {
+                var warningText = warning?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(warningText))
+                    console.MarkupLine($"  [yellow]⚠[/] {Markup.Escape(warningText)}");
+            }
         }
     }
+
+    static void WriteCommand(IAnsiConsole console, string command)
+        => console.MarkupLine($"  [blue]{Markup.Escape(command)}[/]");
+
+    static string GetActionColor(string action)
+        => action switch
+        {
+            "written" => "green",
+            "unchanged" => "grey",
+            "checked" => "cyan",
+            "removed" => "red",
+            "skipped" => "yellow",
+            _ => "white"
+        };
+
+    static string GetStatusColor(string status)
+        => status switch
+        {
+            "up-to-date" => "green",
+            "missing" => "red",
+            "dirty" => "yellow",
+            "unknown-or-unmanaged" => "yellow",
+            "installed-from-newer-cli" => "yellow",
+            "installed-from-different-cli-same-version" => "yellow",
+            "update-available-from-current-cli" => "yellow",
+            "legacy-managed" => "yellow",
+            "removed" => "red",
+            _ => "white"
+        };
 
     static string? GetString(JsonObject node, string propertyName)
         => node.TryGetPropertyValue(propertyName, out var value) ? value?.GetValue<string>() : null;
