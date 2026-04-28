@@ -151,7 +151,29 @@ public partial class DevFlowAgentService
 	private static bool IsExplicitlyBlockedAssembly(string name)
 	{
 		return name.StartsWith("Fizzler", StringComparison.Ordinal)
-			|| name.StartsWith("SkiaSharp", StringComparison.Ordinal);
+			|| name.StartsWith("SkiaSharp", StringComparison.Ordinal)
+			|| IsMicrosoftMauiFrameworkAssembly(name)
+			|| IsDevFlowAssembly(name)
+			|| name.StartsWith("Microsoft.CSharp", StringComparison.Ordinal)
+			|| name.StartsWith("Microsoft.Win32", StringComparison.Ordinal);
+	}
+
+	private static bool IsMicrosoftMauiFrameworkAssembly(string name)
+	{
+		return string.Equals(name, "Microsoft.Maui", StringComparison.Ordinal)
+			|| (name.StartsWith("Microsoft.Maui.", StringComparison.Ordinal)
+				&& !name.StartsWith("Microsoft.Maui.DevFlow.", StringComparison.Ordinal));
+	}
+
+	private static bool IsDevFlowAssembly(string name)
+	{
+		return string.Equals(name, "Microsoft.Maui.DevFlow.Agent", StringComparison.Ordinal)
+			|| string.Equals(name, "Microsoft.Maui.DevFlow.Agent.Core", StringComparison.Ordinal)
+			|| string.Equals(name, "Microsoft.Maui.DevFlow.Agent.Gtk", StringComparison.Ordinal)
+			|| string.Equals(name, "Microsoft.Maui.DevFlow.Blazor", StringComparison.Ordinal)
+			|| string.Equals(name, "Microsoft.Maui.DevFlow.Blazor.Gtk", StringComparison.Ordinal)
+			|| string.Equals(name, "Microsoft.Maui.DevFlow.Driver", StringComparison.Ordinal)
+			|| string.Equals(name, "Microsoft.Maui.DevFlow.Logging", StringComparison.Ordinal);
 	}
 
 	private static InvokeParameterInfo[] BuildParameterInfoList(MethodInfo method)

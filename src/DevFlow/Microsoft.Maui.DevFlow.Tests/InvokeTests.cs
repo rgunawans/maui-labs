@@ -174,6 +174,23 @@ public class InvokeTests
 		Assert.False(cache.ContainsKey(cacheKey));
 	}
 
+	[Theory]
+	[InlineData("Microsoft.Maui", true)]
+	[InlineData("Microsoft.Maui.Controls", true)]
+	[InlineData("Microsoft.Maui.DevFlow.Agent.Core", true)]
+	[InlineData("Microsoft.CSharp", true)]
+	[InlineData("Microsoft.Win32.Registry", true)]
+	[InlineData("Microsoft.Maui.DevFlow.Tests", false)]
+	public void IsExplicitlyBlockedAssembly_FiltersFrameworkAndDevFlowAssemblies(string assemblyName, bool expected)
+	{
+		var isBlockedMethod = typeof(DevFlowAgentService).GetMethod("IsExplicitlyBlockedAssembly", BindingFlags.NonPublic | BindingFlags.Static);
+		Assert.NotNull(isBlockedMethod);
+
+		var actual = Assert.IsType<bool>(isBlockedMethod.Invoke(null, new object[] { assemblyName }));
+
+		Assert.Equal(expected, actual);
+	}
+
 	[Fact]
 	public async Task ListMethods_ReturnsPublicMethods_ForType()
 	{
