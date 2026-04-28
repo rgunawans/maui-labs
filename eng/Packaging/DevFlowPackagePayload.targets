@@ -1,0 +1,56 @@
+<Project>
+
+  <Target Name="_PrepareDevFlowPackagePayload"
+          BeforeTargets="_GetPackageFiles"
+          Condition="'$(RawPackageRoot)' != '' and '$(TargetFramework)' == ''">
+    <PropertyGroup>
+      <_DevFlowRawPackageRoot>$([MSBuild]::EnsureTrailingSlash('$(RawPackageRoot)'))</_DevFlowRawPackageRoot>
+      <_DevFlowPackagePayloadRoot Condition="'$(PackagePayloadRoot)' == ''">$(BaseIntermediateOutputPath)package-payload/$(PackageId)/</_DevFlowPackagePayloadRoot>
+      <_DevFlowPackagePayloadRoot Condition="'$(PackagePayloadRoot)' != ''">$(PackagePayloadRoot)</_DevFlowPackagePayloadRoot>
+      <_DevFlowPackagePayloadRoot>$([MSBuild]::EnsureTrailingSlash('$(_DevFlowPackagePayloadRoot)'))</_DevFlowPackagePayloadRoot>
+      <_DevFlowPackageVersion Condition="'$(PackageVersion)' != ''">$(PackageVersion)</_DevFlowPackageVersion>
+      <_DevFlowPackageVersion Condition="'$(_DevFlowPackageVersion)' == ''">$(Version)</_DevFlowPackageVersion>
+      <_DevFlowMacPackagePath>$(_DevFlowRawPackageRoot)raw-packages-devflow-macos-latest/$(PackageId).$(_DevFlowPackageVersion).nupkg</_DevFlowMacPackagePath>
+      <_DevFlowWindowsPackagePath>$(_DevFlowRawPackageRoot)raw-packages-devflow-windows-latest/$(PackageId).$(_DevFlowPackageVersion).nupkg</_DevFlowWindowsPackagePath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_DevFlowMacPackage Include="$(_DevFlowMacPackagePath)" Condition="Exists('$(_DevFlowMacPackagePath)')" />
+      <_DevFlowWindowsPackage Include="$(_DevFlowWindowsPackagePath)" Condition="Exists('$(_DevFlowWindowsPackagePath)')" />
+    </ItemGroup>
+
+    <Error Condition="'@(_DevFlowMacPackage)' == ''"
+           Text="Could not find macOS package payload '$(_DevFlowMacPackagePath)'." />
+    <Error Condition="'@(_DevFlowWindowsPackage)' == ''"
+           Text="Could not find Windows package payload '$(_DevFlowWindowsPackagePath)'." />
+
+    <RemoveDir Directories="$(_DevFlowPackagePayloadRoot)" />
+    <MakeDir Directories="$(_DevFlowPackagePayloadRoot)macos;$(_DevFlowPackagePayloadRoot)windows" />
+
+    <Unzip SourceFiles="@(_DevFlowMacPackage)"
+           DestinationFolder="$(_DevFlowPackagePayloadRoot)macos"
+           OverwriteReadOnlyFiles="true" />
+    <Unzip SourceFiles="@(_DevFlowWindowsPackage)"
+           DestinationFolder="$(_DevFlowPackagePayloadRoot)windows"
+           OverwriteReadOnlyFiles="true" />
+
+    <ItemGroup>
+      <_DevFlowPackageMetadata Include="$(_DevFlowPackagePayloadRoot)**/*.nuspec;$(_DevFlowPackagePayloadRoot)**/[Content_Types].xml;$(_DevFlowPackagePayloadRoot)**/.signature.p7s;$(_DevFlowPackagePayloadRoot)**/README.md;$(_DevFlowPackagePayloadRoot)**/_rels/**/*;$(_DevFlowPackagePayloadRoot)**/package/**/*" />
+
+      <_DevFlowMacPayload Include="$(_DevFlowPackagePayloadRoot)macos/**/*"
+                          Exclude="@(_DevFlowPackageMetadata);$(_DevFlowPackagePayloadRoot)macos/lib/net10.0-windows*/**/*" />
+
+      <_DevFlowWindowsPayload Include="$(_DevFlowPackagePayloadRoot)windows/**/*"
+                              Exclude="@(_DevFlowPackageMetadata);$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-android*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-ios*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-maccatalyst*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-macos*/**/*;$(_DevFlowPackagePayloadRoot)windows/build/**/*;$(_DevFlowPackagePayloadRoot)windows/buildTransitive/**/*;$(_DevFlowPackagePayloadRoot)windows/staticwebassets/**/*" />
+
+      <None Include="@(_DevFlowMacPayload)"
+            Pack="true"
+            PackagePath="%(_DevFlowMacPayload.RecursiveDir)%(_DevFlowMacPayload.Filename)%(_DevFlowMacPayload.Extension)" />
+
+      <None Include="@(_DevFlowWindowsPayload)"
+            Pack="true"
+            PackagePath="%(_DevFlowWindowsPayload.RecursiveDir)%(_DevFlowWindowsPayload.Filename)%(_DevFlowWindowsPayload.Extension)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

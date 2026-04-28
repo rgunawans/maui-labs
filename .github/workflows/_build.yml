@@ -157,8 +157,80 @@ jobs:
           name: test-results-${{ inputs.project-name }}-${{ matrix.os }}
           path: artifacts/TestResults/**/*.xml
 
+      - name: Upload raw packages
+        if: inputs.pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: raw-packages-${{ inputs.project-name }}-${{ matrix.os }}
+          path: artifacts/packages/**/*.nupkg
+
+  package:
+    if: inputs.pack
+    needs: build
+    runs-on: ${{ inputs.project-name == 'devflow' && 'macos-latest' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Install workloads for DevFlow packaging
+        if: inputs.project-name == 'devflow'
+        run: dotnet workload install maui macos maui-tizen
+
+      - name: Download raw packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: raw-packages-${{ inputs.project-name }}-*
+          path: artifacts/raw-packages
+
+      - name: Prepare packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          project_name='${{ inputs.project-name }}'
+          raw_packages_root="$(pwd)/artifacts/raw-packages"
+          packages_output="$(pwd)/artifacts/packages"
+
+          rm -rf "$packages_output"
+          mkdir -p "$packages_output"
+
+          if [[ "$project_name" == "devflow" ]]; then
+            raw_windows="$raw_packages_root/raw-packages-devflow-windows-latest"
+            if [[ -d "$raw_windows" ]]; then
+              find "$raw_windows" -name '*.nupkg' \
+                ! -name 'Microsoft.Maui.DevFlow.Agent.[0-9]*.nupkg' \
+                ! -name 'Microsoft.Maui.DevFlow.Blazor.[0-9]*.nupkg' \
+                -exec cp {} "$packages_output/" \;
+            fi
+
+            common_msbuild_args=(
+              /p:RawPackageRoot="$raw_packages_root/"
+              /p:PackageOutputPath="$packages_output"
+              /p:EnableWindowsTargeting=true
+              /p:VersionSuffix="$CI_PACKAGE_VERSION_SUFFIX"
+            )
+
+            dotnet restore eng/Packaging/Microsoft.Maui.DevFlow.Agent.Package/Microsoft.Maui.DevFlow.Agent.Package.csproj "${common_msbuild_args[@]}"
+            dotnet pack eng/Packaging/Microsoft.Maui.DevFlow.Agent.Package/Microsoft.Maui.DevFlow.Agent.Package.csproj --no-restore --no-build -c Release "${common_msbuild_args[@]}"
+
+            dotnet restore eng/Packaging/Microsoft.Maui.DevFlow.Blazor.Package/Microsoft.Maui.DevFlow.Blazor.Package.csproj "${common_msbuild_args[@]}"
+            dotnet pack eng/Packaging/Microsoft.Maui.DevFlow.Blazor.Package/Microsoft.Maui.DevFlow.Blazor.Package.csproj --no-restore --no-build -c Release "${common_msbuild_args[@]}"
+          else
+            raw_windows="$raw_packages_root/raw-packages-${project_name}-windows-latest"
+            if [[ -d "$raw_windows" ]]; then
+              find "$raw_windows" -name '*.nupkg' -exec cp {} "$packages_output/" \;
+            else
+              find "$raw_packages_root" -name '*.nupkg' -exec cp {} "$packages_output/" \;
+            fi
+          fi
+
+          find "$packages_output" -name '*.nupkg' -print
+
       - name: Upload packages
-        if: inputs.pack && (matrix.os == 'windows-latest' || !contains(fromJson(inputs.os), 'windows-latest'))
         uses: actions/upload-artifact@v7
         with:
           name: packages-${{ inputs.project-name }}
