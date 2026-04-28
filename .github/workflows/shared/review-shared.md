@@ -17,7 +17,7 @@ tools:
 
 safe-outputs:
   create-pull-request-review-comment:
-    max: 8
+    max: 25
     target: "*"
   submit-pull-request-review:
     max: 1
@@ -126,26 +126,25 @@ After posting inline comments, call `submit_pull_request_review` with `event: "C
 
 > **🚫 NEVER use `REQUEST_CHANGES` or `APPROVE` events.** The safe-output config only allows `COMMENT`. Using any other event will fail and block the entire review from posting.
 
-**Cap inline comments at 8** (the safe-output limit). If more than 8 findings, post the 8 most severe inline and include the rest only in the summary.
+**Cap inline comments at 25** (the safe-output limit). If more than 25 findings, post the 25 most severe inline and include the rest only in the summary.
 
-#### Part B: Summary Comment (all findings)
+#### Part B: Lean Summary Comment
 
-Post the **complete review summary** using `add_comment`. This is the primary output. The `hide-older-comments: true` configuration ensures previous review summaries from this workflow are automatically collapsed when a new review runs.
+Post a **brief summary** using `add_comment`. The `hide-older-comments: true` configuration ensures previous summaries are automatically collapsed when a new review runs.
 
-The summary comment must include:
+The summary should be **lean** — all findings are already posted inline. Do NOT repeat findings in the summary.
+
+The summary must include:
 
 1. **Header**: `## Expert Code Review — PR #NNN`
 2. **Methodology**: "3 independent reviewers with adversarial consensus"
-3. **Findings table** with ALL findings ranked by severity:
+3. **Counts**: "{N} findings posted as inline comments ({X} moderate, {Y} minor, ...)"
+4. **Overflow table** (ONLY if some findings could not be posted inline — e.g., path/line not in diff):
 
 | # | Severity | Consensus | File | Line(s) | Finding |
 |---|----------|-----------|------|---------|---------|
 
-4. For each finding, include a **direct link** to the file and line in the PR diff:
-   `[FileName.cs#L123](https://github.com/{owner}/{repo}/pull/{pr}/files#diff-{sha}R123)`
-   If you cannot construct the exact diff link, use: `FileName.cs line 123`
-
-5. **Discarded findings** section (if any): list findings that were flagged by only 1 reviewer and failed consensus
+5. **Discarded findings** section (if any): one-line summaries of findings flagged by only 1 reviewer that failed consensus
 6. **CI status**: check status via MCP tools
 7. **Test coverage assessment**: note whether the PR includes tests for the changes
 8. **Never mention specific model names** — use "Reviewer 1/2/3"
