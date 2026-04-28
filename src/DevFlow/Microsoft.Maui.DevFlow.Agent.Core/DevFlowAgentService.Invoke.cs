@@ -29,20 +29,21 @@ static class DevFlowActionHotReloadHandler
 public partial class DevFlowAgentService
 {
 	private static volatile Lazy<InvokeActionEntry[]> s_cachedActions = new(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
-	private readonly ConcurrentDictionary<string, Type> _typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
+	private static readonly ConcurrentDictionary<string, Type> s_typeResolutionCache = new(StringComparer.OrdinalIgnoreCase);
 
 	#region Action Discovery
 
 	private InvokeActionEntry[] DiscoverActions() => s_cachedActions.Value;
 
 	/// <summary>
-	/// Invalidates the cached DevFlowAction list. The next call to
-	/// DiscoverActions() will rescan all loaded assemblies.
+	/// Invalidates cached reflection data. The next call to DiscoverActions()
+	/// will rescan all loaded assemblies, and type resolution will rescan as needed.
 	/// Called by AssemblyLoad handler and MetadataUpdateHandler (Hot Reload).
 	/// </summary>
 	internal static void InvalidateActionCache()
 	{
 		s_cachedActions = new Lazy<InvokeActionEntry[]>(ScanActions, LazyThreadSafetyMode.ExecutionAndPublication);
+		s_typeResolutionCache.Clear();
 	}
 
 	private void OnAssemblyLoaded(object? sender, AssemblyLoadEventArgs args)
@@ -51,7 +52,6 @@ public partial class DevFlowAgentService
 			return;
 
 		InvalidateActionCache();
-		_typeResolutionCache.Clear();
 	}
 
 	private static InvokeActionEntry[] ScanActions()
@@ -211,7 +211,7 @@ public partial class DevFlowAgentService
 
 	private Type? ResolveType(string typeName)
 	{
-		if (_typeResolutionCache.TryGetValue(typeName, out var cached))
+		if (s_typeResolutionCache.TryGetValue(typeName, out var cached))
 			return cached;
 
 		// Try fully-qualified name first
@@ -222,7 +222,7 @@ public partial class DevFlowAgentService
 				type = null;
 			else
 			{
-				_typeResolutionCache.TryAdd(typeName, type);
+				s_typeResolutionCache.TryAdd(typeName, type);
 				return type;
 			}
 		}
@@ -237,7 +237,7 @@ public partial class DevFlowAgentService
 			type = asm.GetType(typeName, throwOnError: false, ignoreCase: true);
 			if (type != null)
 			{
-				_typeResolutionCache.TryAdd(typeName, type);
+				s_typeResolutionCache.TryAdd(typeName, type);
 				return type;
 			}
 
@@ -260,7 +260,7 @@ public partial class DevFlowAgentService
 		var distinct = matches.Select(t => t.FullName).Distinct().ToList();
 		if (distinct.Count == 1)
 		{
-			_typeResolutionCache.TryAdd(typeName, matches[0]);
+			s_typeResolutionCache.TryAdd(typeName, matches[0]);
 			return matches[0];
 		}
 

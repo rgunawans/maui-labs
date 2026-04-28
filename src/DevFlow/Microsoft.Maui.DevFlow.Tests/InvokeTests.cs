@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
@@ -153,6 +155,23 @@ public class InvokeTests
 		Assert.NotNull(result);
 		Assert.False(result.Success);
 		Assert.Contains("not found", result.Error, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public void InvalidateActionCache_ClearsTypeResolutionCache()
+	{
+		var cacheField = typeof(DevFlowAgentService).GetField("s_typeResolutionCache", BindingFlags.NonPublic | BindingFlags.Static);
+		Assert.NotNull(cacheField);
+		var cache = Assert.IsType<ConcurrentDictionary<string, Type>>(cacheField.GetValue(null));
+
+		const string cacheKey = "__hot_reload_cache_test__";
+		cache[cacheKey] = typeof(TestInvokeHelpers);
+
+		var invalidateMethod = typeof(DevFlowAgentService).GetMethod("InvalidateActionCache", BindingFlags.NonPublic | BindingFlags.Static);
+		Assert.NotNull(invalidateMethod);
+		invalidateMethod.Invoke(null, null);
+
+		Assert.False(cache.ContainsKey(cacheKey));
 	}
 
 	[Fact]
