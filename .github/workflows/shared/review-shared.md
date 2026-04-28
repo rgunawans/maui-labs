@@ -18,9 +18,11 @@ tools:
 safe-outputs:
   create-pull-request-review-comment:
     max: 8
+    target: "*"
   submit-pull-request-review:
     max: 1
     allowed-events: [COMMENT]
+    target: "*"
   add-comment:
     max: 5
     hide-older-comments: true
