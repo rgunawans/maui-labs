@@ -232,7 +232,9 @@ public static class BrokerClient
             string arguments;
 
             // If running via `dotnet run` or `dotnet <dll>`, exePath is the dotnet host.
-            // In that case, use `dotnet <entryDll> broker start --foreground` instead.
+            // In that case, use `dotnet <entryDll> devflow broker start --foreground` instead.
+            // Note: the `devflow` token is required because broker is a subcommand of devflow,
+            // not a top-level CLI command.
             if (exePath.EndsWith("dotnet", StringComparison.OrdinalIgnoreCase)
                 || exePath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase))
             {
