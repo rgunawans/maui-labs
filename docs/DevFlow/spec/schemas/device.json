@@ -394,8 +394,8 @@
     },
     "BleEventType": {
       "type": "string",
-      "description": "BLE event type recorded by the monitor.",
-      "enum": [
+      "description": "BLE event type recorded by the monitor. The monitor accepts custom app-defined event types; examples list the built-in event types.",
+      "examples": [
         "scan_result",
         "connected",
         "disconnected",

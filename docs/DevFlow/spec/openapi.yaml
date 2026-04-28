@@ -1563,6 +1563,36 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /ws/v1/ble:
+    get:
+      operationId: streamBleEvents
+      tags: [device]
+      summary: Stream BLE events
+      description: >
+        Opens a WebSocket stream for BLE events. The server first sends a
+        `subscribed` message containing the current scanning state, then sends
+        `ble_event` messages as events are recorded. Set `scan=true` to start a
+        native BLE scan for the lifetime of this WebSocket connection when
+        scanning is supported.
+      parameters:
+        - name: scan
+          in: query
+          description: Start BLE scanning automatically while this WebSocket connection is active.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "101":
+          description: WebSocket connection established.
+        "400":
+          description: WebSocket upgrade failed or BLE scanning cannot be started.
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/common.json#/$defs/ProblemDetails"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v1/device/permissions:
     get:
       operationId: listPermissions

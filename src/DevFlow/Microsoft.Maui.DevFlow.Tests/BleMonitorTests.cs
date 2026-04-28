@@ -58,6 +58,18 @@ public class BleMonitorTests
         Assert.True(monitor.PlatformDisposed);
     }
 
+    [Fact]
+    public void RecordEvent_AfterDispose_IgnoresEvent()
+    {
+        var monitor = new BleMonitor();
+
+        monitor.Dispose();
+        monitor.RecordScanResult("device-1", "Device 1", -42);
+
+        Assert.Empty(monitor.GetEvents());
+        Assert.Equal("BLE monitor disposed", monitor.StartScanning());
+    }
+
     [Theory]
     [InlineData("-1")]
     [InlineData("not-an-int")]

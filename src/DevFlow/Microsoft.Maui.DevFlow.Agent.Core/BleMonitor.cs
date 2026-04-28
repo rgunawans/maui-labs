@@ -84,6 +84,9 @@ public class BleMonitor : IDisposable
     /// </summary>
     public void RecordEvent(BleEvent evt)
     {
+        if (_disposed)
+            return;
+
         evt.Timestamp ??= DateTimeOffset.UtcNow.ToString("O");
 
         _events.Enqueue(evt);
@@ -207,6 +210,7 @@ public class BleMonitor : IDisposable
     {
         lock (_gate)
         {
+            if (_disposed) return "BLE monitor disposed";
             if (_scanning) return null;
             var error = StartPlatformScan();
             if (error != null) return error;
