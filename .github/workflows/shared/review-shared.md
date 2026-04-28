@@ -111,23 +111,20 @@ Collect findings from all 3 sub-agents and apply consensus. Two findings "agree"
 
 Post results in **two parts**: inline review comments for critical findings, and a standalone summary comment for the full report.
 
-#### Part A: Inline Review (🔴 CRITICAL findings ONLY — all other severities go in Part B)
+#### Part A: Inline Review Comments
 
-> **🚨 STRICT RULE: Do NOT post inline review comments for 🟡 MODERATE or 🟢 MINOR findings.** These go ONLY in the summary comment (Part B). Inline comments are reserved exclusively for 🔴 CRITICAL findings. Violating this creates excessive noise on the PR.
+Post **all findings** as inline PR review comments using `create_pull_request_review_comment`. Inline comments are preferred — they're contextual and less noisy than a big comment.
 
-**Gating check:** Before posting anything, list each finding from Step 3 with its consensus severity. Count ONLY findings whose consensus severity is 🔴 CRITICAL. If the count is **zero**, skip Part A entirely — do NOT call `create_pull_request_review_comment` or `submit_pull_request_review`. Jump directly to Part B.
+For each finding:
+1. Validate path (must be in `list_pull_request_files`) and line (must be in a `@@` diff hunk, RIGHT side only)
+2. If path or line is invalid, skip the inline comment — the finding still appears in the summary (Part B)
+3. Include severity emoji, consensus marker, and a concise explanation
 
-> **Anti-pattern:** Do NOT re-evaluate or upgrade severity during posting. A finding that was 🟡 MODERATE or 🟢 MINOR in Step 3 stays that severity — it does NOT become inline-worthy. Only the Step 3 consensus severity matters.
-
-If there ARE 🔴 CRITICAL findings:
-1. Post each CRITICAL finding as an inline comment using `create_pull_request_review_comment`
-2. Validate path (must be in `list_pull_request_files`) and line (must be in a `@@` diff hunk, RIGHT side only)
-3. If path or line is invalid, skip the inline comment — it still appears in the summary
-4. After posting, call `submit_pull_request_review` with `event: "COMMENT"` and body: `🔴 {N} critical finding(s) posted inline. See full review summary in the comment below.`
+After posting inline comments, call `submit_pull_request_review` with `event: "COMMENT"` and a brief body summarizing the review (e.g., "Expert Code Review: {N} findings posted inline. See summary comment below for full details.").
 
 > **🚫 NEVER use `REQUEST_CHANGES` or `APPROVE` events.** The safe-output config only allows `COMMENT`. Using any other event will fail and block the entire review from posting.
 
-**Cap inline comments at 8** (the safe-output limit).
+**Cap inline comments at 8** (the safe-output limit). If more than 8 findings, post the 8 most severe inline and include the rest only in the summary.
 
 #### Part B: Summary Comment (all findings)
 
