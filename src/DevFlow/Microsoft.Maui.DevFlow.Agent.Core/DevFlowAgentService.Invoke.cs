@@ -506,7 +506,8 @@ public partial class DevFlowAgentService
 		try
 		{
 			var convertedArgs = ConvertInvokeArgs(action.Method.GetParameters(), args);
-			var (success, returnValue, returnType, error) = await InvokeMethodAsync(action.Method, null, convertedArgs);
+			var invokeTask = await DispatchAsync(() => InvokeMethodAsync(action.Method, null, convertedArgs));
+			var (success, returnValue, returnType, error) = await invokeTask;
 
 			return success
 				? HttpResponse.Json(new { success = true, action = action.Name, returnValue, returnType })
@@ -602,7 +603,8 @@ public partial class DevFlowAgentService
 			}
 			else
 			{
-				(success, returnValue, returnType, error) = await InvokeMethodAsync(method, target, convertedArgs);
+				var invokeTask = await DispatchAsync(() => InvokeMethodAsync(method, target, convertedArgs));
+				(success, returnValue, returnType, error) = await invokeTask;
 			}
 
 			return success

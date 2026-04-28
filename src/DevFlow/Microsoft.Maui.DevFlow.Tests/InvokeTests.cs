@@ -315,6 +315,37 @@ public class InvokeTests
 		Assert.Equal("null", result.ReturnValue);
 	}
 
+	[Fact]
+	public async Task InvokeAction_DispatchesInvocationToUiThread()
+	{
+		using var harness = await InvokeTestHarness.CreateWithDispatcherAsync(new DispatchRequiredDispatcher());
+
+		TestInvokeHelpers.ResetDispatchState();
+		var result = await harness.Client.InvokeActionAsync("test-dispatch-state");
+
+		Assert.NotNull(result);
+		Assert.True(result.Success, result.Error);
+		Assert.Equal("dispatched", result.ReturnValue);
+		Assert.True(TestInvokeHelpers.DispatchCallCount > 0);
+	}
+
+	[Fact]
+	public async Task Invoke_WithStaticResolve_DispatchesInvocationToUiThread()
+	{
+		using var harness = await InvokeTestHarness.CreateWithDispatcherAsync(new DispatchRequiredDispatcher());
+
+		TestInvokeHelpers.ResetDispatchState();
+		var result = await harness.Client.InvokeAsync(
+			typeof(TestInvokeHelpers).FullName!,
+			nameof(TestInvokeHelpers.GetDispatchState),
+			resolve: "static");
+
+		Assert.NotNull(result);
+		Assert.True(result.Success, result.Error);
+		Assert.Equal("dispatched", result.ReturnValue);
+		Assert.True(TestInvokeHelpers.DispatchCallCount > 0);
+	}
+
 	// ── MCP-style integration tests ──
 	// These tests exercise the AgentClient methods using the same parameter patterns
 	// that the MCP InvokeTools pass (JSON string → JsonArray parsing, explicit resolve, etc.)
@@ -669,12 +700,15 @@ public class InvokeTests
 			=> await CreateAsync(Array.Empty<View>());
 
 		public static async Task<InvokeTestHarness> CreateAsync(params View[] views)
+			=> await CreateWithDispatcherAsync(new ImmediateDispatcher(), views);
+
+		public static async Task<InvokeTestHarness> CreateWithDispatcherAsync(IDispatcher dispatcher, params View[] views)
 		{
 			var app = new TestApplication(views);
 			var service = new DevFlowAgentService(new AgentOptions { Port = GetFreePort() });
 			var client = new AgentClient("localhost", service.Port);
 
-			service.StartServerOnly(new ImmediateDispatcher());
+			service.StartServerOnly(dispatcher);
 			service.BindApp(app);
 
 			for (var i = 0; i < 10; i++)
@@ -710,6 +744,30 @@ public class InvokeTests
 		public IDispatcherTimer CreateTimer() => new ImmediateDispatcherTimer();
 	}
 
+	private sealed class DispatchRequiredDispatcher : IDispatcher
+	{
+		public bool IsDispatchRequired => true;
+
+		public bool Dispatch(Action action)
+		{
+			TestInvokeHelpers.DispatchCallCount++;
+			var wasDispatched = TestInvokeHelpers.IsDispatched;
+			TestInvokeHelpers.IsDispatched = true;
+			try
+			{
+				action();
+			}
+			finally
+			{
+				TestInvokeHelpers.IsDispatched = wasDispatched;
+			}
+			return true;
+		}
+
+		public bool DispatchDelayed(TimeSpan delay, Action action) => Dispatch(action);
+		public IDispatcherTimer CreateTimer() => new ImmediateDispatcherTimer();
+	}
+
 	private sealed class ImmediateDispatcherTimer : IDispatcherTimer
 	{
 		public bool IsRepeating { get; set; }
@@ -739,7 +797,17 @@ public class InvokeTests
 /// </summary>
 public static class TestInvokeHelpers
 {
+	[ThreadStatic]
+	public static bool IsDispatched;
+
+	public static int DispatchCallCount { get; set; }
 	public static string? LastSideEffect { get; set; }
+
+	public static void ResetDispatchState()
+	{
+		IsDispatched = false;
+		DispatchCallCount = 0;
+	}
 
 	[DevFlowAction("test-greet", Description = "Returns a greeting for the given name")]
 	public static string Greet(
@@ -751,6 +819,13 @@ public static class TestInvokeHelpers
 		[Description("First number")] int a,
 		[Description("Second number")] int b)
 		=> a + b;
+
+	[DevFlowAction("test-dispatch-state", Description = "Returns whether invocation is dispatched")]
+	public static string GetActionDispatchState()
+		=> GetDispatchState();
+
+	public static string GetDispatchState()
+		=> IsDispatched ? "dispatched" : "not-dispatched";
 
 	public static Task<string> GetValueAsync(string key)
 		=> Task.FromResult($"async:{key}");
