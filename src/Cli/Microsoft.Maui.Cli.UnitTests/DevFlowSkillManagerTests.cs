@@ -66,6 +66,39 @@ public sealed class DevFlowSkillManagerTests
     }
 
     [Fact]
+    public async Task Check_ProjectScope_DetectsUntrackedSkillFileAsDirty()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+        var notesPath = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "notes.md");
+        await File.WriteAllTextAsync(notesPath, "local notes");
+
+        var result = await DevFlowSkillManager.CheckAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
+
+        var skills = Assert.IsType<JsonArray>(result["skills"]);
+        var onboard = skills.OfType<JsonObject>().Single(skill => skill["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
+        Assert.Equal("dirty", onboard["status"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Update_ProjectScope_UpToDateSkillDoesNotRewriteFiles()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+        var skillPath = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "SKILL.md");
+        var originalWriteTime = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(skillPath, originalWriteTime);
+
+        var result = await DevFlowSkillManager.UpdateAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+
+        Assert.Equal(originalWriteTime, File.GetLastWriteTimeUtc(skillPath));
+        var results = Assert.IsType<JsonArray>(result["results"]);
+        var onboard = results.OfType<JsonObject>().Single(skill => skill["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
+        Assert.Equal("unchanged", onboard["action"]?.GetValue<string>());
+        Assert.False(onboard.ContainsKey("message"));
+    }
+
+    [Fact]
     public async Task Update_ProjectScope_OverwritesDirtyCurrentSkillByDefault()
     {
         using var workspace = TemporaryWorkspace.Create();
@@ -151,6 +184,23 @@ public sealed class DevFlowSkillManagerTests
         Assert.Equal("written", onboard["action"]?.GetValue<string>());
         Assert.Equal("up-to-date", onboard["status"]?.GetValue<string>());
         Assert.Equal("Replaced unmanaged existing skill folder with the current CLI bundle.", onboard["message"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Remove_ManagedSkillWithExtraFileWithoutForce_SkipsAndPreservesFiles()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+        var notesPath = Path.Combine(workspace.Path, ".claude", "skills", "maui-devflow-onboard", "notes.md");
+        await File.WriteAllTextAsync(notesPath, "local notes");
+
+        var result = await DevFlowSkillManager.RemoveAsync("maui-devflow-onboard", "project", "claude", force: false, cancellationToken: CancellationToken.None);
+
+        var results = Assert.IsType<JsonArray>(result["results"]);
+        var status = Assert.IsType<JsonObject>(Assert.Single(results));
+        Assert.Equal("dirty", status["status"]?.GetValue<string>());
+        Assert.Equal("skipped", status["action"]?.GetValue<string>());
+        Assert.True(File.Exists(notesPath));
     }
 
     [Fact]
@@ -408,6 +458,18 @@ public sealed class DevFlowSkillManagerTests
     }
 
     [Fact]
+    public async Task Update_ProjectScope_WithGithubTarget_WritesGithubSkills()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+
+        await DevFlowSkillManager.UpdateAsync("project", "github", force: false, allowDowngrade: false, CancellationToken.None);
+
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".github", "skills", "maui-devflow-onboard", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.Path, ".github", "skills", "maui-devflow-debug", "SKILL.md")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.Path, ".claude")));
+    }
+
+    [Fact]
     public async Task Update_ProjectScope_RemovesUserLegacySkillFromKnownTargets()
     {
         using var workspace = TemporaryWorkspace.Create();
@@ -451,6 +513,44 @@ public sealed class DevFlowSkillManagerTests
 
         var warnings = Assert.IsType<JsonArray>(result["warnings"]);
         Assert.Contains(warnings.Select(w => w?.GetValue<string>()), warning => warning?.Contains("local Microsoft.Maui.Cli version 0.0.1", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task Doctor_WithProjectAndUserScopeHashConflict_ReportsWarning()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+        var userResult = await DevFlowSkillManager.InstallRecommendedAsync("user", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+        var userStatePath = GetStatePathFromResults(userResult);
+        var userState = Assert.IsType<JsonObject>(CliJson.ParseNode(await File.ReadAllTextAsync(userStatePath)));
+        var entries = Assert.IsType<JsonArray>(userState["entries"]);
+        var onboardEntry = entries.OfType<JsonObject>().Single(entry => entry["skillId"]?.GetValue<string>() == "maui-devflow-onboard");
+        onboardEntry["contentHash"] = "sha256-conflict";
+        await File.WriteAllTextAsync(userStatePath, CliJson.SerializeUntyped(userState));
+
+        var result = await DevFlowSkillManager.DoctorAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
+
+        var warnings = Assert.IsType<JsonArray>(result["warnings"]);
+        Assert.Contains(warnings.Select(w => w?.GetValue<string>()), warning => warning?.Contains("installed in both project and user scope with different content", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task Check_ProjectScope_WithMalformedStateFile_RecoversAsUnmanaged()
+    {
+        using var workspace = TemporaryWorkspace.Create();
+        var installResult = await DevFlowSkillManager.InstallRecommendedAsync("project", "claude", force: false, allowDowngrade: false, CancellationToken.None);
+        var statePath = GetStatePathFromResults(installResult);
+        await File.WriteAllTextAsync(statePath, "{not json");
+
+        var doctor = await DevFlowSkillManager.DoctorAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
+        var warnings = Assert.IsType<JsonArray>(doctor["warnings"]);
+        Assert.Contains(warnings.Select(w => w?.GetValue<string>()), warning => warning?.Contains("is not valid JSON and will be rebuilt", StringComparison.Ordinal) == true);
+
+        await File.WriteAllTextAsync(statePath, "{not json");
+        var result = await DevFlowSkillManager.CheckAsync("project", "claude", online: false, cancellationToken: CancellationToken.None);
+
+        var skills = Assert.IsType<JsonArray>(result["skills"]);
+        Assert.All(skills.OfType<JsonObject>(), skill => Assert.Equal("unknown-or-unmanaged", skill["status"]?.GetValue<string>()));
     }
 
     [Fact]
@@ -567,6 +667,7 @@ public sealed class DevFlowSkillManagerTests
 
     sealed class TemporaryWorkspace : IDisposable
     {
+        // These tests rely on Directory.GetCurrentDirectory(), so the containing test class must stay in the serialized CLI collection.
         readonly string _originalDirectory;
         readonly string? _originalStateRootOverride;
         readonly string? _originalUserRootOverride;

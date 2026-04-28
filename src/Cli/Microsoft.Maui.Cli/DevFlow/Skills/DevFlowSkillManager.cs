@@ -13,6 +13,7 @@ internal static class DevFlowSkillManager
     const string StateRootEnvironmentVariable = "MAUIDEVFLOW_STATE_ROOT";
     const string AutoTarget = "auto";
     const string DefaultTarget = "claude";
+    const string StateLockExtension = ".lock";
     const int StateFileVersion = 2;
     static readonly TimeSpan StateFileRetryTimeout = TimeSpan.FromSeconds(10);
     static readonly TimeSpan FreshnessCheckInterval = TimeSpan.FromDays(7);
@@ -69,18 +70,7 @@ internal static class DevFlowSkillManager
     internal static async Task<JsonObject> ListAsync(string scope, string target, string? customPath, CancellationToken cancellationToken)
     {
         var result = CreateBaseResult("list", scope, target);
-        var items = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
-        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
-        foreach (var installTarget in installTargets)
-        {
-            foreach (var (skill, bundle) in skillBundles)
-                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
-
-            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
-        }
-
-        result["skills"] = items;
+        result["skills"] = await BuildSkillStatusesAsync(scope, target, customPath, cancellationToken);
         return result;
     }
 
@@ -96,18 +86,7 @@ internal static class DevFlowSkillManager
             result["onlineMessage"] = "Online skill file checks are intentionally not implemented. Update Microsoft.Maui.Cli to get newer bundled skills.";
         }
 
-        var items = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
-        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
-        foreach (var installTarget in installTargets)
-        {
-            foreach (var (skill, bundle) in skillBundles)
-                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
-
-            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
-        }
-
-        result["skills"] = items;
+        result["skills"] = await BuildSkillStatusesAsync(scope, target, customPath, cancellationToken);
         return result;
     }
 
@@ -118,18 +97,10 @@ internal static class DevFlowSkillManager
     {
         var result = CreateBaseResult("doctor", scope, target);
         result["online"] = online;
+        var warnings = new JsonArray();
+        AddStateFileWarnings(warnings, scope, target, customPath);
 
-        var items = new JsonArray();
-        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
-        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
-        foreach (var installTarget in installTargets)
-        {
-            foreach (var (skill, bundle) in skillBundles)
-                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
-
-            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
-        }
-        result["skills"] = items;
+        result["skills"] = await BuildSkillStatusesAsync(scope, target, customPath, cancellationToken);
 
         var diagnostics = new JsonObject
         {
@@ -144,7 +115,6 @@ internal static class DevFlowSkillManager
 
         result["diagnostics"] = diagnostics;
 
-        var warnings = new JsonArray();
         if (localToolVersion != null && !VersionsEquivalent(localToolVersion, GetCurrentCliVersion()))
         {
             AddJsonString(warnings, $"This repo declares local {PackageId} version {localToolVersion}, but the running CLI is {GetCurrentCliVersion()}. Run `dotnet tool restore` and `dotnet tool run maui devflow init` if project-scoped skills should come from the local tool.");
@@ -189,15 +159,24 @@ internal static class DevFlowSkillManager
                 continue;
             }
 
-            var skillDirectory = GetSkillDirectory(installTarget, skillId);
-            if (Directory.Exists(skillDirectory))
-                Directory.Delete(skillDirectory, recursive: true);
-
             await UpdateSkillStateAsync(installTarget, cancellationToken, skillState =>
             {
                 RemoveStateEntry(skillState, installTarget, skillId);
                 return true;
             });
+
+            var skillDirectory = GetSkillDirectory(installTarget, skillId);
+            if (Directory.Exists(skillDirectory))
+            {
+                try
+                {
+                    Directory.Delete(skillDirectory, recursive: true);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Another concurrent remove already deleted the directory.
+                }
+            }
 
             status["action"] = "removed";
             status["status"] = "removed";
@@ -206,6 +185,22 @@ internal static class DevFlowSkillManager
 
         result["results"] = results;
         return result;
+    }
+
+    static async Task<JsonArray> BuildSkillStatusesAsync(string scope, string target, string? customPath, CancellationToken cancellationToken)
+    {
+        var items = new JsonArray();
+        var installTargets = ResolveInstallTargets(scope, target, customPath, allowAll: true);
+        var skillBundles = await LoadSkillBundlesAsync(s_skills, cancellationToken);
+        foreach (var installTarget in installTargets)
+        {
+            foreach (var (skill, bundle) in skillBundles)
+                AddJsonObject(items, CreateStatusObject(installTarget, skill.Id, bundle));
+
+            await RecordSkillCheckAsync(installTarget, skillBundles, cancellationToken);
+        }
+
+        return items;
     }
 
     internal static async Task<string?> GetFreshnessHintAsync(bool machineReadableOutput, string target, CancellationToken cancellationToken)
@@ -279,7 +274,10 @@ internal static class DevFlowSkillManager
                         continue;
                     }
 
-                    var removedObsoleteFiles = WriteSkillBundle(installTarget, skill, bundle, skillState, replaceDirectory: statusValue is "dirty" or "unknown-or-unmanaged");
+                    var existingEntry = FindStateEntry(skillState, installTarget, skill.Id);
+                    var removedObsoleteFiles = statusValue == "up-to-date"
+                        ? RemoveObsoleteTrackedFiles(GetSkillDirectory(installTarget, skill.Id), bundle, existingEntry)
+                        : WriteSkillBundle(installTarget, skill, bundle, existingEntry, replaceDirectory: statusValue is "dirty" or "unknown-or-unmanaged");
                     UpsertStateEntry(skillState, installTarget, skill, bundle);
 
                     status = CreateStatusObject(installTarget, skill.Id, bundle, skillState);
@@ -497,10 +495,9 @@ internal static class DevFlowSkillManager
         => relativePath.StartsWith($"evals{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ||
            string.Equals(relativePath, "evals", StringComparison.OrdinalIgnoreCase);
 
-    static bool WriteSkillBundle(InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle, JsonObject skillState, bool replaceDirectory)
+    static bool WriteSkillBundle(InstallTarget installTarget, DevFlowSkillDefinition skill, SkillBundle bundle, JsonObject? existingEntry, bool replaceDirectory)
     {
         var skillDirectory = GetSkillDirectory(installTarget, skill.Id);
-        var existingEntry = FindStateEntry(skillState, installTarget, skill.Id);
         if (replaceDirectory && Directory.Exists(skillDirectory))
             Directory.Delete(skillDirectory, recursive: true);
 
@@ -508,34 +505,43 @@ internal static class DevFlowSkillManager
 
         foreach (var file in bundle.Files)
         {
-            var filePath = Path.Combine(skillDirectory, file.RelativePath);
+            if (!TryResolveSkillFilePath(skillDirectory, file.RelativePath, out var filePath))
+                throw new InvalidOperationException($"Embedded DevFlow skill asset '{file.RelativePath}' for '{skill.Id}' resolves outside the skill directory.");
+
             Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             File.WriteAllText(filePath, file.Content);
         }
 
+        return replaceDirectory
+            ? false
+            : RemoveObsoleteTrackedFiles(skillDirectory, bundle, existingEntry);
+    }
+
+    static bool RemoveObsoleteTrackedFiles(string skillDirectory, SkillBundle bundle, JsonObject? existingEntry)
+    {
+        if (existingEntry?["files"] is not JsonArray files)
+            return false;
+
         var deletedObsoleteFile = false;
-        if (!replaceDirectory && existingEntry?["files"] is JsonArray files)
+        var currentFiles = bundle.Files.Select(f => NormalizeRelativePath(f.RelativePath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files.OfType<JsonObject>())
         {
-            var currentFiles = bundle.Files.Select(f => NormalizeRelativePath(f.RelativePath)).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var file in files.OfType<JsonObject>())
+            var relativePath = GetString(file, "path");
+            if (relativePath == null || currentFiles.Contains(NormalizeRelativePath(relativePath)))
+                continue;
+
+            if (!TryResolveSkillFilePath(skillDirectory, relativePath, out var obsoletePath))
+                continue;
+
+            if (File.Exists(obsoletePath))
             {
-                var relativePath = GetString(file, "path");
-                if (relativePath == null || currentFiles.Contains(NormalizeRelativePath(relativePath)))
-                    continue;
-
-                if (!TryResolveSkillFilePath(skillDirectory, relativePath, out var obsoletePath))
-                    continue;
-
-                if (File.Exists(obsoletePath))
-                {
-                    File.Delete(obsoletePath);
-                    deletedObsoleteFile = true;
-                }
+                File.Delete(obsoletePath);
+                deletedObsoleteFile = true;
             }
-
-            if (deletedObsoleteFile)
-                PruneEmptyDirectories(skillDirectory);
         }
+
+        if (deletedObsoleteFile)
+            PruneEmptyDirectories(skillDirectory);
 
         return deletedObsoleteFile;
     }
@@ -558,11 +564,16 @@ internal static class DevFlowSkillManager
         if (entry["files"] is not JsonArray files)
             return true;
 
+        var trackedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in files.OfType<JsonObject>())
         {
             var relativePath = GetString(file, "path");
             var expectedHash = GetString(file, "hash");
             if (relativePath == null || expectedHash == null)
+                return true;
+
+            var normalizedRelativePath = NormalizeSkillRelativePath(relativePath);
+            if (!trackedPaths.Add(normalizedRelativePath))
                 return true;
 
             if (!TryResolveSkillFilePath(skillDirectory, relativePath, out var filePath))
@@ -571,61 +582,61 @@ internal static class DevFlowSkillManager
             if (!File.Exists(filePath))
                 return true;
 
-            var actualHash = HashContent(File.ReadAllText(filePath));
+            string actualHash;
+            try
+            {
+                actualHash = HashContent(File.ReadAllText(filePath));
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return true;
+            }
+
             if (!string.Equals(actualHash, expectedHash, StringComparison.Ordinal))
                 return true;
         }
 
-        return false;
+        try
+        {
+            foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = NormalizeSkillRelativePath(Path.GetRelativePath(skillDirectory, filePath));
+                if (!trackedPaths.Contains(relativePath))
+                    return true;
+            }
+
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     static JsonObject ReadSkillState(string stateFilePath)
     {
-        if (File.Exists(stateFilePath))
-        {
-            try
-            {
-                var parsed = CliJson.ParseNode(File.ReadAllText(stateFilePath)) as JsonObject
-                    ?? throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' must contain a JSON object.");
-                if (parsed["entries"] is not JsonArray)
-                    parsed["entries"] = new JsonArray();
-                return parsed;
-            }
-            catch (JsonException ex)
-            {
-                throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' is not valid JSON.", ex);
-            }
-            catch (IOException ex)
-            {
-                throw new InvalidOperationException($"Could not read DevFlow skills state file '{stateFilePath}'.", ex);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                throw new InvalidOperationException($"Could not access DevFlow skills state file '{stateFilePath}'.", ex);
-            }
-        }
+        if (!File.Exists(stateFilePath))
+            return CreateEmptySkillState();
 
-        return CreateEmptySkillState();
-    }
-
-    static JsonObject ReadSkillState(string stateFilePath, FileStream stream, bool allowEmpty)
-    {
         try
         {
-            stream.Position = 0;
-            if (stream.Length == 0 && allowEmpty)
+            var contents = File.ReadAllText(stateFilePath);
+            if (string.IsNullOrWhiteSpace(contents))
                 return CreateEmptySkillState();
 
-            using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
-            var parsed = CliJson.ParseNode(reader.ReadToEnd()) as JsonObject
-                ?? throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' must contain a JSON object.");
-            if (parsed["entries"] is not JsonArray)
-                parsed["entries"] = new JsonArray();
-            return parsed;
+            return ParseSkillState(contents);
         }
-        catch (JsonException ex)
+        catch (JsonException)
         {
-            throw new InvalidOperationException($"DevFlow skills state file '{stateFilePath}' is not valid JSON.", ex);
+            return CreateEmptySkillState();
         }
         catch (IOException ex)
         {
@@ -635,6 +646,17 @@ internal static class DevFlowSkillManager
         {
             throw new InvalidOperationException($"Could not access DevFlow skills state file '{stateFilePath}'.", ex);
         }
+    }
+
+    static JsonObject ParseSkillState(string contents)
+    {
+        var parsed = CliJson.ParseNode(contents) as JsonObject;
+        if (parsed == null)
+            return CreateEmptySkillState();
+
+        if (parsed["entries"] is not JsonArray)
+            parsed["entries"] = new JsonArray();
+        return parsed;
     }
 
     static JsonObject CreateEmptySkillState()
@@ -648,17 +670,25 @@ internal static class DevFlowSkillManager
     {
         Directory.CreateDirectory(Path.GetDirectoryName(installTarget.StateFilePath)!);
         PrepareSkillStateForWrite(installTarget, skillState);
-        File.WriteAllText(installTarget.StateFilePath, CliJson.SerializeUntyped(skillState));
-    }
+        var tempFilePath = Path.Combine(
+            Path.GetDirectoryName(installTarget.StateFilePath)!,
+            $".{Path.GetFileName(installTarget.StateFilePath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            var bytes = Encoding.UTF8.GetBytes(CliJson.SerializeUntyped(skillState));
+            using (var stream = new FileStream(tempFilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
 
-    static void WriteSkillState(InstallTarget installTarget, JsonObject skillState, FileStream stream)
-    {
-        PrepareSkillStateForWrite(installTarget, skillState);
-        var bytes = Encoding.UTF8.GetBytes(CliJson.SerializeUntyped(skillState));
-        stream.Position = 0;
-        stream.SetLength(0);
-        stream.Write(bytes);
-        stream.Flush(flushToDisk: true);
+            File.Move(tempFilePath, installTarget.StateFilePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tempFilePath))
+                File.Delete(tempFilePath);
+        }
     }
 
     static void PrepareSkillStateForWrite(InstallTarget installTarget, JsonObject skillState)
@@ -690,30 +720,30 @@ internal static class DevFlowSkillManager
     static async Task UpdateSkillStateAsync(InstallTarget installTarget, CancellationToken cancellationToken, Func<JsonObject, bool> update)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(installTarget.StateFilePath)!);
-        var (stream, createdStateFile) = await OpenSkillStateStreamAsync(installTarget.StateFilePath, cancellationToken);
-        using (stream)
+        using (await OpenSkillStateLockStreamAsync(installTarget.StateFilePath, cancellationToken))
         {
-            var skillState = ReadSkillState(installTarget.StateFilePath, stream, allowEmpty: createdStateFile);
+            var stateFileExists = File.Exists(installTarget.StateFilePath);
+            var skillState = ReadSkillState(installTarget.StateFilePath);
 
-            if (update(skillState) || createdStateFile)
-                WriteSkillState(installTarget, skillState, stream);
+            if (update(skillState) || !stateFileExists)
+                WriteSkillState(installTarget, skillState);
         }
     }
 
-    static async Task<(FileStream Stream, bool CreatedStateFile)> OpenSkillStateStreamAsync(string stateFilePath, CancellationToken cancellationToken)
+    static async Task<FileStream> OpenSkillStateLockStreamAsync(string stateFilePath, CancellationToken cancellationToken)
     {
         var startedAt = DateTime.UtcNow;
+        var lockFilePath = stateFilePath + StateLockExtension;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var createdStateFile = !File.Exists(stateFilePath);
-                return (new FileStream(
-                    stateFilePath,
-                    createdStateFile ? FileMode.CreateNew : FileMode.Open,
+                return new FileStream(
+                    lockFilePath,
+                    FileMode.OpenOrCreate,
                     FileAccess.ReadWrite,
-                    FileShare.None), createdStateFile);
+                    FileShare.None);
             }
             catch (IOException) when (DateTime.UtcNow - startedAt < StateFileRetryTimeout)
             {
@@ -721,11 +751,11 @@ internal static class DevFlowSkillManager
             }
             catch (IOException ex)
             {
-                throw new InvalidOperationException($"Could not acquire exclusive access to DevFlow skills state file '{stateFilePath}'.", ex);
+                throw new InvalidOperationException($"Could not acquire exclusive access to DevFlow skills state lock file '{lockFilePath}'.", ex);
             }
             catch (UnauthorizedAccessException ex)
             {
-                throw new InvalidOperationException($"Could not access DevFlow skills state file '{stateFilePath}'.", ex);
+                throw new InvalidOperationException($"Could not access DevFlow skills state lock file '{lockFilePath}'.", ex);
             }
         }
     }
@@ -1041,6 +1071,9 @@ internal static class DevFlowSkillManager
     static string NormalizeRelativePath(string path)
         => path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
 
+    static string NormalizeSkillRelativePath(string path)
+        => NormalizeRelativePath(path).Replace(Path.DirectorySeparatorChar, '/');
+
     static bool TryResolveSkillFilePath(string skillDirectory, string relativePath, out string filePath)
     {
         filePath = string.Empty;
@@ -1270,6 +1303,38 @@ internal static class DevFlowSkillManager
         }
     }
 
+    static void AddStateFileWarnings(JsonArray warnings, string scope, string target, string? customPath)
+    {
+        foreach (var installTarget in ResolveInstallTargets(scope, target, customPath, allowAll: true))
+        {
+            var warning = GetStateFileWarning(installTarget.StateFilePath);
+            if (!string.IsNullOrWhiteSpace(warning))
+                AddJsonString(warnings, warning);
+        }
+    }
+
+    static string? GetStateFileWarning(string stateFilePath)
+    {
+        if (!File.Exists(stateFilePath))
+            return null;
+
+        try
+        {
+            var contents = File.ReadAllText(stateFilePath);
+            if (string.IsNullOrWhiteSpace(contents))
+                return $"DevFlow skills state file '{stateFilePath}' is empty and will be rebuilt.";
+
+            if (CliJson.ParseNode(contents) is not JsonObject)
+                return $"DevFlow skills state file '{stateFilePath}' must contain a JSON object and will be rebuilt.";
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return $"DevFlow skills state file '{stateFilePath}' is not valid JSON and will be rebuilt.";
+        }
+    }
+
     static void AddJsonObject(JsonArray array, JsonObject item)
         => array.Add((JsonNode)item);
 
@@ -1283,8 +1348,19 @@ internal static class DevFlowSkillManager
 
         foreach (var directory in Directory.EnumerateDirectories(rootDirectory, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
         {
-            if (!Directory.EnumerateFileSystemEntries(directory).Any())
-                Directory.Delete(directory);
+            try
+            {
+                if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                    Directory.Delete(directory);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup; a leftover empty directory is harmless.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Best-effort cleanup; a leftover empty directory is harmless.
+            }
         }
     }
 

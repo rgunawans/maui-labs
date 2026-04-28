@@ -207,20 +207,30 @@ internal static class DevFlowSkillCommands
     }
 
     static Option<string> CreateScopeOption(string defaultScope, bool allowAll = false)
-        => new Option<string>("--scope")
+    {
+        var option = new Option<string>("--scope")
         {
             Description = allowAll
                 ? "Install scope: project, user, both, or all"
                 : "Install scope: project, user, or both",
             DefaultValueFactory = _ => defaultScope
         };
+        option.AcceptOnlyFromAmong(allowAll
+            ? ["project", "user", "both", "all"]
+            : ["project", "user", "both"]);
+        return option;
+    }
 
     static Option<string> CreateTargetOption()
-        => new Option<string>("--target")
+    {
+        var option = new Option<string>("--target")
         {
             Description = "Skill target preset: auto, claude (.claude/skills), github (.github/skills), agent (.agent/skills), or agents (.agents/skills)",
             DefaultValueFactory = _ => "auto"
         };
+        option.AcceptOnlyFromAmong("auto", "claude", "github", "agent", "agents");
+        return option;
+    }
 
     static Option<string?> CreatePathOption()
         => new Option<string?>("--path")
