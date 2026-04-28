@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Runtime.Loader;
 using System.Text.Json;
 
 [assembly: MetadataUpdateHandler(typeof(Microsoft.Maui.DevFlow.Agent.Core.DevFlowActionHotReloadHandler))]
@@ -83,25 +84,47 @@ public partial class DevFlowAgentService
 			}
 		}
 
-		// Detect and deduplicate shadowed action names (keep first occurrence)
+		// Detect and deduplicate shadowed action names (keep the preferred occurrence)
 		var duplicates = actions
 			.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
 			.Where(g => g.Count() > 1);
 
 		foreach (var group in duplicates)
 		{
-			var shadowed = group.Skip(1);
+			var preferred = SelectPreferredAction(group);
+			var shadowed = group.Where(a => !ReferenceEquals(a, preferred));
 			foreach (var dup in shadowed)
 			{
 				System.Diagnostics.Debug.WriteLine(
-					$"[Microsoft.Maui.DevFlow] Warning: Duplicate DevFlowAction name '{group.Key}' on {dup.DeclaringType}.{dup.Method.Name} shadows the first registration on {group.First().DeclaringType}.{group.First().Method.Name}. The duplicate will be ignored.");
+					$"[Microsoft.Maui.DevFlow] Warning: Duplicate DevFlowAction name '{group.Key}' on {dup.DeclaringType}.{dup.Method.Name} shadows the preferred registration on {preferred.DeclaringType}.{preferred.Method.Name}. The duplicate will be ignored.");
 			}
 		}
 
 		return actions
 			.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
-			.Select(g => g.First())
+			.Select(SelectPreferredAction)
 			.ToArray();
+	}
+
+	private static InvokeActionEntry SelectPreferredAction(IEnumerable<InvokeActionEntry> actions)
+		=> actions
+			.OrderByDescending(a => AssemblyLoadContext.GetLoadContext(a.Method.DeclaringType!.Assembly) == AssemblyLoadContext.Default)
+			.ThenByDescending(a => IsAssemblyInAppBaseDirectory(a.Method.DeclaringType!.Assembly))
+			.ThenBy(a => a.Method.DeclaringType!.Assembly.FullName, StringComparer.Ordinal)
+			.ThenBy(a => a.DeclaringType, StringComparer.Ordinal)
+			.ThenBy(a => a.Method.MetadataToken)
+			.First();
+
+	private static bool IsAssemblyInAppBaseDirectory(Assembly assembly)
+	{
+		var location = assembly.Location;
+		if (string.IsNullOrEmpty(location))
+			return false;
+
+		return string.Equals(
+			Path.GetFullPath(Path.GetDirectoryName(location) ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar),
+			Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar),
+			StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static InvokeParameterInfo[] BuildParameterInfoList(MethodInfo method)
