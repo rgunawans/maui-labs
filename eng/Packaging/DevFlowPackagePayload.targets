@@ -48,11 +48,12 @@
     <ItemGroup>
       <_DevFlowPackageMetadata Include="$(_DevFlowPackagePayloadRoot)**/*.nuspec;$(_DevFlowPackagePayloadRoot)**/[Content_Types].xml;$(_DevFlowPackagePayloadRoot)**/.signature.p7s;$(_DevFlowPackagePayloadRoot)**/Icon.png;$(_DevFlowPackagePayloadRoot)**/README.md;$(_DevFlowPackagePayloadRoot)**/_rels/**/*;$(_DevFlowPackagePayloadRoot)**/package/**/*" />
 
+      <!-- DevFlow packages currently put platform-specific assets under lib and shared assets under build, buildMultiTargeting, buildTransitive, and staticwebassets. macOS remains the base payload; Windows contributes only Windows-specific lib assets. -->
       <_DevFlowMacPayload Include="$(_DevFlowPackagePayloadRoot)macos/**/*"
                           Exclude="@(_DevFlowPackageMetadata);$(_DevFlowPackagePayloadRoot)macos/lib/net10.0-windows*/**/*" />
 
       <_DevFlowWindowsPayload Include="$(_DevFlowPackagePayloadRoot)windows/**/*"
-                              Exclude="@(_DevFlowPackageMetadata);$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-android*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-ios*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-maccatalyst*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-macos*/**/*;$(_DevFlowPackagePayloadRoot)windows/build/**/*;$(_DevFlowPackagePayloadRoot)windows/buildMultiTargeting/**/*;$(_DevFlowPackagePayloadRoot)windows/buildTransitive/**/*;$(_DevFlowPackagePayloadRoot)windows/staticwebassets/**/*" />
+                              Exclude="@(_DevFlowPackageMetadata);$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-android*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-ios*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-maccatalyst*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-macos*/**/*;$(_DevFlowPackagePayloadRoot)windows/lib/net10.0-tizen*/**/*;$(_DevFlowPackagePayloadRoot)windows/build/**/*;$(_DevFlowPackagePayloadRoot)windows/buildMultiTargeting/**/*;$(_DevFlowPackagePayloadRoot)windows/buildTransitive/**/*;$(_DevFlowPackagePayloadRoot)windows/staticwebassets/**/*" />
 
       <None Include="@(_DevFlowMacPayload)"
             Pack="true"
