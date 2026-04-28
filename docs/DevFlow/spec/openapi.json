@@ -56,7 +56,7 @@
     },
     {
       "name": "storage",
-      "description": "Preferences and secure storage"
+      "description": "Preferences, secure storage, and sandboxed app files"
     },
     {
       "name": "extensions",
@@ -2475,6 +2475,234 @@
         }
       }
     },
+    "/api/v1/storage/roots": {
+      "get": {
+        "operationId": "listStorageRoots",
+        "tags": [
+          "storage"
+        ],
+        "summary": "List file storage roots",
+        "description": "Lists logical file storage roots advertised by the agent. The current shared implementation advertises only `appData`; platform agents may advertise additional roots in the future. Absolute on-device paths are not returned.\n",
+        "responses": {
+          "200": {
+            "description": "Storage roots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageRootsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/storage/files": {
+      "get": {
+        "operationId": "listFiles",
+        "tags": [
+          "storage"
+        ],
+        "summary": "List storage files",
+        "description": "Lists files and directories under an advertised storage root. The optional path is always relative to the selected root; rooted paths, `..` traversal segments, and symlink/reparse-point traversal are rejected. Absolute on-device paths are not returned. Omit `root` to use the default `appData` root.\n",
+        "parameters": [
+          {
+            "name": "root",
+            "in": "query",
+            "description": "Storage root id. Defaults to `appData`. Use `/api/v1/storage/roots` to discover supported roots.",
+            "schema": {
+              "type": "string",
+              "default": "appData"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Relative subdirectory path. Omit or pass an empty string for the selected root.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Directory listing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPath"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/storage/files/{path}": {
+      "get": {
+        "operationId": "downloadFile",
+        "tags": [
+          "storage"
+        ],
+        "summary": "Download a storage file",
+        "description": "Downloads a file under an advertised storage root and returns base64-encoded content. The path parameter is a single URI-encoded relative path; path separators inside it must be percent-encoded. Omit `root` to use the default `appData` root.\n",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "description": "URI-encoded relative file path under the selected storage root.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "description": "Storage root id. Defaults to `appData`. Use `/api/v1/storage/roots` to discover supported roots.",
+            "schema": {
+              "type": "string",
+              "default": "appData"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content and metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDownloadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPath"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "put": {
+        "operationId": "uploadFile",
+        "tags": [
+          "storage"
+        ],
+        "summary": "Upload a storage file",
+        "description": "Creates or overwrites a file under an advertised storage root. Parent directories are created automatically after path sandbox validation. Omit `root` to use the default `appData` root.\n",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "description": "URI-encoded relative file path under the selected storage root.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "description": "Storage root id. Defaults to `appData`. Use `/api/v1/storage/roots` to discover supported roots.",
+            "schema": {
+              "type": "string",
+              "default": "appData"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded file metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPath"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFile",
+        "tags": [
+          "storage"
+        ],
+        "summary": "Delete a storage file",
+        "description": "Deletes a file under an advertised storage root. Omit `root` to use the default `appData` root.",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "description": "URI-encoded relative file path under the selected storage root.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "description": "Storage root id. Defaults to `appData`. Use `/api/v1/storage/roots` to discover supported roots.",
+            "schema": {
+              "type": "string",
+              "default": "appData"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted file metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidPath"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/storage/secure": {
       "delete": {
         "operationId": "clearSecureStorage",
@@ -2687,6 +2915,22 @@
               "title": "Invalid selector",
               "status": 400,
               "errorCode": "invalid-selector"
+            }
+          }
+        }
+      },
+      "InvalidPath": {
+        "description": "Invalid or unsafe storage path or unavailable storage root.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            },
+            "example": {
+              "type": "urn:devflow:error:invalid-path",
+              "title": "Invalid storage path",
+              "status": 400,
+              "errorCode": "invalid-path"
             }
           }
         }
@@ -3122,6 +3366,16 @@
                   "features": [
                     "get",
                     "set",
+                    "delete"
+                  ]
+                },
+                "storage.files": {
+                  "version": 1,
+                  "features": [
+                    "roots",
+                    "list",
+                    "download",
+                    "upload",
                     "delete"
                   ]
                 }
@@ -5359,6 +5613,256 @@
           "value": {
             "type": "string",
             "description": "The string value to store securely."
+          }
+        }
+      },
+      "StorageRoot": {
+        "type": "object",
+        "description": "A logical app storage root advertised by the agent. Absolute device paths are intentionally not exposed.",
+        "required": [
+          "id",
+          "displayName",
+          "kind",
+          "isWritable",
+          "isReadOnly",
+          "isPersistent",
+          "isBackedUp",
+          "mayBeClearedBySystem",
+          "isUserVisible",
+          "supportedOperations"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable root id to pass as the root query parameter. The current shared implementation advertises appData."
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Human-readable root name."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Portable root kind, such as appData. Future platform roots may use additional kinds."
+          },
+          "isWritable": {
+            "type": "boolean",
+            "description": "Whether files can be uploaded or deleted in this root."
+          },
+          "isReadOnly": {
+            "type": "boolean",
+            "description": "Whether this root is read-only."
+          },
+          "isPersistent": {
+            "type": "boolean",
+            "description": "Whether data is expected to persist across app restarts."
+          },
+          "isBackedUp": {
+            "type": "boolean",
+            "description": "Whether the platform typically backs up this root."
+          },
+          "mayBeClearedBySystem": {
+            "type": "boolean",
+            "description": "Whether the operating system may purge files in this root."
+          },
+          "isUserVisible": {
+            "type": "boolean",
+            "description": "Whether the root is normally visible to users outside the app."
+          },
+          "supportedOperations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "list",
+                "download",
+                "upload",
+                "delete"
+              ]
+            },
+            "description": "File operations supported by this root."
+          }
+        }
+      },
+      "StorageRootsResponse": {
+        "type": "object",
+        "description": "Logical file storage roots advertised by the agent. The current shared implementation returns only appData.",
+        "required": [
+          "roots"
+        ],
+        "properties": {
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StorageRoot"
+            }
+          }
+        }
+      },
+      "FileEntry": {
+        "type": "object",
+        "description": "A file or directory under a storage root.",
+        "required": [
+          "name",
+          "type",
+          "lastModified"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Entry name, not including parent directories."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "file",
+              "directory"
+            ],
+            "description": "Entry kind."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "File size in bytes. Present only for file entries."
+          },
+          "lastModified": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC timestamp when the entry was last modified."
+          }
+        }
+      },
+      "FileListResponse": {
+        "type": "object",
+        "description": "Directory listing under a logical storage root. Absolute device paths are never returned.",
+        "required": [
+          "root",
+          "path",
+          "entries"
+        ],
+        "properties": {
+          "root": {
+            "type": "string",
+            "description": "Logical storage root id used for the listing."
+          },
+          "path": {
+            "type": "string",
+            "description": "Normalized relative directory path. Empty string represents the selected storage root."
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            }
+          }
+        }
+      },
+      "FileDownloadResponse": {
+        "type": "object",
+        "description": "Downloaded file content and metadata.",
+        "required": [
+          "root",
+          "path",
+          "size",
+          "lastModified",
+          "contentBase64"
+        ],
+        "properties": {
+          "root": {
+            "type": "string",
+            "description": "Logical storage root id used for the download."
+          },
+          "path": {
+            "type": "string",
+            "description": "Normalized relative file path."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "File size in bytes."
+          },
+          "lastModified": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC timestamp when the file was last modified."
+          },
+          "contentBase64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "description": "File content encoded as base64."
+          }
+        }
+      },
+      "FileUploadRequest": {
+        "type": "object",
+        "description": "Request to upload file content under a storage root.",
+        "required": [
+          "contentBase64"
+        ],
+        "properties": {
+          "contentBase64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "description": "File content encoded as base64."
+          }
+        }
+      },
+      "FileUploadResponse": {
+        "type": "object",
+        "description": "Uploaded file metadata.",
+        "required": [
+          "success",
+          "root",
+          "path",
+          "size",
+          "lastModified"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "root": {
+            "type": "string",
+            "description": "Logical storage root id used for the upload."
+          },
+          "path": {
+            "type": "string",
+            "description": "Normalized relative file path."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "File size in bytes."
+          },
+          "lastModified": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC timestamp when the file was last modified."
+          }
+        }
+      },
+      "FileDeleteResponse": {
+        "type": "object",
+        "description": "Deleted file metadata.",
+        "required": [
+          "success",
+          "root",
+          "path"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "root": {
+            "type": "string",
+            "description": "Logical storage root id used for the delete."
+          },
+          "path": {
+            "type": "string",
+            "description": "Normalized relative file path."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable delete confirmation."
           }
         }
       }

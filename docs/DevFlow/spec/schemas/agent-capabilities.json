@@ -158,6 +158,16 @@
               "set",
               "delete"
             ]
+          },
+          "storage.files": {
+            "version": 1,
+            "features": [
+              "roots",
+              "list",
+              "download",
+              "upload",
+              "delete"
+            ]
           }
         }
       ]

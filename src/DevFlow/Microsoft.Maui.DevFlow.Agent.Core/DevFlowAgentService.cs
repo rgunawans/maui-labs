@@ -527,6 +527,12 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         _server.MapPut("/api/v1/storage/secure/{key}", HandleSecureStorageSet);
         _server.MapDelete("/api/v1/storage/secure/{key}", HandleSecureStorageDelete);
         _server.MapDelete("/api/v1/storage/secure", HandleSecureStorageClear);
+
+        _server.MapGet("/api/v1/storage/roots", HandleStorageRoots);
+        _server.MapGet("/api/v1/storage/files", HandleFilesList);
+        _server.MapGet("/api/v1/storage/files/{path}", HandleFileDownload);
+        _server.MapPut("/api/v1/storage/files/{path}", HandleFileUpload);
+        _server.MapDelete("/api/v1/storage/files/{path}", HandleFileDelete);
     }
 
     private async Task<HttpResponse> HandleStatus(HttpRequest request)
@@ -654,7 +660,7 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             storage = new
             {
                 supported = true,
-                features = new[] { "preferences", "secure-storage" }
+                features = new[] { "preferences", "secure-storage", "roots", "files" }
             },
             profiler = new
             {
@@ -5392,6 +5398,316 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
         }
     }
 
+    // ── File storage endpoints ──
+
+    private const string DefaultFileStorageRootId = "appData";
+    private const string FileStorageOperationList = "list";
+    private const string FileStorageOperationDownload = "download";
+    private const string FileStorageOperationUpload = "upload";
+    private const string FileStorageOperationDelete = "delete";
+
+    protected sealed class FileStorageRoot
+    {
+        public FileStorageRoot(
+            string id,
+            string displayName,
+            string kind,
+            string basePath,
+            bool isWritable,
+            bool isPersistent,
+            bool isBackedUp,
+            bool mayBeClearedBySystem,
+            bool isUserVisible,
+            params string[] supportedOperations)
+        {
+            Id = id;
+            DisplayName = displayName;
+            Kind = kind;
+            BasePath = basePath;
+            IsWritable = isWritable;
+            IsPersistent = isPersistent;
+            IsBackedUp = isBackedUp;
+            MayBeClearedBySystem = mayBeClearedBySystem;
+            IsUserVisible = isUserVisible;
+            SupportedOperations = supportedOperations;
+        }
+
+        public string Id { get; }
+        public string DisplayName { get; }
+        public string Kind { get; }
+        public string BasePath { get; }
+        public bool IsWritable { get; }
+        public bool IsReadOnly => !IsWritable;
+        public bool IsPersistent { get; }
+        public bool IsBackedUp { get; }
+        public bool MayBeClearedBySystem { get; }
+        public bool IsUserVisible { get; }
+        public IReadOnlyList<string> SupportedOperations { get; }
+
+        public bool SupportsOperation(string operation)
+            => SupportedOperations.Contains(operation, StringComparer.Ordinal);
+    }
+
+    protected virtual string GetAppDataBasePath()
+        => FileSystem.AppDataDirectory;
+
+    protected virtual IReadOnlyList<FileStorageRoot> GetFileStorageRoots()
+    {
+        var appDataPath = GetAppDataBasePath();
+        if (string.IsNullOrWhiteSpace(appDataPath))
+            return Array.Empty<FileStorageRoot>();
+
+        return new[]
+        {
+            new FileStorageRoot(
+                DefaultFileStorageRootId,
+                "App data",
+                "appData",
+                appDataPath,
+                isWritable: true,
+                isPersistent: true,
+                isBackedUp: true,
+                mayBeClearedBySystem: false,
+                isUserVisible: false,
+                FileStorageOperationList,
+                FileStorageOperationDownload,
+                FileStorageOperationUpload,
+                FileStorageOperationDelete)
+        };
+    }
+
+    private Task<HttpResponse> HandleStorageRoots(HttpRequest request)
+    {
+        try
+        {
+            return Task.FromResult(HttpResponse.Json(new
+            {
+                roots = GetFileStorageRoots().Select(ToFileStorageRootDescriptor).ToArray()
+            }));
+        }
+        catch (Exception)
+        {
+            return Task.FromResult(HttpResponse.Error("Failed to list storage roots"));
+        }
+    }
+
+    private static object ToFileStorageRootDescriptor(FileStorageRoot root)
+        => new
+        {
+            id = root.Id,
+            displayName = root.DisplayName,
+            kind = root.Kind,
+            isWritable = root.IsWritable,
+            isReadOnly = root.IsReadOnly,
+            isPersistent = root.IsPersistent,
+            isBackedUp = root.IsBackedUp,
+            mayBeClearedBySystem = root.MayBeClearedBySystem,
+            isUserVisible = root.IsUserVisible,
+            supportedOperations = root.SupportedOperations.ToArray()
+        };
+
+    private FileStorageRoot ResolveFileStorageRoot(HttpRequest request, string operation)
+    {
+        var rootId = request.QueryParams.GetValueOrDefault("root");
+        if (string.IsNullOrWhiteSpace(rootId))
+            rootId = DefaultFileStorageRootId;
+
+        var root = GetFileStorageRoots().FirstOrDefault(
+            r => string.Equals(r.Id, rootId, StringComparison.Ordinal));
+
+        if (root == null)
+            throw new InvalidOperationException($"Storage root '{rootId}' is not available. Use /api/v1/storage/roots to list supported roots.");
+
+        if (!root.SupportsOperation(operation))
+            throw new InvalidOperationException($"Storage root '{root.Id}' does not support '{operation}'.");
+
+        if (string.IsNullOrWhiteSpace(root.BasePath))
+            throw new InvalidOperationException($"Storage root '{root.Id}' is not available.");
+
+        return root;
+    }
+
+    private Task<HttpResponse> HandleFilesList(HttpRequest request)
+    {
+        try
+        {
+            var root = ResolveFileStorageRoot(request, FileStorageOperationList);
+            var subdir = request.QueryParams.GetValueOrDefault("path", "");
+            var resolved = FileStoragePathResolver.Resolve(root.BasePath, subdir, allowRoot: true);
+            FileStoragePathResolver.EnsureNoReparsePointTraversal(resolved.BasePath, resolved.FullPath, includeTarget: true);
+
+            if (!Directory.Exists(resolved.FullPath))
+                return Task.FromResult(HttpResponse.Json(new
+                {
+                    root = root.Id,
+                    path = resolved.RelativePath,
+                    entries = Array.Empty<object>()
+                }));
+
+            var entries = new List<object>();
+            foreach (var dir in Directory.GetDirectories(resolved.FullPath))
+            {
+                var info = new DirectoryInfo(dir);
+                entries.Add(new
+                {
+                    name = info.Name,
+                    type = "directory",
+                    lastModified = info.LastWriteTimeUtc.ToString("O")
+                });
+            }
+            foreach (var file in Directory.GetFiles(resolved.FullPath))
+            {
+                var info = new FileInfo(file);
+                entries.Add(new
+                {
+                    name = info.Name,
+                    type = "file",
+                    size = info.Length,
+                    lastModified = info.LastWriteTimeUtc.ToString("O")
+                });
+            }
+
+            return Task.FromResult(HttpResponse.Json(new
+            {
+                root = root.Id,
+                path = resolved.RelativePath,
+                entries
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(ex is InvalidOperationException
+                ? HttpResponse.Error(ex.Message)
+                : HttpResponse.Error("Failed to list files"));
+        }
+    }
+
+    private async Task<HttpResponse> HandleFileDownload(HttpRequest request)
+    {
+        try
+        {
+            if (!request.RouteParams.TryGetValue("path", out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
+                return HttpResponse.Error("file path is required");
+
+            var root = ResolveFileStorageRoot(request, FileStorageOperationDownload);
+            relativePath = Uri.UnescapeDataString(relativePath);
+            var resolved = FileStoragePathResolver.Resolve(root.BasePath, relativePath);
+            FileStoragePathResolver.EnsureNoReparsePointTraversal(resolved.BasePath, resolved.FullPath, includeTarget: true);
+
+            if (!File.Exists(resolved.FullPath))
+                return HttpResponse.NotFound($"File not found: {relativePath}");
+
+            var bytes = await File.ReadAllBytesAsync(resolved.FullPath);
+            var contentBase64 = Convert.ToBase64String(bytes);
+            var info = new FileInfo(resolved.FullPath);
+
+            return HttpResponse.Json(new
+            {
+                root = root.Id,
+                path = resolved.RelativePath,
+                size = info.Length,
+                lastModified = info.LastWriteTimeUtc.ToString("O"),
+                contentBase64
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return HttpResponse.Error(ex.Message);
+        }
+        catch (Exception)
+        {
+            return HttpResponse.Error("Failed to download file");
+        }
+    }
+
+    private async Task<HttpResponse> HandleFileUpload(HttpRequest request)
+    {
+        try
+        {
+            if (!request.RouteParams.TryGetValue("path", out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
+                return HttpResponse.Error("file path is required");
+
+            var root = ResolveFileStorageRoot(request, FileStorageOperationUpload);
+            relativePath = Uri.UnescapeDataString(relativePath);
+            var resolved = FileStoragePathResolver.Resolve(root.BasePath, relativePath);
+            FileStoragePathResolver.EnsureNoReparsePointTraversal(resolved.BasePath, resolved.FullPath, includeTarget: true);
+
+            var body = request.BodyAs<FileUploadRequest>();
+            if (body == null || string.IsNullOrEmpty(body.ContentBase64))
+                return HttpResponse.Error("Request body must include 'contentBase64'");
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(body.ContentBase64);
+            }
+            catch (FormatException)
+            {
+                return HttpResponse.Error("Invalid base64 content");
+            }
+
+            var dir = Path.GetDirectoryName(resolved.FullPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            FileStoragePathResolver.EnsureNoReparsePointTraversal(resolved.BasePath, resolved.FullPath, includeTarget: true);
+
+            await File.WriteAllBytesAsync(resolved.FullPath, bytes);
+            var info = new FileInfo(resolved.FullPath);
+
+            return HttpResponse.Json(new
+            {
+                success = true,
+                root = root.Id,
+                path = resolved.RelativePath,
+                size = info.Length,
+                lastModified = info.LastWriteTimeUtc.ToString("O")
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return HttpResponse.Error(ex.Message);
+        }
+        catch (Exception)
+        {
+            return HttpResponse.Error("Failed to upload file");
+        }
+    }
+
+    private Task<HttpResponse> HandleFileDelete(HttpRequest request)
+    {
+        try
+        {
+            if (!request.RouteParams.TryGetValue("path", out var relativePath) || string.IsNullOrWhiteSpace(relativePath))
+                return Task.FromResult(HttpResponse.Error("file path is required"));
+
+            var root = ResolveFileStorageRoot(request, FileStorageOperationDelete);
+            relativePath = Uri.UnescapeDataString(relativePath);
+            var resolved = FileStoragePathResolver.Resolve(root.BasePath, relativePath);
+            FileStoragePathResolver.EnsureNoReparsePointTraversal(resolved.BasePath, resolved.FullPath, includeTarget: true);
+
+            if (!File.Exists(resolved.FullPath))
+                return Task.FromResult(HttpResponse.NotFound($"File not found: {relativePath}"));
+
+            File.Delete(resolved.FullPath);
+            return Task.FromResult(HttpResponse.Json(new
+            {
+                success = true,
+                root = root.Id,
+                path = resolved.RelativePath,
+                message = $"File deleted: {resolved.RelativePath}"
+            }));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Task.FromResult(HttpResponse.Error(ex.Message));
+        }
+        catch (Exception)
+        {
+            return Task.FromResult(HttpResponse.Error("Failed to delete file"));
+        }
+    }
+
     // ── Platform info endpoints ──
 
     private const string PlatformErrorReasonMissingPermission = "missing_permission";
@@ -6008,4 +6324,9 @@ public class PreferenceSetRequest
 public class SecureStorageSetRequest
 {
     public string? Value { get; set; }
+}
+
+public class FileUploadRequest
+{
+    public string? ContentBase64 { get; set; }
 }

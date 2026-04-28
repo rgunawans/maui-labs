@@ -2,7 +2,7 @@
 
 This directory contains the canonical DevFlow protocol contract used by the MAUI implementation in this repository.
 
-- `openapi.yaml` defines the versioned HTTP surface under `/api/v1/*`
+- `openapi.yaml` defines the versioned HTTP surface under `/api/v1/*`, including logical storage root discovery and sandboxed file management. The current shared implementation advertises only the `appData` root.
 - `asyncapi.yaml` defines the streaming channels under `/ws/v1/*`
 - `schemas/` contains the shared payload models
 - `examples/` contains representative request and response payloads, including platform job listing and run requests
