@@ -14,13 +14,13 @@ public class ProtocolSpecTests
         .JsonCompatible()
         .Build();
 
-    private static readonly string SpecRoot = FindSpecRoot();
+    private static readonly Lazy<string> SpecRoot = new(FindSpecRoot);
 
     [Fact]
     public async Task OpenApiYaml_CanBeParsedByOpenApiTooling()
     {
-        var openApiPath = Path.Combine(SpecRoot, "openapi.yaml");
-        var openApiJson = ConvertYamlToJson(openApiPath);
+        var openApiPath = Path.Combine(SpecRoot.Value, "openapi.yaml");
+        var openApiJson = ConvertYamlToJson(File.ReadAllText(openApiPath));
 
         await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(openApiJson));
         var ruleSet = new ValidationRuleSet(ValidationRuleSet.GetDefaultRuleSet());
@@ -48,8 +48,11 @@ public class ProtocolSpecTests
     public void ProtocolSpecFiles_AreValidYamlOrJson()
     {
         var failures = new List<string>();
+        var specFiles = EnumerateSpecDocuments().ToList();
 
-        foreach (var path in EnumerateSpecDocuments())
+        Assert.NotEmpty(specFiles);
+
+        foreach (var path in specFiles)
         {
             try
             {
@@ -67,7 +70,11 @@ public class ProtocolSpecTests
     [Fact]
     public void ProtocolSpecReferences_TargetExistingDocumentsAndPointers()
     {
-        var documents = EnumerateSpecDocuments()
+        var specFiles = EnumerateSpecDocuments().ToList();
+
+        Assert.NotEmpty(specFiles);
+
+        var documents = specFiles
             .ToDictionary(Path.GetFullPath, LoadDocument, StringComparer.OrdinalIgnoreCase);
         var failures = new List<string>();
 
@@ -95,6 +102,26 @@ public class ProtocolSpecTests
         Assert.Empty(failures);
     }
 
+    [Fact]
+    public void PointerExists_HandlesEscapedSegmentsAndNullValues()
+    {
+        var document = JsonNode.Parse(
+            """
+            {
+              "foo/bar": null,
+              "~key": true,
+              "%7E1": true,
+              "items": [null]
+            }
+            """);
+
+        Assert.True(PointerExists(document, "/foo~1bar"));
+        Assert.True(PointerExists(document, "/~0key"));
+        Assert.True(PointerExists(document, "/%7E1"));
+        Assert.True(PointerExists(document, "/items/0"));
+        Assert.False(PointerExists(document, "/missing"));
+    }
+
     private static string FindSpecRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -113,7 +140,7 @@ public class ProtocolSpecTests
 
     private static IEnumerable<string> EnumerateSpecDocuments()
     {
-        return Directory.EnumerateFiles(SpecRoot, "*.*", SearchOption.AllDirectories)
+        return Directory.EnumerateFiles(SpecRoot.Value, "*.*", SearchOption.AllDirectories)
             .Where(path => path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
                 path.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase) ||
                 path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
@@ -123,7 +150,7 @@ public class ProtocolSpecTests
     private static JsonNode LoadDocument(string path)
     {
         var text = File.ReadAllText(path);
-        var json = IsYaml(path) ? ConvertYamlToJson(path) : text;
+        var json = IsYaml(path) ? ConvertYamlToJson(text) : text;
 
         return JsonNode.Parse(
             json,
@@ -131,9 +158,9 @@ public class ProtocolSpecTests
             ?? throw new InvalidOperationException($"Unable to parse {RelativeSpecPath(path)}.");
     }
 
-    private static string ConvertYamlToJson(string path)
+    private static string ConvertYamlToJson(string content)
     {
-        var yamlObject = YamlDeserializer.Deserialize(new StringReader(File.ReadAllText(path)));
+        var yamlObject = YamlDeserializer.Deserialize(new StringReader(content));
         return JsonCompatibleYamlSerializer.Serialize(yamlObject);
     }
 
@@ -195,7 +222,7 @@ public class ProtocolSpecTests
         var current = root;
         foreach (var segment in pointer[1..].Split('/'))
         {
-            var key = Uri.UnescapeDataString(segment)
+            var key = segment
                 .Replace("~1", "/", StringComparison.Ordinal)
                 .Replace("~0", "~", StringComparison.Ordinal);
 
@@ -217,12 +244,12 @@ public class ProtocolSpecTests
             }
         }
 
-        return current is not null;
+        return true;
     }
 
     private static string RelativeSpecPath(string path)
     {
-        return Path.GetRelativePath(SpecRoot, path);
+        return Path.GetRelativePath(SpecRoot.Value, path);
     }
 
     private sealed record SpecReference(string JsonPath, string Value);
