@@ -5,6 +5,9 @@ namespace Microsoft.Maui.DevFlow.Agent.Ble;
 
 internal sealed class AndroidBleMonitor : BleMonitor
 {
+    // Android's BluetoothProfile.GATT value is not exposed as a named ProfileType member.
+    private const global::Android.Bluetooth.ProfileType GattProfile = (global::Android.Bluetooth.ProfileType)7;
+
     private global::Android.Bluetooth.LE.BluetoothLeScanner? _scanner;
     private DevFlowScanCallback? _scanCallback;
     private DevFlowConnectionReceiver? _connectionReceiver;
@@ -16,6 +19,8 @@ internal sealed class AndroidBleMonitor : BleMonitor
         SnapshotConnectedDevices();
     }
 
+    public override bool SupportsScanning => true;
+
     private void SnapshotConnectedDevices()
     {
         try
@@ -24,8 +29,7 @@ internal sealed class AndroidBleMonitor : BleMonitor
                 global::Android.App.Application.Context.GetSystemService(global::Android.Content.Context.BluetoothService);
             if (manager == null) return;
 
-            // BluetoothProfile.Gatt = 7
-            var devices = manager.GetConnectedDevices((global::Android.Bluetooth.ProfileType)7);
+            var devices = manager.GetConnectedDevices(GattProfile);
             if (devices == null) return;
 
             foreach (var device in devices)
@@ -68,6 +72,25 @@ internal sealed class AndroidBleMonitor : BleMonitor
         }
         _scanCallback = null;
         _scanner = null;
+    }
+
+    protected override void DisposePlatform()
+    {
+        if (_receiverRegistered && _connectionReceiver != null)
+        {
+            try
+            {
+                global::Android.App.Application.Context.UnregisterReceiver(_connectionReceiver);
+            }
+            catch (global::Java.Lang.IllegalArgumentException)
+            {
+                // Receiver was already unregistered by Android.
+            }
+        }
+
+        _receiverRegistered = false;
+        _connectionReceiver?.Dispose();
+        _connectionReceiver = null;
     }
 
     private void RegisterConnectionReceiver()

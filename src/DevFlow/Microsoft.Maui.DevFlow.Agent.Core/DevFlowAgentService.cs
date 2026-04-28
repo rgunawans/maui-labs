@@ -679,8 +679,8 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
             },
             ble = new
             {
-                supported = true,
-                features = new[] { "status", "events", "scan", "stream" }
+                supported = Ble.SupportedFeatures.Count > 0,
+                features = Ble.SupportedFeatures
             },
             storage = new
             {
@@ -6287,7 +6287,16 @@ public class DevFlowAgentService : IDisposable, IMarkerPublisher
     {
         var limit = 100;
         if (request.QueryParams.TryGetValue("limit", out var limitStr))
-            int.TryParse(limitStr, out limit);
+        {
+            if (!int.TryParse(limitStr, out limit) || limit < 0)
+            {
+                return Task.FromResult(HttpResponse.Error(
+                    "BLE event limit must be a non-negative integer",
+                    400,
+                    "invalid_limit",
+                    new { limit = limitStr }));
+            }
+        }
 
         var type = request.QueryParams.GetValueOrDefault("type");
         var events = Ble.GetEvents(limit, type);

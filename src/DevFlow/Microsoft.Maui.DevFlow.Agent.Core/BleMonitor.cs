@@ -32,13 +32,20 @@ public class BleMonitor : IDisposable
 
     public BleMonitor(int maxEvents = 2000)
     {
-        _maxEvents = maxEvents;
+        _maxEvents = Math.Max(0, maxEvents);
     }
 
     public bool IsScanning
     {
         get { lock (_gate) return _scanning; }
     }
+
+    public virtual bool SupportsScanning => false;
+
+    public virtual IReadOnlyList<string> SupportedFeatures
+        => SupportsScanning
+            ? ["status", "events", "scan", "stream"]
+            : ["status", "events", "stream"];
 
     public object GetStatus()
     {
@@ -48,13 +55,17 @@ public class BleMonitor : IDisposable
             {
                 scanning = _scanning,
                 eventCount = _eventCount,
-                subscribers = _subscribers.Count
+                subscribers = _subscribers.Count,
+                supportsScanning = SupportsScanning
             };
         }
     }
 
     public List<BleEvent> GetEvents(int limit = 100, string? type = null)
     {
+        if (limit <= 0)
+            return [];
+
         var all = _events.ToArray();
         IEnumerable<BleEvent> filtered = all;
         if (!string.IsNullOrEmpty(type))
@@ -80,7 +91,12 @@ public class BleMonitor : IDisposable
 
         // Trim ring buffer
         while (_events.Count > _maxEvents)
-            _events.TryDequeue(out _);
+        {
+            if (!_events.TryDequeue(out _))
+                break;
+
+            Interlocked.Decrement(ref _eventCount);
+        }
 
         // Broadcast to WebSocket subscribers
         var json = JsonSerializer.Serialize(new
@@ -235,8 +251,17 @@ public class BleMonitor : IDisposable
         if (_disposed) return;
         _disposed = true;
         StopScanning();
+        DisposePlatform();
         if (Instance == this)
             Instance = null;
+    }
+
+    /// <summary>
+    /// Allows platform-specific subclasses to release native resources that are not
+    /// tied strictly to an active scan, such as watchers, receivers, or callbacks.
+    /// </summary>
+    protected virtual void DisposePlatform()
+    {
     }
 }
 

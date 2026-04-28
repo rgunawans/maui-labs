@@ -18,6 +18,8 @@ internal sealed class AppleBleMonitor : BleMonitor
         _centralManager = new CBCentralManager(_delegate, null);
     }
 
+    public override bool SupportsScanning => true;
+
     protected override string? StartPlatformScan()
     {
         if (_centralManager == null)
@@ -46,6 +48,14 @@ internal sealed class AppleBleMonitor : BleMonitor
             catch { /* may already be stopped */ }
         }
         // Don't dispose the manager — we still need it for connection events
+    }
+
+    protected override void DisposePlatform()
+    {
+        _centralManager?.Dispose();
+        _centralManager = null;
+        _delegate?.Dispose();
+        _delegate = null;
     }
 
     internal void SnapshotConnectedDevices(CBCentralManager central)

@@ -10,12 +10,16 @@ internal sealed class WindowsBleMonitor : BleMonitor
 {
     private BluetoothLEAdvertisementWatcher? _watcher;
     private DeviceWatcher? _deviceWatcher;
+    private readonly Dictionary<string, string> _deviceAddresses = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _deviceGate = new();
 
     public WindowsBleMonitor() : base()
     {
         StartConnectionWatcher();
         SnapshotConnectedDevices();
     }
+
+    public override bool SupportsScanning => true;
 
     protected override string? StartPlatformScan()
     {
@@ -38,6 +42,24 @@ internal sealed class WindowsBleMonitor : BleMonitor
             try { _watcher.Stop(); }
             catch { /* may already be stopped */ }
             _watcher = null;
+        }
+    }
+
+    protected override void DisposePlatform()
+    {
+        if (_deviceWatcher != null)
+        {
+            try { _deviceWatcher.Stop(); }
+            catch { /* may already be stopped */ }
+
+            _deviceWatcher.Added -= OnDeviceAdded;
+            _deviceWatcher.Removed -= OnDeviceRemoved;
+            _deviceWatcher = null;
+        }
+
+        lock (_deviceGate)
+        {
+            _deviceAddresses.Clear();
         }
     }
 
@@ -89,8 +111,14 @@ internal sealed class WindowsBleMonitor : BleMonitor
             using var device = await BluetoothLEDevice.FromIdAsync(info.Id);
             if (device != null)
             {
+                var deviceId = device.BluetoothAddress.ToString("X12");
+                lock (_deviceGate)
+                {
+                    _deviceAddresses[info.Id] = deviceId;
+                }
+
                 RecordConnectionStateChanged(
-                    device.BluetoothAddress.ToString("X12"),
+                    deviceId,
                     device.Name,
                     "connected"
                 );
@@ -101,7 +129,16 @@ internal sealed class WindowsBleMonitor : BleMonitor
 
     private void OnDeviceRemoved(DeviceWatcher sender, DeviceInformationUpdate info)
     {
-        RecordConnectionStateChanged(info.Id, null, "disconnected");
+        string deviceId;
+        lock (_deviceGate)
+        {
+            if (_deviceAddresses.Remove(info.Id, out var mappedDeviceId))
+                deviceId = mappedDeviceId;
+            else
+                deviceId = info.Id;
+        }
+
+        RecordConnectionStateChanged(deviceId, null, "disconnected");
     }
 
     private async void SnapshotConnectedDevices()
@@ -117,8 +154,14 @@ internal sealed class WindowsBleMonitor : BleMonitor
                     using var device = await BluetoothLEDevice.FromIdAsync(deviceInfo.Id);
                     if (device != null)
                     {
+                        var deviceId = device.BluetoothAddress.ToString("X12");
+                        lock (_deviceGate)
+                        {
+                            _deviceAddresses[deviceInfo.Id] = deviceId;
+                        }
+
                         RecordConnectionStateChanged(
-                            device.BluetoothAddress.ToString("X12"),
+                            deviceId,
                             device.Name,
                             "connected"
                         );
