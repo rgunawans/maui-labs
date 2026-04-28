@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.claude/skills/**'
       - 'src/Cli/**'
       - 'src/DevFlow/Microsoft.Maui.DevFlow.Driver/**'
       - 'eng/**'
@@ -15,6 +16,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - '.claude/skills/**'
       - 'src/Cli/**'
       - 'src/DevFlow/Microsoft.Maui.DevFlow.Driver/**'
       - 'eng/**'
