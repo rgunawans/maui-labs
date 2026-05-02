@@ -28,6 +28,8 @@ parameters:
   displayName: 'Publish Linux GTK4 packages to NuGet.org'
   type: boolean
   default: false
+- name: publishWpfNuget
+  displayName: 'Publish WPF packages to NuGet.org'
 - name: publishEssentialsAINuget
   displayName: 'Publish EssentialsAI packages to NuGet.org'
   type: boolean
@@ -300,6 +302,30 @@ extends:
                   --projects $(Build.SourcesDirectory)/platforms/Linux.Gtk4/Linux.Gtk4.slnx \
                   /p:OfficialBuild=false
               displayName: Build Linux GTK4 (no pack)
+
+          - job: WPF
+            displayName: WPF - Windows
+            pool:
+              name: NetCore1ESPool-Internal
+              demands: ImageOverride -equals windows.vs2026preview.scout.amd64
+            strategy:
+              matrix:
+                Release:
+                  _BuildConfig: Release
+                  _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
+                    /p:TeamName=$(_TeamName)
+                    /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+            steps:
+            - script: eng\common\dotnet.cmd --info
+              displayName: Provision .NET SDK via Arcade
+            - script: .dotnet\dotnet workload install maui
+              displayName: Install MAUI workload
+            - script: eng\common\cibuild.cmd
+                -configuration $(_BuildConfig)
+                -prepareMachine
+                -projects $(Build.SourcesDirectory)\platforms\Windows.WPF\Windows.WPF.slnx
+                $(_OfficialBuildArgs)
+              displayName: Build, Test and Pack WPF
        
     - template: /eng/common/templates-official/post-build/post-build.yml@self
       parameters:
@@ -528,6 +554,10 @@ extends:
               nuGetFeedType: external
               publishFeedCredentials: 'nuget.org (dotnetframework)'
 
+    # Publish WPF packages to NuGet.org
+    - ${{ if eq(parameters.publishWpfNuget, true) }}:
+      - stage: publish_wpf_nuget
+        displayName: 'Publish WPF to NuGet.org'
     # Publish EssentialsAI packages to NuGet.org
     - ${{ if eq(parameters.publishEssentialsAINuget, true) }}:
       - stage: publish_essentialsai_nuget
@@ -537,6 +567,7 @@ extends:
         - publish_using_darc
         jobs:
         - job: PrepareArtifacts
+          displayName: 'Prepare WPF Artifacts'
           displayName: 'Prepare EssentialsAI Artifacts'
           timeoutInMinutes: 15
           pool:
@@ -546,6 +577,9 @@ extends:
           templateContext:
             outputs:
             - output: pipelineArtifact
+              displayName: Publish WPF Packages
+              targetPath: '$(Pipeline.Workspace)/WpfPackages'
+              artifactName: WpfPackagesForNuGet
               displayName: Publish EssentialsAI Packages
               targetPath: '$(Pipeline.Workspace)/EssentialsAIPackages'
               artifactName: EssentialsAIPackagesForNuGet
@@ -554,6 +588,12 @@ extends:
             artifact: PackageArtifacts
             displayName: Download PackageArtifacts
           - powershell: |
+              New-Item -ItemType Directory -Force -Path '$(Pipeline.Workspace)/WpfPackages'
+              Copy-Item '$(Pipeline.Workspace)/PackageArtifacts/Microsoft.Maui.Platforms.Windows.WPF.*.nupkg' '$(Pipeline.Workspace)/WpfPackages/' -Verbose -ErrorAction Stop
+            displayName: Filter WPF packages
+
+        - job: PublishNuGet
+          displayName: 'Push WPF to NuGet.org'
               New-Item -ItemType Directory -Force -Path '$(Pipeline.Workspace)/EssentialsAIPackages'
               Copy-Item '$(Pipeline.Workspace)/PackageArtifacts/Microsoft.Maui.Essentials.AI.*.nupkg' '$(Pipeline.Workspace)/EssentialsAIPackages/' -Verbose
             displayName: Filter EssentialsAI packages
@@ -571,6 +611,15 @@ extends:
             isProduction: true
             inputs:
             - input: pipelineArtifact
+              artifactName: WpfPackagesForNuGet
+              targetPath: '$(Pipeline.Workspace)/WpfPackages'
+          steps:
+          - task: 1ES.PublishNuget@1
+            displayName: 'Push WPF to NuGet.org'
+            inputs:
+              useDotNetTask: false
+              packagesToPush: '$(Pipeline.Workspace)/WpfPackages/*.nupkg'
+              packageParentPath: '$(Pipeline.Workspace)/WpfPackages'
               artifactName: EssentialsAIPackagesForNuGet
               targetPath: '$(Pipeline.Workspace)/EssentialsAIPackages'
           steps:
