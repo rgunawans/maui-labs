@@ -71,6 +71,19 @@ A comprehensive MAUI testing, automation, and debugging toolkit. The DevFlow CLI
 | `Microsoft.Maui.DevFlow.Driver` | Platform driver library |
 | `Microsoft.Maui.DevFlow.Logging` | Buffered JSONL file logger |
 
+### Essentials.AI
+
+On-device AI capabilities for .NET MAUI via `Microsoft.Extensions.AI` abstractions. On Apple platforms, wraps Apple Intelligence (Foundation Models) for chat completion with streaming and tool calling, and Apple NaturalLanguage APIs for on-device embeddings.
+
+- **`IChatClient`** backed by Apple Intelligence on iOS, macOS, and Mac Catalyst
+- **Streaming infrastructure** — progressive JSON deserialization of LLM responses
+- **NL embeddings** — on-device semantic search via Apple's NaturalLanguage framework (`NLEmbeddingGenerator`)
+- **Tool calling** — function-calling support for on-device models
+
+| Package | Description |
+|---------|-------------|
+| `Microsoft.Maui.Essentials.AI` | On-device AI APIs for MAUI |
+
 ## Getting Started
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development setup.
