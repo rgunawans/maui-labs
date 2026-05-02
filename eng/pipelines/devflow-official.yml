@@ -20,6 +20,10 @@ parameters:
   displayName: 'Publish Cli packages to NuGet.org'
   type: boolean
   default: false
+- name: publishAppProjectReferenceNuget
+  displayName: 'Publish AppProjectReference packages to NuGet.org'
+  type: boolean
+  default: false
 - name: publishLinuxGtk4Nuget
   displayName: 'Publish Linux GTK4 packages to NuGet.org'
   type: boolean
@@ -128,6 +132,30 @@ extends:
                 -projects $(Build.SourcesDirectory)\src\Cli\Cli.slnf
                 $(_OfficialBuildArgs)
               displayName: Build and Test Cli
+
+          - job: AppProjectReference
+            displayName: AppProjectReference - Windows
+            pool:
+              name: NetCore1ESPool-Internal
+              demands: ImageOverride -equals windows.vs2026preview.scout.amd64
+            strategy:
+              matrix:
+                Release:
+                  _BuildConfig: Release
+                  _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
+                    /p:TeamName=$(_TeamName)
+                    /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+            steps:
+            - task: UseDotNet@2
+              displayName: Install .NET SDK
+              inputs:
+                useGlobalJson: true
+            - script: eng\common\cibuild.cmd
+                -configuration $(_BuildConfig)
+                -prepareMachine
+                -projects $(Build.SourcesDirectory)\src\AppProjectReference\AppProjectReference.slnf
+                $(_OfficialBuildArgs)
+              displayName: Build and Test AppProjectReference
 
           # The Linux GTK4 NuGet packages are pure managed (net10.0) assemblies
           # using GirCore for GTK/WebKit bindings, so they build and pack on Windows.
@@ -387,6 +415,61 @@ extends:
               useDotNetTask: false
               packagesToPush: '$(Pipeline.Workspace)/CliPackages/*.nupkg'
               packageParentPath: '$(Pipeline.Workspace)/CliPackages'
+              nuGetFeedType: external
+              publishFeedCredentials: 'nuget.org (dotnetframework)'
+
+    # Publish AppProjectReference packages to NuGet.org
+    - ${{ if eq(parameters.publishAppProjectReferenceNuget, true) }}:
+      - stage: publish_appprojectreference_nuget
+        displayName: 'Publish AppProjectReference to NuGet.org'
+        dependsOn:
+        - Validate
+        - publish_using_darc
+        jobs:
+        - job: PrepareArtifacts
+          displayName: 'Prepare AppProjectReference Artifacts'
+          timeoutInMinutes: 15
+          pool:
+            name: NetCore1ESPool-Internal
+            image: windows.vs2026preview.scout.amd64
+            os: windows
+          templateContext:
+            outputs:
+            - output: pipelineArtifact
+              displayName: Publish AppProjectReference Packages
+              targetPath: '$(Pipeline.Workspace)/AppProjectReferencePackages'
+              artifactName: AppProjectReferencePackagesForNuGet
+          steps:
+          - download: current
+            artifact: PackageArtifacts
+            displayName: Download PackageArtifacts
+          - powershell: |
+              New-Item -ItemType Directory -Force -Path '$(Pipeline.Workspace)/AppProjectReferencePackages'
+              Copy-Item '$(Pipeline.Workspace)/PackageArtifacts/Microsoft.Maui.Build.AppProjectReference.*.nupkg' '$(Pipeline.Workspace)/AppProjectReferencePackages/' -Verbose
+            displayName: Filter AppProjectReference packages
+
+        - job: PublishNuGet
+          displayName: 'Push AppProjectReference to NuGet.org'
+          dependsOn: PrepareArtifacts
+          timeoutInMinutes: 30
+          pool:
+            name: NetCore1ESPool-Internal
+            image: windows.vs2026preview.scout.amd64
+            os: windows
+          templateContext:
+            type: releaseJob
+            isProduction: true
+            inputs:
+            - input: pipelineArtifact
+              artifactName: AppProjectReferencePackagesForNuGet
+              targetPath: '$(Pipeline.Workspace)/AppProjectReferencePackages'
+          steps:
+          - task: 1ES.PublishNuget@1
+            displayName: 'Push AppProjectReference to NuGet.org'
+            inputs:
+              useDotNetTask: false
+              packagesToPush: '$(Pipeline.Workspace)/AppProjectReferencePackages/*.nupkg'
+              packageParentPath: '$(Pipeline.Workspace)/AppProjectReferencePackages'
               nuGetFeedType: external
               publishFeedCredentials: 'nuget.org (dotnetframework)'
 
