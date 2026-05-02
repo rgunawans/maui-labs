@@ -30,6 +30,12 @@ parameters:
   default: false
 - name: publishWpfNuget
   displayName: 'Publish WPF packages to NuGet.org'
+  type: boolean
+  default: false
+- name: publishMacOSNuget
+  displayName: 'Publish macOS AppKit packages to NuGet.org'
+  type: boolean
+  default: false
 - name: publishEssentialsAINuget
   displayName: 'Publish EssentialsAI packages to NuGet.org'
   type: boolean
@@ -326,6 +332,35 @@ extends:
                 -projects $(Build.SourcesDirectory)\platforms\Windows.WPF\Windows.WPF.slnx
                 $(_OfficialBuildArgs)
               displayName: Build, Test and Pack WPF
+
+          # macOS AppKit packages target net10.0-macos — must build on macOS.
+          # Signing runs in the Arcade post-build stage (which validates on Windows),
+          # so the macOS-built nupkgs flow through the standard artifact pipeline.
+          - job: MacOS
+            displayName: macOS AppKit - macOS
+            pool:
+              name: Azure Pipelines
+              vmImage: macos-latest
+            strategy:
+              matrix:
+                Release:
+                  _BuildConfig: Release
+                  _OfficialBuildArgs: /p:DotNetSignType=$(_SignType)
+                    /p:TeamName=$(_TeamName)
+                    /p:OfficialBuildId=$(BUILD.BUILDNUMBER)
+            steps:
+            - task: UseDotNet@2
+              displayName: Install .NET SDK
+              inputs:
+                useGlobalJson: true
+            - script: dotnet workload install maui macos
+              displayName: Install MAUI and macOS workloads
+            - script: ./eng/common/cibuild.sh
+                --configuration $(_BuildConfig)
+                --prepareMachine
+                --projects $(Build.SourcesDirectory)/platforms/MacOS/MacOS.slnx
+                $(_OfficialBuildArgs)
+              displayName: Build and Pack macOS AppKit
        
     - template: /eng/common/templates-official/post-build/post-build.yml@self
       parameters:
@@ -629,5 +664,60 @@ extends:
               useDotNetTask: false
               packagesToPush: '$(Pipeline.Workspace)/EssentialsAIPackages/*.nupkg'
               packageParentPath: '$(Pipeline.Workspace)/EssentialsAIPackages'
+              nuGetFeedType: external
+              publishFeedCredentials: 'nuget.org (dotnetframework)'
+
+    # Publish macOS AppKit packages to NuGet.org
+    - ${{ if eq(parameters.publishMacOSNuget, true) }}:
+      - stage: publish_macos_nuget
+        displayName: 'Publish macOS AppKit to NuGet.org'
+        dependsOn:
+        - Validate
+        - publish_using_darc
+        jobs:
+        - job: PrepareArtifacts
+          displayName: 'Prepare macOS Artifacts'
+          timeoutInMinutes: 15
+          pool:
+            name: NetCore1ESPool-Internal
+            image: windows.vs2026preview.scout.amd64
+            os: windows
+          templateContext:
+            outputs:
+            - output: pipelineArtifact
+              displayName: Publish macOS Packages
+              targetPath: '$(Pipeline.Workspace)/MacOSPackages'
+              artifactName: MacOSPackagesForNuGet
+          steps:
+          - download: current
+            artifact: PackageArtifacts
+            displayName: Download PackageArtifacts
+          - powershell: |
+              New-Item -ItemType Directory -Force -Path '$(Pipeline.Workspace)/MacOSPackages'
+              Copy-Item '$(Pipeline.Workspace)/PackageArtifacts/Microsoft.Maui.Platforms.MacOS.*.nupkg' '$(Pipeline.Workspace)/MacOSPackages/' -Verbose -ErrorAction Stop
+            displayName: Filter macOS packages
+
+        - job: PublishNuGet
+          displayName: 'Push macOS to NuGet.org'
+          dependsOn: PrepareArtifacts
+          timeoutInMinutes: 30
+          pool:
+            name: NetCore1ESPool-Internal
+            image: windows.vs2026preview.scout.amd64
+            os: windows
+          templateContext:
+            type: releaseJob
+            isProduction: true
+            inputs:
+            - input: pipelineArtifact
+              artifactName: MacOSPackagesForNuGet
+              targetPath: '$(Pipeline.Workspace)/MacOSPackages'
+          steps:
+          - task: 1ES.PublishNuget@1
+            displayName: 'Push macOS to NuGet.org'
+            inputs:
+              useDotNetTask: false
+              packagesToPush: '$(Pipeline.Workspace)/MacOSPackages/*.nupkg'
+              packageParentPath: '$(Pipeline.Workspace)/MacOSPackages'
               nuGetFeedType: external
               publishFeedCredentials: 'nuget.org (dotnetframework)'

@@ -71,6 +71,22 @@ A comprehensive MAUI testing, automation, and debugging toolkit. The DevFlow CLI
 | `Microsoft.Maui.DevFlow.Driver` | Platform driver library |
 | `Microsoft.Maui.DevFlow.Logging` | Buffered JSONL file logger |
 
+### macOS AppKit Backend
+
+A native macOS AppKit backend for .NET MAUI — run MAUI apps as true AppKit apps with NSWindow, NSButton, NSScrollView, native menu bar, sidebar flyout, and more. An alternative to Mac Catalyst.
+
+- **Native AppKit controls** — NSTextField, NSButton, NSSwitch, NSSlider, NSImageView, and more
+- **Navigation** — Shell, NavigationPage, TabbedPage, FlyoutPage with sidebar
+- **Blazor WebView** — via WKWebView
+- **MapKit** — native MapView integration
+- **Essentials** — AppInfo, Battery, Clipboard, Geolocation, Preferences, SecureStorage, Sensors
+
+| Package | Description |
+|---------|-------------|
+| `Microsoft.Maui.Platforms.MacOS` | Core AppKit backend — handlers, hosting, MapKit |
+| `Microsoft.Maui.Platforms.MacOS.Essentials` | Essentials APIs for macOS |
+| `Microsoft.Maui.Platforms.MacOS.BlazorWebView` | Blazor Hybrid via WKWebView |
+
 ### WPF Backend
 
 A WPF-based alternative to the official WinUI backend for .NET MAUI. Run MAUI apps on Windows desktops using native WPF controls with 22+ fully implemented controls, Shell navigation, Blazor WebView, and 14 Essentials APIs.
